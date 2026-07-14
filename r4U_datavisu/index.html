@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kashiwa 3D Map</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.166.1/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.166.1/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="scene" aria-label="柏駅3Dマップ"></canvas>
+      <div class="view-toggle" aria-label="表示切り替え">
+        <button id="view-3d" class="is-active" type="button">3D</button>
+        <button id="view-2d" type="button">2D</button>
+      </div>
+      <aside id="memo-panel" class="memo-panel" aria-label="メモ">
+        <div id="memo-list" class="memo-list"></div>
+      </aside>
+      <section class="timeline" aria-label="時間操作">
+        <button id="play-toggle" type="button">再生</button>
+        <input id="time-slider" type="range" min="0" max="0" step="1" value="0" />
+        <output id="time-readout">--:--:--</output>
+      </section>
+      <output id="coord-readout" aria-live="polite">0, 0, 0</output>
+    </main>
+
+    <script type="module" src="./app.js?v=20260714-6"></script>
+  </body>
+</html>

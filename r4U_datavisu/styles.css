@@ -1,0 +1,157 @@
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #020611;
+}
+
+#scene {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+.view-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(79, 156, 255, 0.34);
+  border-radius: 8px;
+  background: rgba(2, 6, 17, 0.82);
+}
+
+.view-toggle button {
+  min-width: 54px;
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  color: #cbd5e1;
+  font: 700 13px/1 system-ui, sans-serif;
+  background: transparent;
+  cursor: pointer;
+}
+
+.view-toggle button.is-active {
+  color: #020611;
+  background: #93c5fd;
+}
+
+.memo-panel {
+  position: fixed;
+  top: 66px;
+  right: 14px;
+  z-index: 3;
+  width: min(360px, calc(100vw - 28px));
+  max-height: calc(100vh - 170px);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.memo-list {
+  display: grid;
+  gap: 8px;
+}
+
+.memo-item {
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: #f8fafc;
+  background: rgba(2, 6, 17, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.memo-item time {
+  display: block;
+  margin-bottom: 3px;
+  color: #86efac;
+  font: 700 12px/1.2 Consolas, "Liberation Mono", monospace;
+}
+
+.memo-item strong {
+  display: block;
+  font: 700 14px/1.35 system-ui, sans-serif;
+}
+
+.memo-item p {
+  margin: 4px 0 0;
+  color: #bbf7d0;
+  font: 13px/1.45 system-ui, sans-serif;
+}
+
+.timeline {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: 48px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 74px 1fr 86px;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(79, 156, 255, 0.34);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(2, 6, 17, 0.86);
+  backdrop-filter: blur(12px);
+}
+
+.timeline button {
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  color: #020611;
+  font: 700 13px/1 system-ui, sans-serif;
+  background: #93c5fd;
+  cursor: pointer;
+}
+
+.timeline input {
+  width: 100%;
+  accent-color: #22c55e;
+}
+
+.timeline output {
+  color: #ffffff;
+  font: 700 13px/1 Consolas, "Liberation Mono", monospace;
+  text-align: right;
+}
+
+#coord-readout {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 10px 14px;
+  color: #ffffff;
+  font: 14px/1.4 Consolas, "Liberation Mono", monospace;
+  text-align: center;
+  background: rgba(2, 6, 17, 0.86);
+}
+
+@media (max-width: 720px) {
+  .memo-panel {
+    display: none;
+  }
+
+  .timeline {
+    grid-template-columns: 64px 1fr;
+  }
+
+  .timeline output {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+}
