@@ -27,7 +27,7 @@ const timeReadout = document.querySelector("#time-readout");
 const memoList = document.querySelector("#memo-list");
 const BACKGROUND_COLOR = 0x020611;
 const GRID_COLOR_LINES = 0x18324f;
-const GPX_FILE = "./RH01_0707/01_1820_中村.gpx";
+const GPX_FILE = "../RH01_0707/01_1820_中村.gpx";
 const PLAYBACK_DURATION_SECONDS = 30;
 const ROUTE_BASE_COLOR = 0x166534;
 const ROUTE_ACTIVE_COLOR = 0x22c55e;
@@ -98,7 +98,7 @@ let timelineEnd = 0;
 let playbackScale = 1;
 
 new GLTFLoader().load(
-  "./3Dmap/Kashiwa_3Dmap.glb",
+  "../3Dmap/Kashiwa_3Dmap.glb",
   (gltf) => {
     const model = gltf.scene;
     model.traverse((child) => {
