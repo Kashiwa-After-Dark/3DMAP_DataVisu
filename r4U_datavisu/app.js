@@ -34,7 +34,18 @@ const cameraModeButtons = [...document.querySelectorAll("[data-camera-mode]")];
 const cameraModeReadout = document.querySelector("#camera-mode-readout");
 const BACKGROUND_COLOR = 0x020611;
 const GRID_COLOR_LINES = 0x18324f;
-const GPX_FILE = "../RH01_0707/01_1820_中村.gpx";
+const GPX_FILES = [
+  "01_1820_Omori.gpx",
+  "01_1820_中村.gpx",
+  "01_2022_Tomoya.gpx",
+  "01_2224_Kobayashi.gpx",
+  "01_2224_Yoh.gpx",
+].map((file, index) => ({
+  id: `gpx-${index}`,
+  file,
+  url: `../RH01_0707/${file}`,
+  label: file.replace(/^\d+_\d+_/, "").replace(/\.gpx$/i, ""),
+}));
 const PLAYBACK_DURATION_SECONDS = 30;
 const ROUTE_BASE_COLOR = 0x1d3552;
 const TIME_BASE_Y = 3;
@@ -162,9 +173,11 @@ let viewMode = "3d";
 let cameraMode = "free";
 let cameraState = null;
 let trackPoints = [];
+let routeTracks = [];
 let memoPoints = [];
-let elapsedRouteLine = null;
-let elapsedCurtain = null;
+let memosBySource = new Map();
+let elapsedRouteLines = [];
+let elapsedCurtains = [];
 let playStartMs = 0;
 let playStartOffset = 0;
 let isPlaying = false;
@@ -346,8 +359,8 @@ function updateCameraVisualDensity() {
     const baseScale = stamp?.userData.baseScale;
     if (stamp && baseScale) stamp.scale.copy(baseScale).multiplyScalar(stampScale);
   }
-  if (elapsedCurtain) {
-    elapsedCurtain.material.opacity = config.curtainOpacity ?? 0.32;
+  for (const { curtain } of elapsedCurtains) {
+    curtain.material.opacity = config.curtainOpacity ?? 0.32;
   }
 }
 
@@ -408,15 +421,33 @@ function geoToWorld({ lat, lon }) {
 }
 
 async function loadGpx() {
-  const response = await fetch(GPX_FILE);
-  if (!response.ok) {
-    throw new Error(`Failed to load GPX: ${GPX_FILE}`);
-  }
+  const results = await Promise.allSettled(
+    GPX_FILES.map(async (source) => {
+      const response = await fetch(source.url);
+      if (!response.ok) throw new Error(`Failed to load GPX: ${source.url}`);
+      const gpxText = await response.text();
+      const doc = new DOMParser().parseFromString(gpxText, "application/xml");
+      if (doc.querySelector("parsererror")) throw new Error(`Invalid GPX: ${source.url}`);
+      return {
+        tracks: parseTrackSegments(doc, source),
+        memos: parseMemoPoints(doc, source),
+      };
+    }),
+  );
 
-  const gpxText = await response.text();
-  const doc = new DOMParser().parseFromString(gpxText, "application/xml");
-  trackPoints = parseTrackPoints(doc);
-  memoPoints = parseMemoPoints(doc);
+  const loaded = results
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
+  results
+    .filter((result) => result.status === "rejected")
+    .forEach((result) => console.error(result.reason));
+
+  routeTracks = loaded.flatMap((result) => result.tracks);
+  trackPoints = routeTracks.flatMap((track) => track.points).sort((a, b) => a.time - b.time);
+  memoPoints = loaded.flatMap((result) => result.memos).sort((a, b) => a.time - b.time);
+  memosBySource = new Map(
+    GPX_FILES.map((source) => [source.id, memoPoints.filter((memo) => memo.sourceId === source.id)]),
+  );
 
   if (!trackPoints.length) return;
 
@@ -433,28 +464,41 @@ async function loadGpx() {
   updateTimeline(0);
 }
 
-function parseTrackPoints(doc) {
-  return [...doc.getElementsByTagNameNS("*", "trkpt")]
-    .map((point) => ({
-      lat: Number(point.getAttribute("lat")),
-      lon: Number(point.getAttribute("lon")),
-      time: parseTime(getChildText(point, "time")),
+function parseTrackSegments(doc, source) {
+  let segments = [...doc.getElementsByTagNameNS("*", "trkseg")];
+  if (!segments.length) segments = [doc];
+
+  return segments
+    .map((segment, index) => ({
+      id: `${source.id}-track-${index}`,
+      sourceId: source.id,
+      sourceLabel: source.label,
+      points: [...segment.getElementsByTagNameNS("*", "trkpt")]
+        .map((point) => ({
+          lat: Number(point.getAttribute("lat")),
+          lon: Number(point.getAttribute("lon")),
+          time: parseTime(getChildText(point, "time")),
+        }))
+        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon) && Number.isFinite(point.time))
+        .sort((a, b) => a.time - b.time),
     }))
-    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon) && Number.isFinite(point.time))
-    .sort((a, b) => a.time - b.time);
+    .filter((track) => track.points.length > 1);
 }
 
-function parseMemoPoints(doc) {
+function parseMemoPoints(doc, source) {
   return [...doc.getElementsByTagNameNS("*", "wpt")]
     .map((point, index) => {
-      const name = getChildText(point, "name") || `Memo ${index + 1}`;
+      const rawName = getChildText(point, "name");
+      const rawDesc = getChildText(point, "desc");
       return {
         lat: Number(point.getAttribute("lat")),
         lon: Number(point.getAttribute("lon")),
         time: parseTime(getChildText(point, "time")),
-        name,
-        desc: getChildText(point, "desc"),
-        ...getMemoProfile(name),
+        name: rawName || rawDesc || `Memo ${index + 1}`,
+        desc: rawName ? rawDesc : "",
+        sourceId: source.id,
+        sourceLabel: source.label,
+        ...getMemoProfile(`${rawName} ${rawDesc}`),
         marker: null,
       };
     })
@@ -463,73 +507,79 @@ function parseMemoPoints(doc) {
 }
 
 function addRouteLines() {
-  const positions = [];
-  const colors = [];
-  for (const point of trackPoints) {
-    const world = geoToWorld(point);
-    positions.push(world.x, timeToHeight(point.time), world.z);
-    colors.push(...getRouteColor(point.time).toArray());
+  elapsedRouteLines = [];
+  elapsedCurtains = [];
+
+  for (const track of routeTracks) {
+    const positions = [];
+    const colors = [];
+    for (const point of track.points) {
+      const world = geoToWorld(point);
+      positions.push(world.x, timeToHeight(point.time), world.z);
+      colors.push(...getRouteColor(point.time, track.sourceId).toArray());
+    }
+
+    const routeGeometry = new THREE.BufferGeometry();
+    routeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    routeGeometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+
+    const fullRouteLine = new THREE.Line(
+      routeGeometry.clone(),
+      new THREE.LineBasicMaterial({
+        color: ROUTE_BASE_COLOR,
+        transparent: true,
+        opacity: 0.26,
+        depthTest: false,
+      }),
+    );
+    fullRouteLine.renderOrder = 20;
+    gpxGroup.add(fullRouteLine);
+
+    const line = new THREE.Line(
+      routeGeometry.clone(),
+      new THREE.LineBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 1,
+        depthTest: false,
+      }),
+    );
+    line.renderOrder = 21;
+    line.geometry.setDrawRange(0, 0);
+    gpxGroup.add(line);
+    elapsedRouteLines.push({ line, points: track.points });
+
+    const curtain = new THREE.Mesh(
+      createCurtainGeometry(track.points, track.sourceId),
+      new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.32,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        depthTest: false,
+      }),
+    );
+    curtain.renderOrder = 18;
+    curtain.geometry.setDrawRange(0, 0);
+    gpxGroup.add(curtain);
+    elapsedCurtains.push({ curtain, points: track.points });
   }
-
-  const routeGeometry = new THREE.BufferGeometry();
-  routeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  routeGeometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-
-  const fullRouteLine = new THREE.Line(
-    routeGeometry.clone(),
-    new THREE.LineBasicMaterial({
-      color: ROUTE_BASE_COLOR,
-      transparent: true,
-      opacity: 0.34,
-      depthTest: false,
-    }),
-  );
-  fullRouteLine.renderOrder = 20;
-  gpxGroup.add(fullRouteLine);
-
-  elapsedRouteLine = new THREE.Line(
-    routeGeometry.clone(),
-    new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 1,
-      depthTest: false,
-    }),
-  );
-  elapsedRouteLine.renderOrder = 21;
-  elapsedRouteLine.geometry.setDrawRange(0, 0);
-  gpxGroup.add(elapsedRouteLine);
-
-  const curtainGeometry = createCurtainGeometry();
-  elapsedCurtain = new THREE.Mesh(
-    curtainGeometry,
-    new THREE.MeshBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.32,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      depthTest: false,
-    }),
-  );
-  elapsedCurtain.renderOrder = 18;
-  elapsedCurtain.geometry.setDrawRange(0, 0);
-  gpxGroup.add(elapsedCurtain);
 }
 
-function createCurtainGeometry() {
+function createCurtainGeometry(points, sourceId) {
   const positions = [];
   const colors = [];
 
-  for (let index = 0; index < trackPoints.length - 1; index += 1) {
-    const first = geoToWorld(trackPoints[index]);
-    const second = geoToWorld(trackPoints[index + 1]);
-    const firstTop = new THREE.Vector3(first.x, timeToHeight(trackPoints[index].time), first.z);
-    const secondTop = new THREE.Vector3(second.x, timeToHeight(trackPoints[index + 1].time), second.z);
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const first = geoToWorld(points[index]);
+    const second = geoToWorld(points[index + 1]);
+    const firstTop = new THREE.Vector3(first.x, timeToHeight(points[index].time), first.z);
+    const secondTop = new THREE.Vector3(second.x, timeToHeight(points[index + 1].time), second.z);
     const firstBase = new THREE.Vector3(first.x, TIME_BASE_Y, first.z);
     const secondBase = new THREE.Vector3(second.x, TIME_BASE_Y, second.z);
-    const firstColor = getRouteColor(trackPoints[index].time);
-    const secondColor = getRouteColor(trackPoints[index + 1].time);
+    const firstColor = getRouteColor(points[index].time, sourceId);
+    const secondColor = getRouteColor(points[index + 1].time, sourceId);
     const firstShadow = firstColor.clone().multiplyScalar(0.16);
     const secondShadow = secondColor.clone().multiplyScalar(0.16);
 
@@ -552,9 +602,9 @@ function pushCurtainVertex(positions, colors, point, color) {
   colors.push(color.r, color.g, color.b);
 }
 
-function getRouteColor(time) {
+function getRouteColor(time, sourceId) {
   let latestMemo = null;
-  for (const memo of memoPoints) {
+  for (const memo of memosBySource.get(sourceId) || []) {
     if (memo.time > time) break;
     latestMemo = memo;
   }
@@ -681,7 +731,7 @@ function addMemoPins() {
 }
 
 function createMemoMarker(memo, offsetSlot) {
-  const frame = getRouteFrameAtTime(memo.time);
+  const frame = getRouteFrameAtTime(memo.time, memo.sourceId);
   const category = CATEGORY_STYLES[memo.category];
   const categoryColor = new THREE.Color(category.color);
   const lateralOffset = offsetSlot * 6.5;
@@ -723,12 +773,12 @@ function updateTimeline(seconds) {
   const progress = THREE.MathUtils.clamp(seconds / Number(timeSlider.max), 0, 1);
   timeProgress.style.width = `calc((100% - 16px) * ${progress})`;
 
-  const routeCount = countPointsUntil(trackPoints, currentTime);
-  if (elapsedRouteLine) {
-    elapsedRouteLine.geometry.setDrawRange(0, routeCount);
+  for (const { line, points } of elapsedRouteLines) {
+    line.geometry.setDrawRange(0, countPointsUntil(points, currentTime));
   }
-  if (elapsedCurtain) {
-    elapsedCurtain.geometry.setDrawRange(0, Math.max(0, routeCount - 1) * 6);
+  for (const { curtain, points } of elapsedCurtains) {
+    const routeCount = countPointsUntil(points, currentTime);
+    curtain.geometry.setDrawRange(0, Math.max(0, routeCount - 1) * 6);
   }
 
   for (const memo of memoPoints) {
@@ -795,8 +845,12 @@ function renderMemoList(currentTime) {
       const title = document.createElement("strong");
       title.textContent = memo.name;
 
+      const source = document.createElement("small");
+      source.className = "memo-source";
+      source.textContent = memo.sourceLabel;
+
       meta.append(time, badge);
-      item.append(meta, title);
+      item.append(meta, title, source);
       if (memo.desc) {
         const body = document.createElement("p");
         body.textContent = memo.desc;
@@ -878,34 +932,49 @@ function timeToHeight(time) {
   return TIME_BASE_Y + ratio * TIME_AXIS_HEIGHT;
 }
 
-function getRouteFrameAtTime(time) {
-  const nextIndex = countPointsUntil(trackPoints, time);
-  const beforeIndex = THREE.MathUtils.clamp(nextIndex - 1, 0, trackPoints.length - 1);
-  const afterIndex = THREE.MathUtils.clamp(nextIndex, 0, trackPoints.length - 1);
-  const before = trackPoints[beforeIndex];
-  const after = trackPoints[afterIndex];
+function getActiveRouteTrack(time, sourceId = null) {
+  const candidates = sourceId
+    ? routeTracks.filter((track) => track.sourceId === sourceId)
+    : routeTracks;
+  return candidates.reduce((closest, track) => {
+    const start = track.points[0].time;
+    const end = track.points[track.points.length - 1].time;
+    const distance = time < start ? start - time : time > end ? time - end : 0;
+    return !closest || distance < closest.distance ? { track, distance } : closest;
+  }, null)?.track || routeTracks[0];
+}
+
+function getRouteFrameAtTime(time, sourceId = null) {
+  const track = getActiveRouteTrack(time, sourceId);
+  const points = track.points;
+  const nextIndex = countPointsUntil(points, time);
+  const beforeIndex = THREE.MathUtils.clamp(nextIndex - 1, 0, points.length - 1);
+  const afterIndex = THREE.MathUtils.clamp(nextIndex, 0, points.length - 1);
+  const before = points[beforeIndex];
+  const after = points[afterIndex];
   const duration = Math.max(after.time - before.time, 1);
   const progress = THREE.MathUtils.clamp((time - before.time) / duration, 0, 1);
   const position = geoToWorld(before).lerp(geoToWorld(after), progress);
 
-  const tangentStart = geoToWorld(trackPoints[Math.max(0, beforeIndex - 1)]);
-  const tangentEnd = geoToWorld(trackPoints[Math.min(trackPoints.length - 1, afterIndex + 1)]);
+  const tangentStart = geoToWorld(points[Math.max(0, beforeIndex - 1)]);
+  const tangentEnd = geoToWorld(points[Math.min(points.length - 1, afterIndex + 1)]);
   const tangent = tangentEnd.sub(tangentStart);
   tangent.y = 0;
   if (tangent.lengthSq() < 0.001) tangent.set(1, 0, 0);
   tangent.normalize();
   const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
-  return { position, tangent, normal };
+  return { position, tangent, normal, points };
 }
 
 function getRoutePointAhead(time, distance) {
   const frame = getRouteFrameAtTime(time);
+  const points = frame.points;
   let current = frame.position.clone();
   let remaining = distance;
-  const startIndex = countPointsUntil(trackPoints, time);
+  const startIndex = countPointsUntil(points, time);
 
-  for (let index = startIndex; index < trackPoints.length; index += 1) {
-    const next = geoToWorld(trackPoints[index]);
+  for (let index = startIndex; index < points.length; index += 1) {
+    const next = geoToWorld(points[index]);
     const segmentLength = current.distanceTo(next);
     if (segmentLength >= remaining && segmentLength > 0) {
       return current.lerp(next, remaining / segmentLength);
@@ -947,9 +1016,28 @@ function updateFollowCamera(deltaSeconds) {
   perspectiveCamera.lookAt(followTarget);
 }
 
-function getMemoProfile(name) {
-  const matches = [...name.toUpperCase().matchAll(/(?:^|[^A-Z])(HM|HF|HX|UM|UF|UX|YM|YF|YX|AM|AF|AX|SM|SF|SX|CP|FM|MX|UN)-(\d+)/g)]
-    .map((match) => ({ symbol: match[1], count: Number(match[2]) }));
+function getMemoProfile(text) {
+  const normalized = text
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/(^|[^A-Z])YW(?=$|[^A-Z])/g, "$1YF")
+    .replace(/(^|[^A-Z])([HUYAS])\s*-\s*CP(?=$|[^A-Z])/g, "$1$2CP");
+  const matches = [];
+  const tokenPattern = /(^|[^A-Z])((?:[HUYAS](?:M|F|X|CP))|CP|FM|MX|UN)(?:\s*[- ]?\s*(\d+(?:\.\d+)*))?(?=$|[^A-Z])/g;
+  let match;
+
+  while ((match = tokenPattern.exec(normalized))) {
+    const count = match[3]
+      ? match[3].split(".").reduce((total, value) => total + Number(value), 0)
+      : null;
+    matches.push({ symbol: match[2], count });
+  }
+
+  // A few titles use age-only shorthand such as A2. Treat it as mixed gender.
+  if (!matches.length) {
+    const ageOnly = normalized.match(/(?:^|[^A-Z])([HUYAS])\s*[- ]?\s*(\d+)(?=$|[^A-Z])/);
+    if (ageOnly) matches.push({ symbol: `${ageOnly[1]}X`, count: Number(ageOnly[2]) });
+  }
 
   if (!matches.length) {
     return {
@@ -965,12 +1053,24 @@ function getMemoProfile(name) {
   const genders = new Set(matches.map(({ symbol }) => getSymbolGender(symbol)).filter((value) => value !== "U"));
   const category = categories.size === 1 ? [...categories][0] : "MX";
   const gender = genders.size === 1 ? [...genders][0] : "X";
-  const count = matches.reduce((total, match) => total + match.count, 0);
+  const genderCounts = [...normalized.matchAll(/(?:女性|男性)\s*(\d+)\s*人/g)]
+    .map((result) => Number(result[1]));
+  const narrativeCount = genderCounts.length > 1
+    ? genderCounts.reduce((total, value) => total + value, 0)
+    : Number(normalized.match(/(\d+)\s*人/)?.[1]) || null;
+  const inferredCount = matches.reduce(
+    (total, item) => total + (item.count ?? (/CP$/.test(item.symbol) ? 2 : 1)),
+    0,
+  );
+  const hasMissingCount = matches.some((item) => item.count === null);
+  const count = narrativeCount && (hasMissingCount || matches.length > 1)
+    ? narrativeCount
+    : inferredCount;
   const symbol = matches.length === 1
     ? matches[0].symbol
     : category.length === 1
       ? `${category}${gender}`
-      : "MX";
+      : category;
 
   return { category, symbol, gender, count, isPeople: true };
 }

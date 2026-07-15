@@ -275,6 +275,14 @@ body {
   font: 700 14px/1.35 system-ui, sans-serif;
 }
 
+.memo-source {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font: 10px/1.2 Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0.04em;
+}
+
 .memo-item p {
   margin: 4px 0 0;
   color: var(--memo-soft);
