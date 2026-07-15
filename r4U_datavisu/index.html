@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kashiwa 3D Map</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./styles.css" />
     <script type="importmap">
       {
@@ -21,17 +22,92 @@
         <button id="view-3d" class="is-active" type="button">3D</button>
         <button id="view-2d" type="button">2D</button>
       </div>
+      <section class="camera-modes" aria-label="3Dカメラモード">
+        <div class="camera-modes__header">
+          <span>CAMERA</span>
+          <output id="camera-mode-readout">FREE / 自由</output>
+        </div>
+        <div class="camera-modes__options" role="group" aria-label="カメラ視点">
+          <button class="is-active" type="button" data-camera-mode="free" aria-pressed="true" title="現在の自由な軌道カメラ">
+            <span>FREE</span><small>自由</small>
+          </button>
+          <button type="button" data-camera-mode="street" aria-pressed="false" title="進行方向を見る街路レベルの追従カメラ">
+            <span>STREET</span><small>街路</small>
+          </button>
+          <button type="button" data-camera-mode="kite" aria-pressed="false" title="上空後方から追うカイトカメラ">
+            <span>KITE</span><small>カイト</small>
+          </button>
+          <button type="button" data-camera-mode="chase" aria-pressed="false" title="遠方からルートを追うカメラ">
+            <span>CHASE</span><small>遠景</small>
+          </button>
+          <button type="button" data-camera-mode="aerial" aria-pressed="false" title="高高度から進行方向を追う空撮カメラ">
+            <span>AERIAL</span><small>空撮</small>
+          </button>
+        </div>
+      </section>
+      <aside class="age-legend" aria-label="年齢カテゴリーの色">
+        <span class="age-legend__title">AGE / 年齢</span>
+        <span style="--legend-color: #22d3ee">H 高校生</span>
+        <span style="--legend-color: #3b82f6">U 大学生</span>
+        <span style="--legend-color: #8b5cf6">Y 若い社会人</span>
+        <span style="--legend-color: #f59e0b">A 中高年</span>
+        <span style="--legend-color: #ef4444">S 高齢者</span>
+        <div class="encoding-legend" aria-label="ジェンダーと人数の表現">
+          <span><i class="gender-shape gender-shape--m"></i>M 男性</span>
+          <span><i class="gender-shape gender-shape--f"></i>F 女性</span>
+          <span><i class="gender-shape gender-shape--x"></i>X 混合</span>
+          <span class="size-key"><i></i><i></i><i></i>大きさ・×N = 人数</span>
+        </div>
+      </aside>
       <aside id="memo-panel" class="memo-panel" aria-label="メモ">
         <div id="memo-list" class="memo-list"></div>
       </aside>
       <section class="timeline" aria-label="時間操作">
-        <button id="play-toggle" type="button">再生</button>
-        <input id="time-slider" type="range" min="0" max="0" step="1" value="0" />
-        <output id="time-readout">--:--:--</output>
+        <header class="timeline__header">
+          <div>
+            <span>TIMELINE</span>
+            <strong>18:00—24:00 · JST</strong>
+          </div>
+          <div class="timeline__observation-key">
+            <i></i>
+            <span>OBSERVATIONS</span>
+            <b id="observation-count">0</b>
+          </div>
+        </header>
+        <div class="timeline__controls">
+          <button id="play-toggle" type="button">再生</button>
+          <label class="speed-control" for="speed-slider">
+            <span>SPEED</span>
+            <input id="speed-slider" type="range" min="0.25" max="2" step="0.25" value="1" list="speed-marks" />
+            <output id="speed-readout" for="speed-slider">1×</output>
+          </label>
+          <div class="time-track-shell">
+            <div class="time-hour-labels" aria-hidden="true">
+              <span style="left: 0%">18</span>
+              <span style="left: 16.6667%">19</span>
+              <span style="left: 33.3333%">20</span>
+              <span style="left: 50%">21</span>
+              <span style="left: 66.6667%">22</span>
+              <span style="left: 83.3333%">23</span>
+              <span style="left: 100%">24</span>
+            </div>
+            <div id="time-progress" class="time-progress" aria-hidden="true"></div>
+            <div id="time-event-markers" class="time-event-markers" aria-label="観察データの時刻"></div>
+            <input id="time-slider" type="range" min="0" max="0" step="1" value="0" aria-label="表示時刻" />
+          </div>
+          <output id="time-readout">--:--:--</output>
+        </div>
+        <datalist id="speed-marks">
+          <option value="0.25"></option>
+          <option value="0.5"></option>
+          <option value="1"></option>
+          <option value="1.5"></option>
+          <option value="2"></option>
+        </datalist>
       </section>
       <output id="coord-readout" aria-live="polite">0, 0, 0</output>
     </main>
 
-    <script type="module" src="./app.js?v=20260714-6"></script>
+    <script type="module" src="./app.js?v=20260715-5"></script>
   </body>
 </html>
