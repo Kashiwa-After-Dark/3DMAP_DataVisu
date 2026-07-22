@@ -1,21 +1,27 @@
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-
-const ORIGIN = {
-  lat: 35.86183529140233,
-  lon: 139.97190479462844,
-};
-
-const COORDINATE_SCALE = {
-  east: 1.0004200803610934,
-  north: -0.9955676144207827,
-};
-
-const INITIAL_CENTER_GEO = {
-  lat: 35.861448118098,
-  lon: 139.972500801647,
-};
+import {
+  CAMERA_MODES,
+  CATEGORY_STYLES,
+  DEFAULT_CATEGORY,
+  GPX_FILES,
+  GRAFFITI_OFFSET_SLOTS,
+  INITIAL_CENTER_GEO,
+  MAP_BLUE_COLOR,
+  PLAYBACK_DURATION_SECONDS,
+  ROUTE_BASE_COLOR,
+  TIME_AXIS_HEIGHT,
+  TIME_BASE_Y,
+  TIME_END_HOUR,
+  TIME_START_HOUR,
+} from "./config.js";
+import { createLegendFilter } from "../r4U_js/filters.js";
+import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-5";
+import { createViewToggle } from "../r4U_js/viewToggle.js";
+import { formatTime } from "./formatters.js";
+import { createMapDisplay } from "./main.js";
+import { makeAxisLabel, makeGraffitiStamp } from "../Yoh_js/markers.js";
+import { renderMemoPanel } from "../r4U_js/memoPanel.js";
+import { getMemoProfile } from "../r4U_js/profiles.js";
 
 const canvas = document.querySelector("#scene");
 const coordReadout = document.querySelector("#coord-readout");
@@ -30,145 +36,32 @@ const timeProgress = document.querySelector("#time-progress");
 const timeEventMarkers = document.querySelector("#time-event-markers");
 const observationCount = document.querySelector("#observation-count");
 const memoList = document.querySelector("#memo-list");
+const legendFilterRoot = document.querySelector("#legend-filter");
 const cameraModeButtons = [...document.querySelectorAll("[data-camera-mode]")];
 const cameraModeReadout = document.querySelector("#camera-mode-readout");
-const BACKGROUND_COLOR = 0x020611;
-const GRID_COLOR_LINES = 0x18324f;
-const GPX_FILES = [
-  "01_1820_Omori.gpx",
-  "01_1820_中村.gpx",
-  "01_2022_Tomoya.gpx",
-  "01_2224_Kobayashi.gpx",
-  "01_2224_Yoh.gpx",
-].map((file, index) => ({
-  id: `gpx-${index}`,
-  file,
-  url: `../RH01_0707/${file}`,
-  label: file.replace(/^\d+_\d+_/, "").replace(/\.gpx$/i, ""),
-}));
-const PLAYBACK_DURATION_SECONDS = 30;
-const ROUTE_BASE_COLOR = 0x1d3552;
-const TIME_BASE_Y = 3;
-const TIME_AXIS_HEIGHT = 180;
-const TIME_START_HOUR = 18;
-const TIME_END_HOUR = 24;
-const DEFAULT_CATEGORY = "UN";
-const GRAFFITI_OFFSET_SLOTS = [0, -1, 1, -2, 2, -3, 3];
-const CAMERA_MODES = {
-  free: { label: "FREE / 自由" },
-  street: {
-    label: "STREET / 街路",
-    distance: 7,
-    height: 6.5,
-    lookAhead: 16,
-    targetHeight: 4.5,
-    shoulder: 0.8,
-    damping: 7,
-    fov: 62,
-    stampScale: 0.25,
-    curtainOpacity: 0.12,
-  },
-  kite: {
-    label: "KITE / カイト",
-    distance: 55,
-    height: 72,
-    lookAhead: 42,
-    targetHeight: 8,
-    shoulder: 0,
-    damping: 3.2,
-    fov: 50,
-    stampScale: 0.52,
-    curtainOpacity: 0.2,
-  },
-  chase: {
-    label: "CHASE / 遠景",
-    distance: 170,
-    height: 82,
-    lookAhead: 90,
-    targetHeight: 14,
-    shoulder: 0,
-    damping: 2.2,
-    fov: 45,
-    stampScale: 0.72,
-    curtainOpacity: 0.26,
-  },
-  aerial: {
-    label: "AERIAL / 空撮",
-    distance: 60,
-    height: 230,
-    lookAhead: 80,
-    targetHeight: 2,
-    shoulder: 0,
-    damping: 1.7,
-    fov: 38,
-    stampScale: 0.62,
-    curtainOpacity: 0.25,
-  },
-};
-const CATEGORY_STYLES = {
-  H: { label: "高校生", color: "#22d3ee", soft: "#a5f3fc" },
-  U: { label: "大学生", color: "#3b82f6", soft: "#bfdbfe" },
-  Y: { label: "若い社会人", color: "#8b5cf6", soft: "#ddd6fe" },
-  A: { label: "中高年", color: "#f59e0b", soft: "#fde68a" },
-  S: { label: "高齢者", color: "#ef4444", soft: "#fecaca" },
-  CP: { label: "カップル", color: "#ec4899", soft: "#fbcfe8" },
-  FM: { label: "家族", color: "#14b8a6", soft: "#99f6e4" },
-  MX: { label: "属性混合", color: "#a78bfa", soft: "#ede9fe" },
-  UN: { label: "その他・不明", color: "#94a3b8", soft: "#e2e8f0" },
-};
 
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: true,
-  powerPreference: "high-performance",
-});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(BACKGROUND_COLOR);
-
-const perspectiveCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
-perspectiveCamera.position.set(170, 145, 220);
-
-const orthographicCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 5000);
+const mapDisplay = createMapDisplay(canvas);
+const {
+  renderer,
+  scene,
+  perspectiveCamera,
+  orthographicCamera,
+  controls,
+  mapGroup,
+  gpxGroup,
+  groundGrid,
+  raycaster,
+  pointer,
+  groundPlane,
+  selectableMeshes,
+  bounds,
+  modelCenter,
+  modelSize,
+  loadModel,
+  worldToGeo,
+  geoToWorld,
+} = mapDisplay;
 let activeCamera = perspectiveCamera;
-
-const controls = new OrbitControls(activeCamera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.07;
-controls.target.set(0, 0, 0);
-
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0xb7c4d6, 1.8);
-scene.add(hemiLight);
-
-const sunLight = new THREE.DirectionalLight(0xffffff, 2);
-sunLight.position.set(160, 260, 120);
-scene.add(sunLight);
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-scene.add(ambientLight);
-
-const mapGroup = new THREE.Group();
-scene.add(mapGroup);
-
-const gpxGroup = new THREE.Group();
-scene.add(gpxGroup);
-
-const groundGrid = new THREE.GridHelper(1600, 80, GRID_COLOR_LINES, GRID_COLOR_LINES);
-groundGrid.position.y = -0.04;
-groundGrid.material.transparent = true;
-groundGrid.material.opacity = 0.72;
-groundGrid.material.depthWrite = false;
-scene.add(groundGrid);
-
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-let selectableMeshes = [];
-let bounds = new THREE.Box3();
-let modelCenter = new THREE.Vector3();
-let modelSize = new THREE.Vector3();
 let viewMode = "3d";
 let cameraMode = "free";
 let cameraState = null;
@@ -176,6 +69,8 @@ let trackPoints = [];
 let routeTracks = [];
 let memoPoints = [];
 let memosBySource = new Map();
+let activeMemo = null;
+let legendFilter = null;
 let elapsedRouteLines = [];
 let elapsedCurtains = [];
 let playStartMs = 0;
@@ -188,31 +83,25 @@ let playbackRate = 1;
 let lastFrameMs = performance.now();
 const followTarget = new THREE.Vector3();
 const followDirection = new THREE.Vector3(1, 0, 0);
+const map2d = create2DMapController({
+  canvas,
+  camera: orthographicCamera,
+  controls,
+  timeBaseY: TIME_BASE_Y,
+  timeAxisHeight: TIME_AXIS_HEIGHT,
+});
+const viewToggle = createViewToggle({
+  view3dButton,
+  view2dButton,
+  onChange: setViewMode,
+});
+viewToggle.setActive(viewMode);
 
-new GLTFLoader().load(
-  "../3Dmap/Kashiwa_3Dmap.glb",
-  (gltf) => {
-    const model = gltf.scene;
-    model.traverse((child) => {
-      if (!child.isMesh) return;
-      child.castShadow = false;
-      child.receiveShadow = true;
-      selectableMeshes.push(child);
-      keepOriginalMaterial(child);
-    });
+loadModel(() => {
+  fitCameraToModel();
+  loadGpx();
+});
 
-    mapGroup.add(model);
-    fitCameraToModel();
-    loadGpx();
-  },
-  undefined,
-  (error) => {
-    console.error(error);
-  },
-);
-
-view3dButton.addEventListener("click", () => setViewMode("3d"));
-view2dButton.addEventListener("click", () => setViewMode("2d"));
 for (const button of cameraModeButtons) {
   button.addEventListener("click", () => setCameraMode(button.dataset.cameraMode));
 }
@@ -243,19 +132,6 @@ window.addEventListener("resize", resize);
 
 resize();
 animate();
-
-function worldToGeo(point) {
-  const unitScale = 1;
-  const metersEast = point.x * unitScale * COORDINATE_SCALE.east;
-  const metersNorth = point.z * unitScale * COORDINATE_SCALE.north;
-  const metersPerDegreeLat = 111_320;
-  const metersPerDegreeLon = metersPerDegreeLat * Math.cos(THREE.MathUtils.degToRad(ORIGIN.lat));
-
-  return {
-    lat: ORIGIN.lat + metersNorth / metersPerDegreeLat,
-    lon: ORIGIN.lon + metersEast / metersPerDegreeLon,
-  };
-}
 
 function fitCameraToModel() {
   mapGroup.updateWorldMatrix(true, true);
@@ -293,15 +169,14 @@ function setViewMode(nextMode) {
   if (!cameraState) return;
 
   viewMode = nextMode;
-  view3dButton.classList.toggle("is-active", viewMode === "3d");
-  view2dButton.classList.toggle("is-active", viewMode === "2d");
+  viewToggle.setActive(viewMode);
 
   if (viewMode === "2d") {
     cameraMode = "free";
     syncCameraModeUi();
-    controls.enabled = true;
-    setTopDownView();
+    activeCamera = map2d.activate(cameraState);
   } else {
+    map2d.deactivate();
     cameraMode = "free";
     syncCameraModeUi();
     setPerspectiveView();
@@ -353,15 +228,21 @@ function syncCameraModeUi() {
 
 function updateCameraVisualDensity() {
   const config = CAMERA_MODES[cameraMode];
-  const stampScale = config.stampScale ?? 1;
   for (const memo of memoPoints) {
-    const stamp = memo.marker?.userData.stamp;
-    const baseScale = stamp?.userData.baseScale;
-    if (stamp && baseScale) stamp.scale.copy(baseScale).multiplyScalar(stampScale);
+    syncMemoMarkerScale(memo);
   }
   for (const { curtain } of elapsedCurtains) {
-    curtain.material.opacity = config.curtainOpacity ?? 0.32;
+    curtain.material.opacity = (config.curtainOpacity ?? 0.32) * 0.36;
   }
+}
+
+function syncMemoMarkerScale(memo) {
+  const stamp = memo.marker?.userData.stamp;
+  const baseScale = stamp?.userData.baseScale;
+  if (!stamp || !baseScale) return;
+  const cameraScale = CAMERA_MODES[cameraMode].stampScale ?? 1;
+  const selectedScale = memo === activeMemo ? 1.35 : 1;
+  stamp.scale.copy(baseScale).multiplyScalar(cameraScale * selectedScale);
 }
 
 function setPerspectiveView() {
@@ -385,39 +266,6 @@ function setPerspectiveView() {
   controls.enablePan = true;
   controls.target.copy(focus);
   controls.update();
-}
-
-function setTopDownView() {
-  const { focus, maxSize } = cameraState;
-  const height = maxSize * 1.8;
-  const viewSize = maxSize * 0.62;
-
-  activeCamera = orthographicCamera;
-  controls.object = activeCamera;
-  controls.enabled = true;
-  updateOrthographicFrustum(viewSize);
-
-  orthographicCamera.position.set(focus.x, focus.y + height, focus.z);
-  orthographicCamera.up.set(0, 0, -1);
-  orthographicCamera.near = 0.1;
-  orthographicCamera.far = height * 3;
-  orthographicCamera.updateProjectionMatrix();
-
-  controls.enableRotate = false;
-  controls.enablePan = true;
-  controls.target.copy(focus);
-  controls.update();
-}
-
-function geoToWorld({ lat, lon }) {
-  const metersPerDegreeLat = 111_320;
-  const metersPerDegreeLon = metersPerDegreeLat * Math.cos(THREE.MathUtils.degToRad(ORIGIN.lat));
-
-  return new THREE.Vector3(
-    ((lon - ORIGIN.lon) * metersPerDegreeLon) / COORDINATE_SCALE.east,
-    0,
-    ((lat - ORIGIN.lat) * metersPerDegreeLat) / COORDINATE_SCALE.north,
-  );
 }
 
 async function loadGpx() {
@@ -458,6 +306,13 @@ async function loadGpx() {
   addRouteLines();
   addTimeAxis();
   addMemoPins();
+  legendFilter = createLegendFilter({
+    root: legendFilterRoot,
+    categories: CATEGORY_STYLES,
+    sources: GPX_FILES,
+    onChange: applyFilters,
+  });
+  legendFilter.updateCount(memoPoints);
   renderTimelineMarkers();
   updateCameraVisualDensity();
   focusCameraOnRoute();
@@ -528,7 +383,7 @@ function addRouteLines() {
       new THREE.LineBasicMaterial({
         color: ROUTE_BASE_COLOR,
         transparent: true,
-        opacity: 0.26,
+        opacity: 0.1,
         depthTest: false,
       }),
     );
@@ -540,21 +395,21 @@ function addRouteLines() {
       new THREE.LineBasicMaterial({
         vertexColors: true,
         transparent: true,
-        opacity: 1,
+        opacity: 0.36,
         depthTest: false,
       }),
     );
     line.renderOrder = 21;
     line.geometry.setDrawRange(0, 0);
     gpxGroup.add(line);
-    elapsedRouteLines.push({ line, points: track.points });
+    elapsedRouteLines.push({ line, points: track.points, sourceId: track.sourceId });
 
     const curtain = new THREE.Mesh(
       createCurtainGeometry(track.points, track.sourceId),
       new THREE.MeshBasicMaterial({
         vertexColors: true,
         transparent: true,
-        opacity: 0.32,
+        opacity: 0.1,
         side: THREE.DoubleSide,
         depthWrite: false,
         depthTest: false,
@@ -563,7 +418,7 @@ function addRouteLines() {
     curtain.renderOrder = 18;
     curtain.geometry.setDrawRange(0, 0);
     gpxGroup.add(curtain);
-    elapsedCurtains.push({ curtain, points: track.points });
+    elapsedCurtains.push({ curtain, points: track.points, sourceId: track.sourceId });
   }
 }
 
@@ -629,7 +484,7 @@ function addTimeAxis() {
   const maxX = routeBounds.max.x + padding;
   const minZ = routeBounds.min.z - padding;
   const maxZ = routeBounds.max.z + padding;
-  const axisColor = 0x6090bd;
+  const axisColor = MAP_BLUE_COLOR;
   const frameMaterial = new THREE.LineBasicMaterial({
     color: axisColor,
     transparent: true,
@@ -745,7 +600,7 @@ function createMemoMarker(memo, offsetSlot) {
     new THREE.LineBasicMaterial({
       color: categoryColor,
       transparent: true,
-      opacity: lateralOffset ? 0.48 : 0.18,
+      opacity: lateralOffset ? 0.2 : 0.08,
       depthTest: false,
     }),
   );
@@ -753,7 +608,12 @@ function createMemoMarker(memo, offsetSlot) {
 
   const head = new THREE.Mesh(
     new THREE.SphereGeometry(1.15, 12, 8),
-    new THREE.MeshBasicMaterial({ color: categoryColor, depthTest: false }),
+    new THREE.MeshBasicMaterial({
+      color: categoryColor,
+      transparent: true,
+      opacity: 0.4,
+      depthTest: false,
+    }),
   );
   head.renderOrder = 31;
 
@@ -773,19 +633,30 @@ function updateTimeline(seconds) {
   const progress = THREE.MathUtils.clamp(seconds / Number(timeSlider.max), 0, 1);
   timeProgress.style.width = `calc((100% - 16px) * ${progress})`;
 
-  for (const { line, points } of elapsedRouteLines) {
+  for (const { line, points, sourceId } of elapsedRouteLines) {
+    line.visible = sourceIsVisible(sourceId);
     line.geometry.setDrawRange(0, countPointsUntil(points, currentTime));
   }
-  for (const { curtain, points } of elapsedCurtains) {
+  for (const { curtain, points, sourceId } of elapsedCurtains) {
+    curtain.visible = sourceIsVisible(sourceId);
     const routeCount = countPointsUntil(points, currentTime);
     curtain.geometry.setDrawRange(0, Math.max(0, routeCount - 1) * 6);
   }
 
   for (const memo of memoPoints) {
-    memo.marker.visible = memo.time <= currentTime;
+    memo.marker.visible = memo.time <= currentTime && memoMatchesFilters(memo);
+    syncMemoMarkerScale(memo);
   }
 
-  renderMemoList(currentTime);
+  renderMemoPanel({
+    list: memoList,
+    memos: memoPoints.filter(memoMatchesFilters),
+    currentTime,
+    activeMemo,
+    categories: CATEGORY_STYLES,
+    formatTime,
+    onSelect: selectMemo,
+  });
 }
 
 function renderTimelineMarkers() {
@@ -793,7 +664,7 @@ function renderTimelineMarkers() {
   const offsets = [0, -3, 3, -6, 6, -9, 9];
   const duration = timelineEnd - timelineStart;
   const markers = memoPoints
-    .filter((memo) => memo.time >= timelineStart && memo.time <= timelineEnd)
+    .filter((memo) => memo.time >= timelineStart && memo.time <= timelineEnd && memoMatchesFilters(memo))
     .map((memo) => {
       const marker = document.createElement("i");
       const position = ((memo.time - timelineStart) / duration) * 100;
@@ -801,7 +672,7 @@ function renderTimelineMarkers() {
       const collisionIndex = collisionCounts.get(collisionKey) || 0;
       collisionCounts.set(collisionKey, collisionIndex + 1);
       const height = memo.isPeople
-        ? THREE.MathUtils.clamp(6 + Math.sqrt(memo.count || 1) * 2.6, 8, 16)
+        ? THREE.MathUtils.clamp(7 + (memo.count || 1) * 1.7, 9, 28)
         : 6;
 
       marker.className = `time-event-marker${memo.isPeople ? "" : " is-neutral"}`;
@@ -817,48 +688,47 @@ function renderTimelineMarkers() {
   timeEventMarkers.setAttribute("aria-label", `${markers.length}件の観察データの時刻`);
 }
 
-function renderMemoList(currentTime) {
-  const visibleMemos = memoPoints
-    .filter((memo) => memo.time <= currentTime)
-    .slice(-8)
-    .reverse();
+function memoMatchesFilters(memo) {
+  return legendFilter?.matches(memo) ?? true;
+}
 
-  memoList.replaceChildren(
-    ...visibleMemos.map((memo) => {
-      const item = document.createElement("article");
-      item.className = "memo-item";
-      const category = CATEGORY_STYLES[memo.category];
-      item.style.setProperty("--memo-color", category.color);
-      item.style.setProperty("--memo-soft", category.soft);
-      item.style.setProperty("--memo-rgb", hexToRgbChannels(category.color));
+function sourceIsVisible(sourceId) {
+  return legendFilter?.state.sources.has(sourceId) ?? true;
+}
 
-      const meta = document.createElement("div");
-      meta.className = "memo-meta";
+function applyFilters() {
+  legendFilter?.updateCount(memoPoints);
+  renderTimelineMarkers();
+  updateTimeline(Number(timeSlider.value));
+}
 
-      const time = document.createElement("time");
-      time.textContent = formatTime(memo.time);
+function selectMemo(memo) {
+  activeMemo = memo;
+  stopPlayback();
+  const seconds = Math.round((memo.time - timelineStart) / 1000);
+  updateTimeline(THREE.MathUtils.clamp(seconds, 0, Number(timeSlider.max)));
+  focusCameraOnMemo(memo);
+}
 
-      const badge = document.createElement("span");
-      badge.className = "memo-category";
-      badge.textContent = formatProfileBadge(memo, category);
+function focusCameraOnMemo(memo) {
+  if (!memo.marker || !cameraState) return;
 
-      const title = document.createElement("strong");
-      title.textContent = memo.name;
+  if (viewMode !== "3d") {
+    setViewMode("3d");
+  }
+  cameraMode = "free";
+  syncCameraModeUi();
+  controls.enabled = true;
 
-      const source = document.createElement("small");
-      source.className = "memo-source";
-      source.textContent = memo.sourceLabel;
-
-      meta.append(time, badge);
-      item.append(meta, title, source);
-      if (memo.desc) {
-        const body = document.createElement("p");
-        body.textContent = memo.desc;
-        item.append(body);
-      }
-      return item;
-    }),
-  );
+  const focus = memo.marker.position.clone();
+  const distance = Math.max(cameraState.distance * 0.18, 42);
+  perspectiveCamera.position.set(focus.x + distance * 0.52, focus.y + distance * 0.45, focus.z + distance * 0.68);
+  perspectiveCamera.near = 0.1;
+  perspectiveCamera.far = Math.max(cameraState.distance * 8, 2000);
+  perspectiveCamera.updateProjectionMatrix();
+  controls.object = perspectiveCamera;
+  controls.target.copy(focus);
+  controls.update();
 }
 
 function togglePlayback() {
@@ -868,14 +738,22 @@ function togglePlayback() {
   }
 
   isPlaying = true;
-  playToggle.textContent = "停止";
+  syncPlaybackButton();
   playStartOffset = Number(timeSlider.value);
   playStartMs = performance.now();
 }
 
 function stopPlayback() {
   isPlaying = false;
-  playToggle.textContent = "再生";
+  syncPlaybackButton();
+}
+
+function syncPlaybackButton() {
+  playToggle.classList.toggle("is-playing", isPlaying);
+  playToggle.setAttribute("aria-pressed", String(isPlaying));
+  const label = isPlaying ? "一時停止" : "再生";
+  playToggle.setAttribute("aria-label", label);
+  playToggle.title = label;
 }
 
 function setPlaybackRate(nextRate) {
@@ -1016,252 +894,12 @@ function updateFollowCamera(deltaSeconds) {
   perspectiveCamera.lookAt(followTarget);
 }
 
-function getMemoProfile(text) {
-  const normalized = text
-    .normalize("NFKC")
-    .toUpperCase()
-    .replace(/(^|[^A-Z])YW(?=$|[^A-Z])/g, "$1YF")
-    .replace(/(^|[^A-Z])([HUYAS])\s*-\s*CP(?=$|[^A-Z])/g, "$1$2CP");
-  const matches = [];
-  const tokenPattern = /(^|[^A-Z])((?:[HUYAS](?:M|F|X|CP))|CP|FM|MX|UN)(?:\s*[- ]?\s*(\d+(?:\.\d+)*))?(?=$|[^A-Z])/g;
-  let match;
-
-  while ((match = tokenPattern.exec(normalized))) {
-    const count = match[3]
-      ? match[3].split(".").reduce((total, value) => total + Number(value), 0)
-      : null;
-    matches.push({ symbol: match[2], count });
-  }
-
-  // A few titles use age-only shorthand such as A2. Treat it as mixed gender.
-  if (!matches.length) {
-    const ageOnly = normalized.match(/(?:^|[^A-Z])([HUYAS])\s*[- ]?\s*(\d+)(?=$|[^A-Z])/);
-    if (ageOnly) matches.push({ symbol: `${ageOnly[1]}X`, count: Number(ageOnly[2]) });
-  }
-
-  if (!matches.length) {
-    return {
-      category: DEFAULT_CATEGORY,
-      symbol: "UN",
-      gender: "U",
-      count: null,
-      isPeople: false,
-    };
-  }
-
-  const categories = new Set(matches.map(({ symbol }) => getSymbolCategory(symbol)));
-  const genders = new Set(matches.map(({ symbol }) => getSymbolGender(symbol)).filter((value) => value !== "U"));
-  const category = categories.size === 1 ? [...categories][0] : "MX";
-  const gender = genders.size === 1 ? [...genders][0] : "X";
-  const genderCounts = [...normalized.matchAll(/(?:女性|男性)\s*(\d+)\s*人/g)]
-    .map((result) => Number(result[1]));
-  const narrativeCount = genderCounts.length > 1
-    ? genderCounts.reduce((total, value) => total + value, 0)
-    : Number(normalized.match(/(\d+)\s*人/)?.[1]) || null;
-  const inferredCount = matches.reduce(
-    (total, item) => total + (item.count ?? (/CP$/.test(item.symbol) ? 2 : 1)),
-    0,
-  );
-  const hasMissingCount = matches.some((item) => item.count === null);
-  const count = narrativeCount && (hasMissingCount || matches.length > 1)
-    ? narrativeCount
-    : inferredCount;
-  const symbol = matches.length === 1
-    ? matches[0].symbol
-    : category.length === 1
-      ? `${category}${gender}`
-      : category;
-
-  return { category, symbol, gender, count, isPeople: true };
-}
-
-function getSymbolCategory(symbol) {
-  return ["CP", "FM", "MX", "UN"].includes(symbol) ? symbol : symbol[0];
-}
-
-function getSymbolGender(symbol) {
-  return symbol.length === 2 && ["M", "F", "X"].includes(symbol[1]) ? symbol[1] : "X";
-}
-
-function formatProfileBadge(memo, category) {
-  if (!memo.isPeople) return category.label;
-  const genderLabels = { M: "男性", F: "女性", X: "混合", U: "不明" };
-  return `${memo.symbol} · ${genderLabels[memo.gender]} · ${memo.count}人`;
-}
-
-function formatTime(value) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Tokyo",
-  }).format(value);
-}
-
-function makeGraffitiStamp(memo, category) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext("2d");
-  const rgb = hexToRgbChannels(category.color);
-  const random = makeSeededRandom(`${memo.name}-${memo.time}`);
-
-  ctx.save();
-  ctx.shadowColor = category.color;
-  ctx.shadowBlur = 22;
-  ctx.fillStyle = `rgba(${rgb}, 0.2)`;
-  ctx.strokeStyle = category.color;
-  ctx.lineWidth = 11;
-  ctx.lineJoin = "round";
-  drawGenderShape(ctx, memo.gender);
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.fillStyle = `rgba(${rgb}, 0.56)`;
-  for (let index = 0; index < 18; index += 1) {
-    const angle = random() * Math.PI * 2;
-    const distance = 82 + random() * 36;
-    const radius = 1.5 + random() * 4.5;
-    ctx.beginPath();
-    ctx.arc(128 + Math.cos(angle) * distance, 128 + Math.sin(angle) * distance, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
-  ctx.shadowColor = "rgba(2, 6, 17, 0.92)";
-  ctx.shadowBlur = 8;
-  ctx.font = "900 54px system-ui, sans-serif";
-  ctx.fillText(memo.isPeople ? memo.symbol : "•", 128, memo.isPeople ? 108 : 122);
-  if (memo.count) {
-    ctx.fillStyle = category.soft;
-    ctx.font = "900 34px Consolas, monospace";
-    ctx.fillText(`×${memo.count}`, 128, 160);
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.SpriteMaterial({
-    map: texture,
-    transparent: true,
-    depthTest: false,
-  });
-  const sprite = new THREE.Sprite(material);
-  const count = memo.count || 1;
-  const size = memo.isPeople
-    ? THREE.MathUtils.clamp(10 + Math.sqrt(count) * 4, 14, 27)
-    : 8;
-  sprite.scale.set(size, size, 1);
-  sprite.renderOrder = 32;
-  return sprite;
-}
-
-function drawGenderShape(ctx, gender) {
-  if (gender === "F") {
-    ctx.beginPath();
-    ctx.arc(128, 128, 72, 0, Math.PI * 2);
-    return;
-  }
-
-  if (gender === "X") {
-    ctx.beginPath();
-    ctx.moveTo(128, 42);
-    ctx.lineTo(214, 128);
-    ctx.lineTo(128, 214);
-    ctx.lineTo(42, 128);
-    ctx.closePath();
-    return;
-  }
-
-  ctx.beginPath();
-  ctx.moveTo(54, 48);
-  ctx.lineTo(202, 48);
-  ctx.lineTo(214, 62);
-  ctx.lineTo(214, 194);
-  ctx.lineTo(202, 208);
-  ctx.lineTo(54, 208);
-  ctx.lineTo(42, 194);
-  ctx.lineTo(42, 62);
-  ctx.closePath();
-}
-
-function makeSeededRandom(value) {
-  let seed = 2166136261;
-  for (const character of value) {
-    seed ^= character.charCodeAt(0);
-    seed = Math.imul(seed, 16777619);
-  }
-  return () => {
-    seed += 0x6d2b79f5;
-    let result = seed;
-    result = Math.imul(result ^ (result >>> 15), result | 1);
-    result ^= result + Math.imul(result ^ (result >>> 7), result | 61);
-    return ((result ^ (result >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function makeAxisLabel(text, isTitle = false) {
-  const canvas = document.createElement("canvas");
-  canvas.width = isTitle ? 300 : 150;
-  canvas.height = 54;
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "rgba(2, 6, 17, 0.72)";
-  roundedRect(ctx, 1, 1, canvas.width - 2, canvas.height - 2, 10);
-  ctx.fill();
-  ctx.fillStyle = isTitle ? "#bfdbfe" : "#94a3b8";
-  ctx.font = `${isTitle ? 700 : 600} ${isTitle ? 22 : 24}px Consolas, monospace`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: texture,
-    transparent: true,
-    opacity: isTitle ? 0.86 : 0.72,
-    depthTest: false,
-  }));
-  sprite.scale.set(canvas.width * 0.14, canvas.height * 0.14, 1);
-  sprite.renderOrder = 14;
-  return sprite;
-}
-
-function hexToRgbChannels(hex) {
-  const value = Number.parseInt(hex.slice(1), 16);
-  return `${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}`;
-}
-
-function roundedRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, radius);
-  ctx.arcTo(x + width, y + height, x, y + height, radius);
-  ctx.arcTo(x, y + height, x, y, radius);
-  ctx.arcTo(x, y, x + width, y, radius);
-  ctx.closePath();
-}
-
-function keepOriginalMaterial(mesh) {
-  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-  for (const material of materials) {
-    if (!material) continue;
-    material.side = THREE.DoubleSide;
-    material.needsUpdate = true;
-  }
-}
-
 function resize() {
   const width = window.innerWidth;
   const height = window.innerHeight;
   perspectiveCamera.aspect = width / height;
   perspectiveCamera.updateProjectionMatrix();
-  if (viewMode === "2d" && cameraState) {
-    updateOrthographicFrustum(cameraState.maxSize * 0.62);
-  }
+  map2d.resize(width, height);
   renderer.setSize(width, height, false);
 }
 
@@ -1290,11 +928,3 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-function updateOrthographicFrustum(viewSize) {
-  const aspect = window.innerWidth / window.innerHeight;
-  orthographicCamera.left = (-viewSize * aspect) / 2;
-  orthographicCamera.right = (viewSize * aspect) / 2;
-  orthographicCamera.top = viewSize / 2;
-  orthographicCamera.bottom = -viewSize / 2;
-  orthographicCamera.updateProjectionMatrix();
-}

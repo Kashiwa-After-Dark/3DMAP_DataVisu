@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kashiwa 3D Map</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles/style.css?v=20260721-4" />
     <script type="importmap">
       {
         "imports": {
@@ -19,8 +19,8 @@
     <main id="app">
       <canvas id="scene" aria-label="柏駅3Dマップ"></canvas>
       <div class="view-toggle" aria-label="表示切り替え">
-        <button id="view-3d" class="is-active" type="button">3D</button>
-        <button id="view-2d" type="button">2D</button>
+        <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
+        <button id="view-2d" type="button" aria-pressed="false">2D</button>
       </div>
       <section class="camera-modes" aria-label="3Dカメラモード">
         <div class="camera-modes__header">
@@ -45,20 +45,7 @@
           </button>
         </div>
       </section>
-      <aside class="age-legend" aria-label="年齢カテゴリーの色">
-        <span class="age-legend__title">AGE / 年齢</span>
-        <span style="--legend-color: #22d3ee">H 高校生</span>
-        <span style="--legend-color: #3b82f6">U 大学生</span>
-        <span style="--legend-color: #8b5cf6">Y 若い社会人</span>
-        <span style="--legend-color: #f59e0b">A 中高年</span>
-        <span style="--legend-color: #ef4444">S 高齢者</span>
-        <div class="encoding-legend" aria-label="ジェンダーと人数の表現">
-          <span><i class="gender-shape gender-shape--m"></i>M 男性</span>
-          <span><i class="gender-shape gender-shape--f"></i>F 女性</span>
-          <span><i class="gender-shape gender-shape--x"></i>X 混合</span>
-          <span class="size-key"><i></i><i></i><i></i>大きさ・×N = 人数</span>
-        </div>
-      </aside>
+      <aside id="legend-filter" class="age-legend" aria-label="データ説明と絞り込み"></aside>
       <aside id="memo-panel" class="memo-panel" aria-label="メモ">
         <div id="memo-list" class="memo-list"></div>
       </aside>
@@ -75,7 +62,9 @@
           </div>
         </header>
         <div class="timeline__controls">
-          <button id="play-toggle" type="button">再生</button>
+          <button id="play-toggle" type="button" aria-label="再生" aria-pressed="false" title="再生">
+            <span class="play-toggle__icon" aria-hidden="true"></span>
+          </button>
           <label class="speed-control" for="speed-slider">
             <span>SPEED</span>
             <input id="speed-slider" type="range" min="0.25" max="2" step="0.25" value="1" list="speed-marks" />
@@ -108,6 +97,6 @@
       <output id="coord-readout" aria-live="polite">0, 0, 0</output>
     </main>
 
-    <script type="module" src="./app.js?v=20260715-6"></script>
+    <script type="module" src="./src/index.js?v=20260722-5"></script>
   </body>
 </html>
