@@ -63,7 +63,7 @@ export function makeAxisLabel(text, isTitle = false) {
   roundedRect(ctx, 1, 1, canvas.width - 2, canvas.height - 2, 10);
   ctx.fill();
   ctx.fillStyle = isTitle ? "#bfdbfe" : "#94a3b8";
-  ctx.font = `${isTitle ? 700 : 600} ${isTitle ? 22 : 24}px Consolas, monospace`;
+  ctx.font = `${isTitle ? 700 : 600} ${isTitle ? 22 : 24}px Ubuntu, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
@@ -78,6 +78,34 @@ export function makeAxisLabel(text, isTitle = false) {
   }));
   sprite.scale.set(canvas.width * 0.14, canvas.height * 0.14, 1);
   sprite.renderOrder = 14;
+  return sprite;
+}
+
+export function makeCoordinateLabel(memo) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 330;
+  canvas.height = 44;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(148, 163, 184, 0.72)";
+  ctx.font = "500 17px Ubuntu, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(
+    `${memo.lat.toFixed(6)}, ${memo.lon.toFixed(6)}`,
+    canvas.width / 2,
+    canvas.height / 2,
+  );
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+  }));
+  sprite.scale.set(canvas.width * 0.09, canvas.height * 0.09, 1);
+  sprite.renderOrder = 36;
+  sprite.visible = false;
   return sprite;
 }
 

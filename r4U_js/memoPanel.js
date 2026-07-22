@@ -1,11 +1,18 @@
 import { hexToRgbChannels } from "../src/formatters.js";
 import { formatProfileBadge } from "./profiles.js";
 
+const renderStates = new WeakMap();
+
 export function renderMemoPanel({ list, memos, currentTime, activeMemo, categories, formatTime, onSelect }) {
   const visibleMemos = memos
     .filter((memo) => memo.time <= currentTime)
-    .slice(-8)
     .reverse();
+  const previous = renderStates.get(list);
+  const unchanged = previous
+    && previous.activeMemo === activeMemo
+    && previous.memos.length === visibleMemos.length
+    && previous.memos.every((memo, index) => memo === visibleMemos[index]);
+  if (unchanged) return false;
 
   list.replaceChildren(
     ...visibleMemos.map((memo) => makeMemoItem({
@@ -16,6 +23,8 @@ export function renderMemoPanel({ list, memos, currentTime, activeMemo, categori
       onSelect,
     })),
   );
+  renderStates.set(list, { memos: visibleMemos, activeMemo });
+  return true;
 }
 
 function makeMemoItem({ memo, isSelected, category, formatTime, onSelect }) {

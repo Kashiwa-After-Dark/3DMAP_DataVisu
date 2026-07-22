@@ -1,10 +1,11 @@
-export function createLegendFilter({ root, categories, sources, onChange }) {
+export function createLegendFilter({ root, categories, sources, onChange, onSourcesReset }) {
   const ageKeys = ["H", "U", "Y", "A", "S"];
   const groupKeys = ["CP", "FM", "MX", "UN"];
+  const allSourceIds = sources.map((source) => source.id);
   const state = {
     categories: new Set(Object.keys(categories)),
     genders: new Set(["M", "F", "X", "U"]),
-    sources: new Set(sources.map((source) => source.id)),
+    sources: new Set(allSourceIds),
     minCount: 0,
     keyword: "",
   };
@@ -13,7 +14,9 @@ export function createLegendFilter({ root, categories, sources, onChange }) {
   countReadout.className = "legend-filter__count";
   countReadout.textContent = "0";
 
-  const panels = [
+  const content = document.createElement("div");
+  content.className = "legend-filter__content";
+  content.append(
     makeOptionGroup("AGE", ageKeys.map((value) => ({
       name: "category",
       value,
@@ -33,73 +36,77 @@ export function createLegendFilter({ root, categories, sources, onChange }) {
       { name: "gender", value: "F", label: "F", title: "女性", shape: "f" },
       { name: "gender", value: "X", label: "X", title: "混合", shape: "x" },
       { name: "gender", value: "U", label: "U", title: "不明", shape: "u" },
-    ]),
-    makeRoleControl(sources),
+    ], "gen"),
     makeNumberControl(),
     makeSearchControl(),
-  ];
-
-  root.replaceChildren(
-    makeHeader(countReadout, () => {
-      resetState(state, root);
-      onChange?.();
-    }),
-    makeFilterSwitcher(panels),
+    makeDescription(),
   );
-
-  showPanel(root, "AGE");
 
   const handleChange = () => {
     syncStateFromUi(state, root);
     onChange?.();
   };
-  root.addEventListener("input", handleChange);
-  root.addEventListener("change", handleChange);
+  const header = makeHeader({
+    countReadout,
+    onReset: () => {
+      resetState(state, root, allSourceIds);
+      onSourcesReset?.();
+      onChange?.();
+    },
+    onToggle: (button) => {
+      const collapsed = root.classList.toggle("is-collapsed");
+      button.textContent = collapsed ? "+" : "−";
+      button.title = collapsed ? "フィルターを拡大" : "フィルターを最小化";
+      button.setAttribute("aria-expanded", String(!collapsed));
+    },
+  });
+
+  root.replaceChildren(header, content);
+  root.addEventListener("click", (event) => {
+    const option = event.target.closest(".legend-filter__option");
+    if (!option || !root.contains(option)) return;
+    event.preventDefault();
+    const input = option.querySelector('input[type="checkbox"]');
+    const peers = [...root.querySelectorAll(`input[name="${input.name}"]`)];
+    const checked = peers.filter((peer) => peer.checked);
+
+    if (checked.length === peers.length) {
+      for (const peer of peers) peer.checked = peer === input;
+    } else if (!input.checked) {
+      input.checked = true;
+    } else if (checked.length > 1) {
+      input.checked = false;
+    }
+    handleChange();
+  });
+  root.addEventListener("keydown", (event) => {
+    const option = event.target.closest(".legend-filter__option");
+    if (!option || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    option.click();
+  });
+  root.addEventListener("input", (event) => {
+    if (event.target.matches('input[type="checkbox"]')) return;
+    handleChange();
+  });
+  root.addEventListener("change", (event) => {
+    if (event.target.matches('input[type="checkbox"]')) return;
+    handleChange();
+  });
 
   return {
     matches: (memo) => memoMatchesState(memo, state),
     updateCount: (memos) => {
       countReadout.textContent = String(memos.filter((memo) => memoMatchesState(memo, state)).length);
     },
+    setSources: (sourceIds) => {
+      state.sources = new Set(sourceIds);
+    },
     state,
   };
 }
 
-function makeFilterSwitcher(panels) {
-  const switcher = document.createElement("div");
-  switcher.className = "legend-filter__switcher";
-
-  const select = document.createElement("select");
-  select.className = "legend-filter__mode";
-  select.name = "filter-mode";
-  select.setAttribute("aria-label", "絞り込み項目");
-  select.innerHTML = ["AGE", "GROUP", "GEN", "ROLE", "MIN", "SEARCH"]
-    .map((name) => `<option value="${name}">${name}</option>`)
-    .join("");
-  select.addEventListener("change", () => showPanel(switcher, select.value));
-
-  const panelArea = document.createElement("div");
-  panelArea.className = "legend-filter__panels";
-  panelArea.append(...panels);
-
-  const description = document.createElement("p");
-  description.className = "legend-filter__description";
-  description.dataset.filterDescription = "";
-  description.setAttribute("aria-live", "polite");
-
-  switcher.append(select, panelArea, description);
-  return switcher;
-}
-
-function showPanel(root, name) {
-  for (const panel of root.querySelectorAll("[data-filter-panel]")) {
-    panel.hidden = panel.dataset.filterPanel !== name;
-  }
-  const description = root.querySelector("[data-filter-description]");
-  if (description) description.textContent = getFilterDescription(name);
-}
-
-function makeHeader(countReadout, onReset) {
+function makeHeader({ countReadout, onReset, onToggle }) {
   const header = document.createElement("header");
   header.className = "legend-filter__header";
 
@@ -111,26 +118,35 @@ function makeHeader(countReadout, onReset) {
 
   const reset = document.createElement("button");
   reset.type = "button";
+  reset.className = "legend-filter__reset";
   reset.textContent = "全表示";
   reset.addEventListener("click", onReset);
 
-  header.append(title, count, reset);
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "legend-filter__toggle";
+  toggle.textContent = "−";
+  toggle.title = "フィルターを最小化";
+  toggle.setAttribute("aria-label", "フィルターの最小化と拡大");
+  toggle.setAttribute("aria-expanded", "true");
+  toggle.addEventListener("click", () => onToggle(toggle));
+
+  header.append(toggle, title, count, reset);
   return header;
 }
 
 function makeOptionGroup(title, options, variant = "") {
-  const group = document.createElement("fieldset");
+  const group = document.createElement("div");
   group.className = `legend-filter__group${variant ? ` legend-filter__group--${variant}` : ""}`;
-  group.dataset.filterPanel = title;
 
-  const legend = document.createElement("legend");
-  legend.className = "sr-only";
-  legend.textContent = title;
-  group.append(legend);
+  const heading = document.createElement("b");
+  heading.textContent = title;
+  group.append(heading);
 
   for (const option of options) {
     const label = document.createElement("label");
     label.className = "legend-filter__option";
+    label.tabIndex = 0;
     if (option.color) label.style.setProperty("--legend-color", option.color);
     if (option.shape) label.dataset.shape = option.shape;
     if (option.title) label.title = option.title;
@@ -143,7 +159,6 @@ function makeOptionGroup(title, options, variant = "") {
 
     const text = document.createElement("span");
     text.textContent = option.label;
-
     label.append(input, text);
     group.append(label);
   }
@@ -151,62 +166,48 @@ function makeOptionGroup(title, options, variant = "") {
   return group;
 }
 
-function makeRoleControl(sources) {
-  const label = document.createElement("label");
-  label.className = "legend-filter__control";
-  label.dataset.filterPanel = "ROLE";
-  label.innerHTML = `
-    <span>担当者</span>
-    <select name="source-select">
-      <option value="all">全員</option>
-      ${sources.map((source) => `<option value="${source.id}">${source.label}</option>`).join("")}
-    </select>
-  `;
-  return label;
-}
-
 function makeNumberControl() {
   const label = document.createElement("label");
   label.className = "legend-filter__control";
-  label.dataset.filterPanel = "MIN";
   label.innerHTML = `
-    <span>最小件数</span>
-    <input name="min-count" type="number" min="0" max="30" step="1" value="0" />
+    <span>MIN</span>
+    <input name="min-count" type="number" min="0" max="30" step="1" value="0" aria-label="最小件数" />
   `;
   return label;
 }
 
 function makeSearchControl() {
   const label = document.createElement("label");
-  label.className = "legend-filter__control";
-  label.dataset.filterPanel = "SEARCH";
+  label.className = "legend-filter__control legend-filter__control--search";
   label.innerHTML = `
-    <span class="sr-only">メモ検索</span>
-    <input name="keyword" type="search" placeholder="キーワードで検索" />
+    <span>SEARCH</span>
+    <input name="keyword" type="search" placeholder="キーワード" aria-label="メモ検索" />
   `;
   return label;
+}
+
+function makeDescription() {
+  const description = document.createElement("p");
+  description.className = "legend-filter__description";
+  description.textContent = "選択中のコードだけを表示。暗いコードを選ぶと表示へ追加。";
+  return description;
 }
 
 function syncStateFromUi(state, root) {
   state.categories = getCheckedValues(root, "category");
   state.genders = getCheckedValues(root, "gender");
-  const selectedSource = root.querySelector('[name="source-select"]')?.value || "all";
-  state.sources = selectedSource === "all"
-    ? new Set([...root.querySelectorAll('[name="source-select"] option:not([value="all"])')].map((option) => option.value))
-    : new Set([selectedSource]);
   state.minCount = Number(root.querySelector('[name="min-count"]')?.value || 0);
   state.keyword = root.querySelector('[name="keyword"]')?.value.trim().toLowerCase() || "";
 }
 
-function resetState(state, root) {
+function resetState(state, root, allSourceIds) {
   for (const input of root.querySelectorAll("input")) {
     if (input.type === "checkbox") input.checked = true;
     if (input.name === "min-count") input.value = "0";
     if (input.name === "keyword") input.value = "";
   }
-  const sourceSelect = root.querySelector('[name="source-select"]');
-  if (sourceSelect) sourceSelect.value = "all";
   syncStateFromUi(state, root);
+  state.sources = new Set(allSourceIds);
 }
 
 function getCheckedValues(root, name) {
@@ -237,15 +238,4 @@ function getCategoryHelp(value) {
     MX: "年齢・属性混合グループ",
     UN: "不明",
   }[value] || value;
-}
-
-function getFilterDescription(name) {
-  return {
-    AGE: "H 高校生 / U 大学生 / Y 若い社会人 / A 中高年 / S 高齢者",
-    GROUP: "CP カップル / FM 家族 / MX 年齢・属性混合 / UN 不明",
-    GEN: "M 男性 / F 女性 / X 男女混合 / U 不明",
-    ROLE: "表示するデータの担当者を選択",
-    MIN: "指定した件数以上のアイコンだけを表示",
-    SEARCH: "メモの内容をキーワードで検索",
-  }[name] || "";
 }

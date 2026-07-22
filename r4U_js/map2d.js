@@ -17,7 +17,7 @@ export function create2DMapController({
   let graphWidth = 1;
   let graphHeight = 1;
   let viewHeight = 1;
-  let zoom = 1.24;
+  let zoom = 1.46;
 
   canvas.addEventListener("pointerdown", startInteraction, true);
   canvas.addEventListener("pointermove", moveView, true);
@@ -29,10 +29,14 @@ export function create2DMapController({
   function activate({ focus: mapFocus, maxSize }) {
     active = true;
     azimuth = Math.PI / 2;
-    zoom = 1.24;
+    zoom = 1.46;
     graphWidth = Math.max(maxSize * 0.78, 120);
     graphHeight = Math.max(timeAxisHeight * 1.24, 120);
-    focus.set(mapFocus.x, timeBaseY + timeAxisHeight * 0.32, mapFocus.z);
+    focus.set(
+      mapFocus.x + graphWidth * 0.22,
+      timeBaseY + timeAxisHeight * 0.46,
+      mapFocus.z,
+    );
 
     viewDistance = Math.max(maxSize * 2.2, timeAxisHeight * 3, 500);
     camera.near = 0.1;

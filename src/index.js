@@ -14,17 +14,19 @@ import {
   TIME_END_HOUR,
   TIME_START_HOUR,
 } from "./config.js";
-import { createLegendFilter } from "../r4U_js/filters.js";
-import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-5";
+import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260722-25";
+import { createLegendFilter } from "../r4U_js/filters.js?v=20260722-25";
+import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260722-25";
+import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-25";
 import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";
-import { createMapDisplay } from "./main.js";
-import { makeAxisLabel, makeGraffitiStamp } from "../Yoh_js/markers.js";
-import { renderMemoPanel } from "../r4U_js/memoPanel.js";
+import { createMapDisplay } from "./main.js?v=20260722-26";
+import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260722-25";
+import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260722-25";
+import { createMemoScroller } from "../r4U_js/memoScroller.js?v=20260722-25";
 import { getMemoProfile } from "../r4U_js/profiles.js";
 
 const canvas = document.querySelector("#scene");
-const coordReadout = document.querySelector("#coord-readout");
 const view3dButton = document.querySelector("#view-3d");
 const view2dButton = document.querySelector("#view-2d");
 const playToggle = document.querySelector("#play-toggle");
@@ -32,13 +34,20 @@ const timeSlider = document.querySelector("#time-slider");
 const timeReadout = document.querySelector("#time-readout");
 const speedSlider = document.querySelector("#speed-slider");
 const speedReadout = document.querySelector("#speed-readout");
-const timeProgress = document.querySelector("#time-progress");
+const timeGaugeFills = [...document.querySelectorAll("[data-time-gauge-fill]")];
+const timeGaugeSegments = [...document.querySelectorAll(".time-gauge-segments > i")];
 const timeEventMarkers = document.querySelector("#time-event-markers");
-const observationCount = document.querySelector("#observation-count");
 const memoList = document.querySelector("#memo-list");
+const memoScrollViewport = document.querySelector("#memo-scroll-viewport");
+const memoScrollSlider = document.querySelector("#memo-scroll-slider");
+const memoScrollProgress = document.querySelector("#memo-scroll-progress");
+const memoScrollTotal = document.querySelector("#memo-scroll-total");
+const memoScrollCurrent = document.querySelector("#memo-scroll-current");
 const legendFilterRoot = document.querySelector("#legend-filter");
-const cameraModeButtons = [...document.querySelectorAll("[data-camera-mode]")];
-const cameraModeReadout = document.querySelector("#camera-mode-readout");
+const analogClock = document.querySelector("#analog-clock");
+const compassCard = document.querySelector("#compass-card");
+const speedEngine = document.querySelector("#speed-engine");
+const assigneeList = document.querySelector("#assignee-list");
 
 const mapDisplay = createMapDisplay(canvas);
 const {
@@ -50,15 +59,10 @@ const {
   mapGroup,
   gpxGroup,
   groundGrid,
-  raycaster,
-  pointer,
-  groundPlane,
-  selectableMeshes,
   bounds,
   modelCenter,
   modelSize,
   loadModel,
-  worldToGeo,
   geoToWorld,
 } = mapDisplay;
 let activeCamera = perspectiveCamera;
@@ -71,11 +75,14 @@ let memoPoints = [];
 let memosBySource = new Map();
 let activeMemo = null;
 let legendFilter = null;
+let assigneeFilter = null;
 let elapsedRouteLines = [];
 let elapsedCurtains = [];
 let playStartMs = 0;
 let playStartOffset = 0;
 let isPlaying = false;
+let playbackEnded = false;
+let returnToDefaultViewOnPlay = false;
 let timelineStart = 0;
 let timelineEnd = 0;
 let playbackScale = 1;
@@ -95,6 +102,19 @@ const viewToggle = createViewToggle({
   view2dButton,
   onChange: setViewMode,
 });
+const timelineInstruments = createTimelineInstruments({
+  clock: analogClock,
+  compassCard,
+  speedEngine,
+});
+timelineInstruments.updateSpeed(playbackRate);
+const memoScroller = createMemoScroller({
+  viewport: memoScrollViewport,
+  slider: memoScrollSlider,
+  progress: memoScrollProgress,
+  totalReadout: memoScrollTotal,
+  currentReadout: memoScrollCurrent,
+});
 viewToggle.setActive(viewMode);
 
 loadModel(() => {
@@ -102,31 +122,11 @@ loadModel(() => {
   loadGpx();
 });
 
-for (const button of cameraModeButtons) {
-  button.addEventListener("click", () => setCameraMode(button.dataset.cameraMode));
-}
 playToggle.addEventListener("click", togglePlayback);
 speedSlider.addEventListener("input", () => setPlaybackRate(Number(speedSlider.value)));
 timeSlider.addEventListener("input", () => {
   stopPlayback();
   updateTimeline(Number(timeSlider.value));
-});
-canvas.addEventListener("pointerdown", (event) => {
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(pointer, activeCamera);
-  const hits = raycaster.intersectObjects(selectableMeshes, true);
-  const groundPoint = new THREE.Vector3();
-  const point = hits.length
-    ? hits[0].point
-    : raycaster.ray.intersectPlane(groundPlane, groundPoint);
-
-  if (!point) return;
-
-  const geo = worldToGeo(point);
-  coordReadout.textContent = `${point.x.toFixed(3)}, ${point.y.toFixed(3)}, ${point.z.toFixed(3)}, ${geo.lat.toFixed(12)}, ${geo.lon.toFixed(12)}`;
 });
 window.addEventListener("resize", resize);
 
@@ -147,15 +147,10 @@ function fitCameraToModel() {
   focus.y = modelCenter.y + modelSize.y * 0.08;
 
   cameraState = { distance, focus, maxSize };
-  perspectiveCamera.position.set(
-    focus.x + distance * 0.18,
-    focus.y + distance * 0.58,
-    focus.z + distance * 0.86,
-  );
+  positionDefaultPerspectiveCamera(distance, focus);
   perspectiveCamera.near = Math.max(distance / 2000, 0.1);
   perspectiveCamera.far = distance * 6;
   perspectiveCamera.updateProjectionMatrix();
-  controls.target.copy(focus);
   controls.maxDistance = distance * 4;
   controls.minDistance = distance * 0.18;
 
@@ -217,12 +212,6 @@ function setCameraMode(nextMode) {
 }
 
 function syncCameraModeUi() {
-  for (const button of cameraModeButtons) {
-    const isActive = button.dataset.cameraMode === cameraMode;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  }
-  cameraModeReadout.textContent = CAMERA_MODES[cameraMode].label;
   updateCameraVisualDensity();
 }
 
@@ -232,7 +221,10 @@ function updateCameraVisualDensity() {
     syncMemoMarkerScale(memo);
   }
   for (const { curtain } of elapsedCurtains) {
-    curtain.material.opacity = (config.curtainOpacity ?? 0.32) * 0.36;
+    const opacity = (config.curtainOpacity ?? 0.32) * 0.18;
+    const materials = Array.isArray(curtain.material) ? curtain.material : [curtain.material];
+    materials[0].opacity = opacity;
+    if (materials[1]) materials[1].opacity = opacity * 0.22;
   }
 }
 
@@ -252,11 +244,7 @@ function setPerspectiveView() {
   controls.object = activeCamera;
   controls.enabled = true;
   perspectiveCamera.fov = 45;
-  perspectiveCamera.position.set(
-    focus.x + distance * 0.18,
-    focus.y + distance * 0.58,
-    focus.z + distance * 0.86,
-  );
+  positionDefaultPerspectiveCamera(distance, focus);
   perspectiveCamera.up.set(0, 1, 0);
   perspectiveCamera.near = Math.max(distance / 2000, 0.1);
   perspectiveCamera.far = distance * 6;
@@ -264,8 +252,16 @@ function setPerspectiveView() {
 
   controls.enableRotate = true;
   controls.enablePan = true;
-  controls.target.copy(focus);
   controls.update();
+}
+
+function positionDefaultPerspectiveCamera(distance, focus) {
+  perspectiveCamera.position.set(
+    focus.x + distance * 0.24,
+    focus.y + distance * 0.52,
+    focus.z + distance * 0.88,
+  );
+  controls.target.set(focus.x, focus.y - distance * 0.13, focus.z);
 }
 
 async function loadGpx() {
@@ -299,6 +295,8 @@ async function loadGpx() {
 
   if (!trackPoints.length) return;
 
+  await document.fonts?.load("700 24px Ubuntu");
+
   ({ start: timelineStart, end: timelineEnd } = getTimeRange(trackPoints[0].time));
   timeSlider.max = String(Math.round((timelineEnd - timelineStart) / 1000));
   playbackScale = Number(timeSlider.max) / PLAYBACK_DURATION_SECONDS;
@@ -311,6 +309,19 @@ async function loadGpx() {
     categories: CATEGORY_STYLES,
     sources: GPX_FILES,
     onChange: applyFilters,
+    onSourcesReset: () => {
+      assigneeFilter?.selectAll({ notify: false });
+      setHighlightedTimeSegments([0, 1, 2]);
+    },
+  });
+  assigneeFilter = createAssigneeFilter({
+    root: assigneeList,
+    sources: GPX_FILES,
+    onChange: ({ sourceIds, segmentIndexes }) => {
+      legendFilter.setSources(sourceIds);
+      setHighlightedTimeSegments(segmentIndexes);
+      applyFilters();
+    },
   });
   legendFilter.updateCount(memoPoints);
   renderTimelineMarkers();
@@ -402,18 +413,35 @@ function addRouteLines() {
     line.renderOrder = 21;
     line.geometry.setDrawRange(0, 0);
     gpxGroup.add(line);
-    elapsedRouteLines.push({ line, points: track.points, sourceId: track.sourceId });
+    const routeHead = createRouteHead();
+    gpxGroup.add(routeHead);
+    elapsedRouteLines.push({
+      line,
+      head: routeHead,
+      points: track.points,
+      sourceId: track.sourceId,
+    });
 
     const curtain = new THREE.Mesh(
       createCurtainGeometry(track.points, track.sourceId),
-      new THREE.MeshBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.1,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        depthTest: false,
-      }),
+      [
+        new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.06,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          depthTest: false,
+        }),
+        new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.014,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          depthTest: false,
+        }),
+      ],
     );
     curtain.renderOrder = 18;
     curtain.geometry.setDrawRange(0, 0);
@@ -449,6 +477,9 @@ function createCurtainGeometry(points, sourceId) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  for (let index = 0; index < points.length - 1; index += 1) {
+    geometry.addGroup(index * 6, 6, 0);
+  }
   return geometry;
 }
 
@@ -458,11 +489,7 @@ function pushCurtainVertex(positions, colors, point, color) {
 }
 
 function getRouteColor(time, sourceId) {
-  let latestMemo = null;
-  for (const memo of memosBySource.get(sourceId) || []) {
-    if (memo.time > time) break;
-    latestMemo = memo;
-  }
+  const latestMemo = getRouteMemoAtTime(time, sourceId);
   const category = latestMemo?.category || DEFAULT_CATEGORY;
   const color = new THREE.Color(CATEGORY_STYLES[category].color);
   if (latestMemo?.count) {
@@ -470,6 +497,99 @@ function getRouteColor(time, sourceId) {
     color.lerp(new THREE.Color(0xffffff), groupStrength);
   }
   return color;
+}
+
+function createRouteHead() {
+  const group = new THREE.Group();
+  const connector = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+    new THREE.LineBasicMaterial({
+      color: MAP_BLUE_COLOR,
+      transparent: true,
+      opacity: 0.9,
+      depthTest: false,
+    }),
+  );
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(1.8, 16, 10),
+    new THREE.MeshBasicMaterial({
+      color: MAP_BLUE_COLOR,
+      depthTest: false,
+    }),
+  );
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(4.8, 16, 10),
+    new THREE.MeshBasicMaterial({
+      color: MAP_BLUE_COLOR,
+      transparent: true,
+      opacity: 0.2,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  connector.renderOrder = 33;
+  core.renderOrder = 35;
+  glow.renderOrder = 34;
+  group.userData.connector = connector;
+  group.visible = false;
+  group.add(connector, glow, core);
+  return group;
+}
+
+function getRouteMemoAtTime(time, sourceId) {
+  let latestMemo = null;
+  for (const memo of memosBySource.get(sourceId) || []) {
+    if (memo.time > time) break;
+    latestMemo = memo;
+  }
+  return latestMemo;
+}
+
+function updateCurtainFilterStyles() {
+  const mutedColor = new THREE.Color(0x94a3b8);
+
+  for (const { curtain, points, sourceId } of elapsedCurtains) {
+    const geometry = curtain.geometry;
+    const colors = geometry.getAttribute("color");
+    geometry.clearGroups();
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const firstTime = points[index].time;
+      const secondTime = points[index + 1].time;
+      const midpointTime = firstTime + (secondTime - firstTime) * 0.5;
+      const sectionMatches = routeSectionMatchesFilters(midpointTime, sourceId);
+      const firstColor = routeSectionMatchesFilters(firstTime, sourceId)
+        ? getRouteColor(firstTime, sourceId)
+        : mutedColor.clone();
+      const secondColor = routeSectionMatchesFilters(secondTime, sourceId)
+        ? getRouteColor(secondTime, sourceId)
+        : mutedColor.clone();
+      const firstShadow = firstColor.clone().multiplyScalar(0.16);
+      const secondShadow = secondColor.clone().multiplyScalar(0.16);
+      const offset = index * 6;
+
+      setCurtainColor(colors, offset, firstShadow);
+      setCurtainColor(colors, offset + 1, firstColor);
+      setCurtainColor(colors, offset + 2, secondColor);
+      setCurtainColor(colors, offset + 3, firstShadow);
+      setCurtainColor(colors, offset + 4, secondColor);
+      setCurtainColor(colors, offset + 5, secondShadow);
+      geometry.addGroup(offset, 6, sectionMatches ? 0 : 1);
+    }
+    colors.needsUpdate = true;
+  }
+}
+
+function routeSectionMatchesFilters(time, sourceId) {
+  if (!legendFilter) return true;
+  const memo = getRouteMemoAtTime(time, sourceId);
+  if (memo) return memoMatchesFilters(memo);
+  return legendFilter.state.categories.has(DEFAULT_CATEGORY) && sourceIsVisible(sourceId);
+}
+
+function setCurtainColor(attribute, index, color) {
+  attribute.setXYZ(index, color.r, color.g, color.b);
 }
 
 function addTimeAxis() {
@@ -550,19 +670,14 @@ function focusCameraOnRoute() {
   const size = routeVisualBounds.getSize(new THREE.Vector3());
   const sphere = routeVisualBounds.getBoundingSphere(new THREE.Sphere());
   const fov = THREE.MathUtils.degToRad(perspectiveCamera.fov);
-  const distance = (sphere.radius / Math.tan(fov / 2)) * 1.2;
+  const distance = (sphere.radius / Math.tan(fov / 2)) * 0.98;
   const maxSize = Math.max(size.x, size.y, size.z);
 
   cameraState = { distance, focus, maxSize };
-  perspectiveCamera.position.set(
-    focus.x + distance * 0.24,
-    focus.y + distance * 0.52,
-    focus.z + distance * 0.88,
-  );
+  positionDefaultPerspectiveCamera(distance, focus);
   perspectiveCamera.near = Math.max(distance / 2000, 0.1);
   perspectiveCamera.far = distance * 10;
   perspectiveCamera.updateProjectionMatrix();
-  controls.target.copy(focus);
   controls.minDistance = distance * 0.14;
   controls.maxDistance = distance * 5;
   controls.update();
@@ -600,7 +715,7 @@ function createMemoMarker(memo, offsetSlot) {
     new THREE.LineBasicMaterial({
       color: categoryColor,
       transparent: true,
-      opacity: lateralOffset ? 0.2 : 0.08,
+      opacity: lateralOffset ? 0.3 : 0.18,
       depthTest: false,
     }),
   );
@@ -620,22 +735,48 @@ function createMemoMarker(memo, offsetSlot) {
   const stamp = makeGraffitiStamp(memo, category);
   stamp.position.y = 2.2;
   stamp.userData.baseScale = stamp.scale.clone();
+  const coordinateLabel = makeCoordinateLabel(memo);
+  coordinateLabel.position.y = stamp.scale.y * 0.55 + 7;
   group.userData.stamp = stamp;
+  group.userData.head = head;
+  group.userData.leader = leader;
+  group.userData.coordinateLabel = coordinateLabel;
 
-  group.add(leader, head, stamp);
+  group.add(leader, head, stamp, coordinateLabel);
   return group;
 }
 
 function updateTimeline(seconds) {
   const currentTime = timelineStart + seconds * 1000;
+  timelineInstruments.updateTime(currentTime);
   timeSlider.value = String(seconds);
   timeReadout.textContent = formatTime(currentTime);
   const progress = THREE.MathUtils.clamp(seconds / Number(timeSlider.max), 0, 1);
-  timeProgress.style.width = `calc((100% - 16px) * ${progress})`;
+  for (const [index, fill] of timeGaugeFills.entries()) {
+    const segmentProgress = THREE.MathUtils.clamp(progress * timeGaugeFills.length - index, 0, 1);
+    fill.style.width = `${segmentProgress * 100}%`;
+  }
 
-  for (const { line, points, sourceId } of elapsedRouteLines) {
-    line.visible = sourceIsVisible(sourceId);
-    line.geometry.setDrawRange(0, countPointsUntil(points, currentTime));
+  for (const { line, head, points, sourceId } of elapsedRouteLines) {
+    const sourceVisible = sourceIsVisible(sourceId);
+    const routeCount = countPointsUntil(points, currentTime);
+    const routeIsActive = currentTime >= points[0].time
+      && currentTime <= points[points.length - 1].time;
+    line.visible = sourceVisible;
+    line.geometry.setDrawRange(0, routeCount);
+    head.visible = sourceVisible && routeIsActive;
+    if (head.visible) {
+      const headTime = Math.min(currentTime, points[points.length - 1].time);
+      head.position.copy(getTrackPositionAtTime(points, headTime));
+      const previousPoint = points[Math.min(routeCount - 1, points.length - 1)];
+      const connectorStart = geoToWorld(previousPoint);
+      connectorStart.y = timeToHeight(previousPoint.time);
+      connectorStart.sub(head.position);
+      const connectorPositions = head.userData.connector.geometry.getAttribute("position");
+      connectorPositions.setXYZ(0, connectorStart.x, connectorStart.y, connectorStart.z);
+      connectorPositions.setXYZ(1, 0, 0, 0);
+      connectorPositions.needsUpdate = true;
+    }
   }
   for (const { curtain, points, sourceId } of elapsedCurtains) {
     curtain.visible = sourceIsVisible(sourceId);
@@ -643,12 +784,24 @@ function updateTimeline(seconds) {
     curtain.geometry.setDrawRange(0, Math.max(0, routeCount - 1) * 6);
   }
 
+  const visibleMemos = memoPoints.filter(
+    (memo) => memo.time <= currentTime && memoMatchesFilters(memo),
+  );
+  const visibleMemoSet = new Set(visibleMemos);
+  const recentMemos = new Set(visibleMemos.slice(-10));
   for (const memo of memoPoints) {
-    memo.marker.visible = memo.time <= currentTime && memoMatchesFilters(memo);
+    const matches = visibleMemoSet.has(memo);
+    const hasOccurred = memo.time <= currentTime;
+    memo.marker.visible = sourceIsVisible(memo.sourceId);
+    memo.marker.userData.leader.visible = true;
+    memo.marker.userData.stamp.visible = hasOccurred && matches;
+    memo.marker.userData.head.visible = hasOccurred && matches;
+    memo.marker.userData.coordinateLabel.visible = matches && memo === activeMemo;
     syncMemoMarkerScale(memo);
+    syncMemoMarkerOpacity(memo, recentMemos.has(memo));
   }
 
-  renderMemoPanel({
+  const memoPanelChanged = renderMemoPanel({
     list: memoList,
     memos: memoPoints.filter(memoMatchesFilters),
     currentTime,
@@ -657,6 +810,15 @@ function updateTimeline(seconds) {
     formatTime,
     onSelect: selectMemo,
   });
+  if (memoPanelChanged) memoScroller.refresh({ afterContentChange: true });
+}
+
+function syncMemoMarkerOpacity(memo, isRecent) {
+  const stamp = memo.marker?.userData.stamp;
+  const head = memo.marker?.userData.head;
+  const opacity = memo === activeMemo || isRecent ? 1 : 0.5;
+  if (stamp?.material) stamp.material.opacity = opacity;
+  if (head?.material) head.material.opacity = opacity;
 }
 
 function renderTimelineMarkers() {
@@ -684,7 +846,6 @@ function renderTimelineMarkers() {
     });
 
   timeEventMarkers.replaceChildren(...markers);
-  observationCount.textContent = String(markers.length);
   timeEventMarkers.setAttribute("aria-label", `${markers.length}件の観察データの時刻`);
 }
 
@@ -698,12 +859,20 @@ function sourceIsVisible(sourceId) {
 
 function applyFilters() {
   legendFilter?.updateCount(memoPoints);
+  updateCurtainFilterStyles();
   renderTimelineMarkers();
   updateTimeline(Number(timeSlider.value));
 }
 
 function selectMemo(memo) {
+  if (activeMemo?.marker?.userData.coordinateLabel) {
+    activeMemo.marker.userData.coordinateLabel.visible = false;
+  }
   activeMemo = memo;
+  returnToDefaultViewOnPlay = true;
+  if (memo.marker?.userData.coordinateLabel) {
+    memo.marker.userData.coordinateLabel.visible = true;
+  }
   stopPlayback();
   const seconds = Math.round((memo.time - timelineStart) / 1000);
   updateTimeline(THREE.MathUtils.clamp(seconds, 0, Number(timeSlider.max)));
@@ -737,21 +906,42 @@ function togglePlayback() {
     return;
   }
 
+  if (playbackEnded) {
+    updateTimeline(0);
+    playbackEnded = false;
+  }
+  if (returnToDefaultViewOnPlay) {
+    if (activeMemo?.marker?.userData.coordinateLabel) {
+      activeMemo.marker.userData.coordinateLabel.visible = false;
+    }
+    activeMemo = null;
+    setCameraMode("free");
+    returnToDefaultViewOnPlay = false;
+  }
   isPlaying = true;
   syncPlaybackButton();
   playStartOffset = Number(timeSlider.value);
   playStartMs = performance.now();
 }
 
-function stopPlayback() {
+function stopPlayback({ ended = false } = {}) {
   isPlaying = false;
+  playbackEnded = ended;
   syncPlaybackButton();
+}
+
+function setHighlightedTimeSegments(segmentIndexes) {
+  const activeSegments = new Set(segmentIndexes);
+  for (const [index, segment] of timeGaugeSegments.entries()) {
+    segment.classList.toggle("is-muted", !activeSegments.has(index));
+  }
 }
 
 function syncPlaybackButton() {
   playToggle.classList.toggle("is-playing", isPlaying);
+  playToggle.classList.toggle("is-ended", playbackEnded);
   playToggle.setAttribute("aria-pressed", String(isPlaying));
-  const label = isPlaying ? "一時停止" : "再生";
+  const label = isPlaying ? "一時停止" : playbackEnded ? "リピート" : "再生";
   playToggle.setAttribute("aria-label", label);
   playToggle.title = label;
 }
@@ -768,6 +958,7 @@ function setPlaybackRate(nextRate) {
   playbackRate = THREE.MathUtils.clamp(nextRate, Number(speedSlider.min), Number(speedSlider.max));
   speedSlider.value = String(playbackRate);
   speedReadout.textContent = `${Number(playbackRate.toFixed(2))}×`;
+  timelineInstruments.updateSpeed(playbackRate);
 }
 
 function countPointsUntil(points, time) {
@@ -779,6 +970,19 @@ function countPointsUntil(points, time) {
     else high = mid;
   }
   return low;
+}
+
+function getTrackPositionAtTime(points, time) {
+  const nextIndex = countPointsUntil(points, time);
+  const beforeIndex = THREE.MathUtils.clamp(nextIndex - 1, 0, points.length - 1);
+  const afterIndex = THREE.MathUtils.clamp(nextIndex, 0, points.length - 1);
+  const before = points[beforeIndex];
+  const after = points[afterIndex];
+  const duration = Math.max(after.time - before.time, 1);
+  const progress = THREE.MathUtils.clamp((time - before.time) / duration, 0, 1);
+  const position = geoToWorld(before).lerp(geoToWorld(after), progress);
+  position.y = timeToHeight(time);
+  return position;
 }
 
 function getChildText(element, name) {
@@ -915,7 +1119,7 @@ function animate() {
     );
     updateTimeline(nextSeconds);
     if (nextSeconds >= Number(timeSlider.max)) {
-      stopPlayback();
+      stopPlayback({ ended: true });
     }
   }
 
@@ -924,6 +1128,7 @@ function animate() {
   } else {
     updateFollowCamera(deltaSeconds);
   }
+  timelineInstruments.updateCompass(activeCamera);
   renderer.render(scene, activeCamera);
   requestAnimationFrame(animate);
 }

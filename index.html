@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kashiwa 3D Map</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles/style.css?v=20260721-4" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles/style.css?v=20260722-25" />
     <script type="importmap">
       {
         "imports": {
@@ -22,43 +25,58 @@
         <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
         <button id="view-2d" type="button" aria-pressed="false">2D</button>
       </div>
-      <section class="camera-modes" aria-label="3Dカメラモード">
-        <div class="camera-modes__header">
-          <span>CAMERA</span>
-          <output id="camera-mode-readout">FREE / 自由</output>
-        </div>
-        <div class="camera-modes__options" role="group" aria-label="カメラ視点">
-          <button class="is-active" type="button" data-camera-mode="free" aria-pressed="true" title="現在の自由な軌道カメラ">
-            <span>FREE</span><small>自由</small>
-          </button>
-          <button type="button" data-camera-mode="street" aria-pressed="false" title="進行方向を見る街路レベルの追従カメラ">
-            <span>STREET</span><small>街路</small>
-          </button>
-          <button type="button" data-camera-mode="kite" aria-pressed="false" title="上空後方から追うカイトカメラ">
-            <span>KITE</span><small>カイト</small>
-          </button>
-          <button type="button" data-camera-mode="chase" aria-pressed="false" title="遠方からルートを追うカメラ">
-            <span>CHASE</span><small>遠景</small>
-          </button>
-          <button type="button" data-camera-mode="aerial" aria-pressed="false" title="高高度から進行方向を追う空撮カメラ">
-            <span>AERIAL</span><small>空撮</small>
-          </button>
-        </div>
-      </section>
       <aside id="legend-filter" class="age-legend" aria-label="データ説明と絞り込み"></aside>
       <aside id="memo-panel" class="memo-panel" aria-label="メモ">
-        <div id="memo-list" class="memo-list"></div>
+        <div class="memo-scroll-control">
+          <i id="memo-scroll-progress" class="memo-scroll-control__progress" aria-hidden="true"></i>
+          <output id="memo-scroll-total" class="memo-scroll-control__total">0</output>
+          <output id="memo-scroll-current" class="memo-scroll-control__current">0</output>
+          <span class="memo-scroll-control__minimum">0</span>
+          <input id="memo-scroll-slider" type="range" min="0" max="1" step="1" value="0" aria-label="データ一覧の位置" />
+        </div>
+        <div id="memo-scroll-viewport" class="memo-scroll-viewport">
+          <div id="memo-list" class="memo-list"></div>
+        </div>
+      </aside>
+      <aside class="timeline-instruments" aria-label="時刻と方角と再生速度">
+        <div class="instrument">
+          <div id="analog-clock" class="clock-dial" role="img" aria-label="タイムライン時刻">
+            <i class="clock-mark clock-mark--12">Ⅻ</i>
+            <i class="clock-mark clock-mark--3">Ⅲ</i>
+            <i class="clock-mark clock-mark--6">Ⅵ</i>
+            <i class="clock-mark clock-mark--9">Ⅸ</i>
+            <i class="clock-hand clock-hand--hour" data-clock-hour></i>
+            <i class="clock-hand clock-hand--minute" data-clock-minute></i>
+          </div>
+        </div>
+        <div class="instrument">
+          <div class="compass-dial" role="img" aria-label="カメラの方角">
+            <div id="compass-card" class="compass-card">
+              <div class="compass-north">
+                <i class="compass-north-arrow"></i>
+              </div>
+              <b class="compass-direction compass-direction--n">N</b>
+              <b class="compass-direction compass-direction--e">E</b>
+              <b class="compass-direction compass-direction--s">S</b>
+              <b class="compass-direction compass-direction--w">W</b>
+            </div>
+          </div>
+        </div>
+        <div class="instrument">
+          <div id="speed-engine" class="speed-engine" role="img" aria-label="再生速度 1倍">
+            <div class="speed-engine__ticks" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <i class="speed-engine__needle" data-speed-engine-needle></i>
+            <output class="speed-engine__readout" data-speed-engine-readout>1×</output>
+          </div>
+        </div>
       </aside>
       <section class="timeline" aria-label="時間操作">
         <header class="timeline__header">
           <div>
             <span>TIMELINE</span>
             <strong>18:00—24:00 · JST</strong>
-          </div>
-          <div class="timeline__observation-key">
-            <i></i>
-            <span>OBSERVATIONS</span>
-            <b id="observation-count">0</b>
           </div>
         </header>
         <div class="timeline__controls">
@@ -80,7 +98,11 @@
               <span style="left: 83.3333%">23</span>
               <span style="left: 100%">24</span>
             </div>
-            <div id="time-progress" class="time-progress" aria-hidden="true"></div>
+            <div class="time-gauge-segments" aria-hidden="true">
+              <i><b data-time-gauge-fill></b></i>
+              <i><b data-time-gauge-fill></b></i>
+              <i><b data-time-gauge-fill></b></i>
+            </div>
             <div id="time-event-markers" class="time-event-markers" aria-label="観察データの時刻"></div>
             <input id="time-slider" type="range" min="0" max="0" step="1" value="0" aria-label="表示時刻" />
           </div>
@@ -94,9 +116,17 @@
           <option value="2"></option>
         </datalist>
       </section>
-      <output id="coord-readout" aria-live="polite">0, 0, 0</output>
+      <section class="data-code-guide" aria-label="データコード説明">
+        <div class="data-code-guide__group"><b>AGE</b> H 高校生 / U 大学生 / Y 若い社会人 / A 中高年 / S 高齢者</div>
+        <div class="data-code-guide__group"><b>GROUP</b> CP カップル / FM 家族 / MX 年齢・属性混合 / UN 不明</div>
+        <div class="data-code-guide__group"><b>GEN</b> M 男性 / F 女性 / X 男女混合 / U 不明</div>
+        <div class="data-code-guide__group data-code-guide__group--assignees">
+          <b>担当者</b>
+          <div id="assignee-list" class="assignee-list" aria-label="担当者で絞り込み"></div>
+        </div>
+      </section>
     </main>
 
-    <script type="module" src="./src/index.js?v=20260722-5"></script>
+    <script type="module" src="./src/index.js?v=20260722-28"></script>
   </body>
 </html>
