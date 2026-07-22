@@ -63,7 +63,7 @@ export function createMapDisplay(canvas) {
 
   function loadModel(onLoaded) {
     new GLTFLoader().load(
-      "../3Dmap/Kashiwa_3Dmap.glb",
+      new URL("../3Dmap/Kashiwa_3Dmap.glb", import.meta.url).href,
       (gltf) => {
         const model = gltf.scene;
         model.traverse((child) => {
