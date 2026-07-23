@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import {
   BACKGROUND_COLOR,
@@ -42,6 +43,9 @@ export function createMapDisplay(canvas) {
 
   const mapGroup = new THREE.Group();
   scene.add(mapGroup);
+  let overviewModel = null;
+  let detailModel = null;
+  let detailModelPromise = null;
 
   const gpxGroup = new THREE.Group();
   scene.add(gpxGroup);
@@ -63,7 +67,7 @@ export function createMapDisplay(canvas) {
 
   function loadModel(onLoaded) {
     new GLTFLoader().load(
-      new URL("../3Dmap/Kashiwa_3Dmap.glb", import.meta.url).href,
+      new URL("../assets/models/Kashiwa_3Dmap.glb", import.meta.url).href,
       (gltf) => {
         const model = gltf.scene;
         model.traverse((child) => {
@@ -75,6 +79,7 @@ export function createMapDisplay(canvas) {
         });
 
         mapGroup.add(model);
+        overviewModel = model;
         onLoaded?.(model);
       },
       undefined,
@@ -82,6 +87,68 @@ export function createMapDisplay(canvas) {
         console.error(error);
       },
     );
+  }
+
+  function loadDetailModel() {
+    if (detailModel) return Promise.resolve(detailModel);
+    if (detailModelPromise) return detailModelPromise;
+
+    detailModelPromise = new Promise((resolve, reject) => {
+      new FBXLoader().load(
+        new URL("../assets/models/kashiwa_Blosm.fbx", import.meta.url).href,
+        (model) => {
+          model.traverse((child) => {
+            if (!child.isMesh) return;
+            child.castShadow = false;
+            child.receiveShadow = true;
+            keepOriginalMaterial(child);
+          });
+          alignDetailModel(model);
+          model.visible = false;
+          mapGroup.add(model);
+          detailModel = model;
+          resolve(model);
+        },
+        undefined,
+        reject,
+      );
+    });
+    return detailModelPromise;
+  }
+
+  function alignDetailModel(model) {
+    if (!overviewModel) return;
+    const overviewBounds = new THREE.Box3().setFromObject(overviewModel);
+    const detailBounds = new THREE.Box3().setFromObject(model);
+    const overviewSize = overviewBounds.getSize(new THREE.Vector3());
+    const detailSize = detailBounds.getSize(new THREE.Vector3());
+    const scale = Math.min(
+      overviewSize.x / Math.max(detailSize.x, 1),
+      overviewSize.z / Math.max(detailSize.z, 1),
+    );
+    model.scale.multiplyScalar(scale);
+    model.updateWorldMatrix(true, true);
+
+    const scaledBounds = new THREE.Box3().setFromObject(model);
+    const overviewCenter = overviewBounds.getCenter(new THREE.Vector3());
+    const detailCenter = scaledBounds.getCenter(new THREE.Vector3());
+    model.position.add(overviewCenter.sub(detailCenter));
+    model.updateWorldMatrix(true, true);
+    model.position.y -= new THREE.Box3().setFromObject(model).min.y;
+  }
+
+  async function setModelMode(mode) {
+    if (mode === "detail") {
+      const model = await loadDetailModel();
+      if (overviewModel) overviewModel.visible = false;
+      model.visible = true;
+      groundGrid.visible = false;
+      return model;
+    }
+    if (overviewModel) overviewModel.visible = true;
+    if (detailModel) detailModel.visible = false;
+    groundGrid.visible = true;
+    return overviewModel;
   }
 
   return {
@@ -101,6 +168,8 @@ export function createMapDisplay(canvas) {
     modelCenter,
     modelSize,
     loadModel,
+    loadDetailModel,
+    setModelMode,
     worldToGeo,
     geoToWorld,
   };

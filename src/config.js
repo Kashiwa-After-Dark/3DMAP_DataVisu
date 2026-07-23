@@ -34,7 +34,7 @@ export const GPX_FILES = [
 ].map((file, index) => ({
   id: `gpx-${index}`,
   file,
-  url: new URL(`../RH01_0707/${file}`, import.meta.url).href,
+  url: new URL(`../assets/data/gpx/RH01_0707/${file}`, import.meta.url).href,
   label: file.replace(/^\d+_\d+_/, "").replace(/\.gpx$/i, ""),
 }));
 
