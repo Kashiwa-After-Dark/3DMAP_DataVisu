@@ -13,8 +13,8 @@ import {
   TIME_BASE_Y,
   TIME_END_HOUR,
   TIME_START_HOUR,
-} from "./config.js";
-import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260722-25";
+} from "./config.js?v=20260724-16";
+import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260724-16";
 import { createLegendFilter } from "../r4U_js/filters.js?v=20260724-11";
 import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260724-12";
 import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-25";
@@ -323,6 +323,10 @@ async function loadGpx() {
       applyFilters();
     },
   });
+  const initialAssigneeSelection = assigneeFilter.getSelection();
+  legendFilter.setSources(initialAssigneeSelection.sourceIds);
+  setHighlightedTimeSegments(initialAssigneeSelection.segmentIndexes);
+  applyFilters();
   legendFilter.updateCount(memoPoints);
   renderTimelineMarkers();
   updateCameraVisualDensity();
@@ -416,6 +420,7 @@ function addRouteLines() {
     const routeHead = createRouteHead();
     gpxGroup.add(routeHead);
     elapsedRouteLines.push({
+      fullRouteLine,
       line,
       head: routeHead,
       points: track.points,
@@ -757,11 +762,12 @@ function updateTimeline(seconds) {
     fill.style.width = `${segmentProgress * 100}%`;
   }
 
-  for (const { line, head, points, sourceId } of elapsedRouteLines) {
+  for (const { fullRouteLine, line, head, points, sourceId } of elapsedRouteLines) {
     const sourceVisible = sourceIsVisible(sourceId);
     const routeCount = countPointsUntil(points, currentTime);
     const routeIsActive = currentTime >= points[0].time
       && currentTime <= points[points.length - 1].time;
+    fullRouteLine.visible = sourceVisible;
     line.visible = sourceVisible;
     line.geometry.setDrawRange(0, routeCount);
     head.visible = sourceVisible && routeIsActive;

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GPX_FILES, INITIAL_CENTER_GEO } from "../src/config.js";
+import { GPX_FILES, INITIAL_CENTER_GEO } from "../src/config.js?v=20260724-17";
 import { createMapDisplay } from "../src/main.js?v=20260724-04";
 import { PHOTOS } from "../src/photos.js";
 

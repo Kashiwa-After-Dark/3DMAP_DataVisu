@@ -25,10 +25,25 @@ export const TIME_END_HOUR = 24;
 export const DEFAULT_CATEGORY = "UN";
 export const GRAFFITI_OFFSET_SLOTS = [0, -1, 1, -2, 2, -3, 3];
 
+const DEFAULT_HIDDEN_GPX_FILES = new Set([
+  "01_1820_takahashi.gpx",
+  "01_2022_Hayato.gpx",
+  "01_2022_KatayamaTakumi.gpx",
+  "01_2022_Okazaki.gpx",
+  "01_2022_SatoSora.gpx",
+  "01_2022_Senri.gpx",
+]);
+
 export const GPX_FILES = [
   "01_1820_Omori.gpx",
   "01_1820_Nakamura.gpx",
+  "01_1820_takahashi.gpx",
   "01_2022_Tomoya.gpx",
+  "01_2022_Hayato.gpx",
+  "01_2022_KatayamaTakumi.gpx",
+  "01_2022_Okazaki.gpx",
+  "01_2022_SatoSora.gpx",
+  "01_2022_Senri.gpx",
   "01_2224_Kobayashi.gpx",
   "01_2224_Yoh.gpx",
 ].map((file, index) => ({
@@ -36,6 +51,7 @@ export const GPX_FILES = [
   file,
   url: new URL(`../assets/data/gpx/RH01_0707/${file}`, import.meta.url).href,
   label: file.replace(/^\d+_\d+_/, "").replace(/\.gpx$/i, ""),
+  visibleByDefault: !DEFAULT_HIDDEN_GPX_FILES.has(file),
 }));
 
 export const CAMERA_MODES = {

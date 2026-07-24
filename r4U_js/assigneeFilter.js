@@ -1,38 +1,57 @@
 export function createAssigneeFilter({ root, sources, onChange }) {
   const allSourceIds = sources.map((source) => source.id);
+  const defaultSourceIds = sources
+    .filter((source) => source.visibleByDefault !== false)
+    .map((source) => source.id);
   const allButton = makeButton("全員", "all");
   const sourceButtons = sources.map((source) => makeButton(source.label, source.id));
   root.replaceChildren(allButton, ...sourceButtons);
 
-  const selectAll = ({ notify = true } = {}) => {
-    allButton.classList.add("is-active");
-    allButton.setAttribute("aria-pressed", "true");
+  const getSelection = () => {
+    const sourceIds = sourceButtons
+      .filter((button) => button.classList.contains("is-active"))
+      .map((button) => button.dataset.sourceId);
+    const selectedSources = sources.filter((source) => sourceIds.includes(source.id));
+    const segmentIndexes = [...new Set(selectedSources.map(getSourceSegmentIndex))].sort();
+    return { sourceIds, segmentIndexes };
+  };
+
+  const notifySelection = () => onChange?.(getSelection());
+
+  const syncAllButton = () => {
+    const allSelected = sourceButtons.every((button) => button.classList.contains("is-active"));
+    allButton.classList.toggle("is-active", allSelected);
+    allButton.setAttribute("aria-pressed", String(allSelected));
+  };
+
+  const setSelection = (sourceIds, { notify = true } = {}) => {
+    const selectedIds = new Set(sourceIds);
     for (const button of sourceButtons) {
-      button.classList.remove("is-active");
-      button.setAttribute("aria-pressed", "false");
+      const selected = selectedIds.has(button.dataset.sourceId);
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
     }
-    if (notify) onChange?.({ sourceIds: allSourceIds, segmentIndexes: [0, 1, 2] });
+    syncAllButton();
+    if (notify) notifySelection();
+  };
+
+  const selectAll = ({ notify = true } = {}) => {
+    setSelection(allSourceIds, { notify });
   };
 
   allButton.addEventListener("click", () => selectAll());
-  for (const [index, button] of sourceButtons.entries()) {
+  for (const button of sourceButtons) {
     button.addEventListener("click", () => {
-      allButton.classList.remove("is-active");
-      allButton.setAttribute("aria-pressed", "false");
-      for (const peer of sourceButtons) {
-        const selected = peer === button;
-        peer.classList.toggle("is-active", selected);
-        peer.setAttribute("aria-pressed", String(selected));
-      }
-      onChange?.({
-        sourceIds: [sources[index].id],
-        segmentIndexes: [getSourceSegmentIndex(sources[index])],
-      });
+      const selected = !button.classList.contains("is-active");
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+      syncAllButton();
+      notifySelection();
     });
   }
 
-  selectAll({ notify: false });
-  return { selectAll };
+  setSelection(defaultSourceIds, { notify: false });
+  return { selectAll, getSelection };
 }
 
 function makeButton(label, value) {
