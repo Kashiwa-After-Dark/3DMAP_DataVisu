@@ -29,6 +29,10 @@ const calibrationProgress = document.querySelector("#calibration-progress");
 const calibrationConfirm = document.querySelector("#confirm-calibration");
 const calibrationCancel = document.querySelector("#cancel-calibration");
 const calibrationReset = document.querySelector("#reset-calibration");
+const calibrationPhotoSelect = document.querySelector("#calibration-photo-select");
+const calibrationBack = document.querySelector("#calibration-back");
+const calibrationSkip = document.querySelector("#calibration-skip");
+const calibrationPartial = document.querySelector("#partial-calibration");
 const poseInputs = [...document.querySelectorAll("[data-pose]")];
 const calibrationStep = document.querySelector("#calibration-step");
 const nudgeButtons = [...document.querySelectorAll("[data-nudge-axis]")];
@@ -38,6 +42,8 @@ const calibrationOutput = document.querySelector("#calibration-output");
 const copyCalibrationButton = document.querySelector("#copy-calibration");
 const restartCalibrationButton = document.querySelector("#restart-calibration");
 const closeCalibrationSummaryButton = document.querySelector("#close-calibration-summary");
+const calibrationSummaryLabel = document.querySelector("#calibration-summary-label");
+const calibrationSummaryTitle = document.querySelector("#calibration-summary-title");
 const CALIBRATION_DRAFT_KEY = "kashiwa-photo-calibration-draft-v1";
 const isPublicViewer = document.body.dataset.viewerMode === "public";
 
@@ -132,6 +138,12 @@ cameraFov?.addEventListener("input", updateCameraFov);
 calibrationConfirm?.addEventListener("click", confirmCalibrationPose);
 calibrationCancel?.addEventListener("click", cancelCalibration);
 calibrationReset?.addEventListener("click", resetCalibration);
+calibrationPhotoSelect?.addEventListener("change", () => {
+  if (calibrationMode) openPhoto(Number(calibrationPhotoSelect.value));
+});
+calibrationBack?.addEventListener("click", () => navigateCalibration(-1));
+calibrationSkip?.addEventListener("click", skipCalibrationPhoto);
+calibrationPartial?.addEventListener("click", () => showCalibrationSummary(true));
 poseInputs.forEach((input) => input.addEventListener("change", applyPoseInputs));
 nudgeButtons.forEach((button) => button.addEventListener("click", () => {
   nudgeCamera(
@@ -361,7 +373,7 @@ function renderPhotoGrid() {
     image.loading = "lazy";
 
     const label = document.createElement("span");
-    label.textContent = `${photo.author.toUpperCase()} · ${formatPhotoTime(photo.capturedAt)}`;
+    label.textContent = `${String(index + 1).padStart(2, "0")} · ${photo.author.toUpperCase()} · ${formatPhotoTime(photo.capturedAt)}`;
     button.append(image, label);
     button.addEventListener("click", () => {
       photoList.hidden = true;
@@ -618,6 +630,7 @@ function updateCameraFov() {
 async function startCalibration() {
   if (!PHOTOS[0]?.worldPosition) return;
   calibrationResults = loadCalibrationDraft();
+  updateCalibrationPhotoSelect();
   const resumeIndex = getResumeIndex();
   calibrationMode = true;
   calibrationSummary.hidden = true;
@@ -638,6 +651,7 @@ function cancelCalibration() {
 async function resetCalibration() {
   clearCalibrationDraft();
   calibrationResults = [];
+  updateCalibrationPhotoSelect();
   calibrationConfirm.disabled = true;
   await openPhoto(0);
 }
@@ -655,6 +669,30 @@ async function confirmCalibrationPose() {
     return;
   }
 
+  calibrationConfirm.disabled = true;
+  await openPhoto(activePhotoIndex + 1);
+}
+
+async function navigateCalibration(offset) {
+  if (!calibrationMode || activePhotoIndex < 0) return;
+  const nextIndex = THREE.MathUtils.clamp(
+    activePhotoIndex + offset,
+    0,
+    PHOTOS.length - 1,
+  );
+  if (nextIndex === activePhotoIndex) return;
+  calibrationConfirm.disabled = true;
+  await openPhoto(nextIndex);
+}
+
+async function skipCalibrationPhoto() {
+  if (!calibrationMode || activePhotoIndex < 0) return;
+  calibrationResults[activePhotoIndex] = undefined;
+  saveCalibrationDraft();
+  if (activePhotoIndex >= PHOTOS.length - 1) {
+    showCalibrationSummary(true);
+    return;
+  }
   calibrationConfirm.disabled = true;
   await openPhoto(activePhotoIndex + 1);
 }
@@ -711,6 +749,22 @@ function restoreCalibrationPose(record) {
 function updateCalibrationProgress(index = activePhotoIndex) {
   const savedCount = calibrationResults.filter(Boolean).length;
   calibrationProgress.textContent = `PHOTO ${index + 1} / ${PHOTOS.length} · SAVED ${savedCount}`;
+  updateCalibrationPhotoSelect(index);
+  if (calibrationBack) calibrationBack.disabled = index <= 0;
+  if (calibrationPartial) calibrationPartial.disabled = savedCount === 0;
+}
+
+function updateCalibrationPhotoSelect(selectedIndex = activePhotoIndex) {
+  if (!calibrationPhotoSelect) return;
+  const options = PHOTOS.map((photo, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    const status = calibrationResults[index] ? "✓" : "·";
+    option.textContent = `${String(index + 1).padStart(2, "0")} ${status} ${photo.author} / ${photo.file}`;
+    return option;
+  });
+  calibrationPhotoSelect.replaceChildren(...options);
+  if (selectedIndex >= 0) calibrationPhotoSelect.value = String(selectedIndex);
 }
 
 function getResumeIndex() {
@@ -836,23 +890,38 @@ function moveCameraWithKeyboard(key, multiplier = 1) {
 }
 
 function finishCalibration() {
+  showCalibrationSummary(false);
+}
+
+function showCalibrationSummary(partial = false) {
+  const confirmedResults = calibrationResults.filter(Boolean);
   const payload = {
     format: "kashiwa-photo-camera-calibration-v1",
+    partial,
+    confirmedCount: confirmedResults.length,
     model: "kashiwa_Blosm.glb",
     coordinateSystem: "Three.js world coordinates; Y-up",
     rotationUnit: "degrees",
     rotationOrder: "YXZ",
-    photos: calibrationResults,
+    photos: confirmedResults,
   };
 
-  calibrationMode = false;
-  calibrationPanel.hidden = true;
-  calibrationConfirm.disabled = false;
-  document.body.classList.remove("calibration-mode");
-  closePhoto();
+  if (!partial) {
+    calibrationMode = false;
+    calibrationPanel.hidden = true;
+    calibrationConfirm.disabled = false;
+    document.body.classList.remove("calibration-mode");
+    closePhoto();
+  }
 
   calibrationOutput.value = JSON.stringify(payload, null, 2);
-  calibrationResultList.replaceChildren(...calibrationResults.map((result) => {
+  calibrationSummaryLabel.textContent = partial
+    ? "CALIBRATION PARTIAL"
+    : "CALIBRATION COMPLETE";
+  calibrationSummaryTitle.textContent = partial
+    ? `途中確定 · ${confirmedResults.length}枚`
+    : `${confirmedResults.length}枚の調整結果`;
+  calibrationResultList.replaceChildren(...confirmedResults.map((result) => {
     const row = document.createElement("div");
     row.className = "calibration-result-row";
     const number = document.createElement("b");

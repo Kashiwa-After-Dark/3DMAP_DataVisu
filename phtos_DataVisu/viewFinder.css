@@ -492,6 +492,8 @@ body.overview-reveal-active #detail-reveal-scene {
   right: 18px;
   z-index: 4;
   width: min(340px, calc(100vw - 36px));
+  max-height: calc(100vh - 176px);
+  overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 10px;
   padding: 14px;
@@ -546,6 +548,27 @@ body.overview-reveal-active #detail-reveal-scene {
   color: #cbd5e1;
   font-size: 10px;
   line-height: 1.55;
+}
+
+.calibration-photo-picker {
+  margin: 0 0 12px;
+}
+
+.calibration-photo-picker label {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  gap: 7px;
+}
+
+.calibration-photo-picker select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  padding: 7px;
+  color: #fff;
+  font-size: 10px;
+  background: #0f172a;
 }
 
 .calibration-panel fieldset {
@@ -653,6 +676,44 @@ body.overview-reveal-active #detail-reveal-scene {
   font-weight: 800;
   background: #fff;
   cursor: pointer;
+}
+
+.calibration-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.calibration-actions > button {
+  min-height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  cursor: pointer;
+}
+
+.calibration-actions .calibration-confirm,
+.calibration-actions .calibration-partial {
+  grid-column: 1 / -1;
+}
+
+.calibration-actions .calibration-confirm {
+  border: 0;
+  color: var(--ink);
+  background: #fff;
+}
+
+.calibration-actions .calibration-partial {
+  border-color: rgba(57, 125, 159, 0.9);
+  color: #dbeafe;
+  background: rgba(57, 125, 159, 0.22);
+}
+
+.calibration-actions > button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .calibration-confirm:disabled {
