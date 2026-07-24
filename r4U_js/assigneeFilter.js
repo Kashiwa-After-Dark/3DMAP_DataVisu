@@ -5,6 +5,8 @@ export function createAssigneeFilter({ root, sources, onChange }) {
     .map((source) => source.id);
   const allButton = makeButton("全員", "all");
   const sourceButtons = sources.map((source) => makeButton(source.label, source.id));
+  let hasUserSelection = false;
+  let showAllOnNextAllClick = false;
   root.replaceChildren(allButton, ...sourceButtons);
 
   const getSelection = () => {
@@ -13,7 +15,17 @@ export function createAssigneeFilter({ root, sources, onChange }) {
       .map((button) => button.dataset.sourceId);
     const selectedSources = sources.filter((source) => sourceIds.includes(source.id));
     const segmentIndexes = [...new Set(selectedSources.map(getSourceSegmentIndex))].sort();
-    return { sourceIds, segmentIndexes };
+    const laneSegmentIndexes = Object.fromEntries(
+      ["terrace", "reysol"].map((lane) => [
+        lane,
+        [...new Set(
+          selectedSources
+            .filter((source) => source.lane === lane)
+            .map(getSourceSegmentIndex),
+        )].sort(),
+      ]),
+    );
+    return { sourceIds, segmentIndexes, laneSegmentIndexes };
   };
 
   const notifySelection = () => onChange?.(getSelection());
@@ -36,13 +48,28 @@ export function createAssigneeFilter({ root, sources, onChange }) {
   };
 
   const selectAll = ({ notify = true } = {}) => {
+    hasUserSelection = false;
+    showAllOnNextAllClick = false;
     setSelection(allSourceIds, { notify });
   };
 
-  allButton.addEventListener("click", () => selectAll());
+  allButton.addEventListener("click", () => {
+    hasUserSelection = false;
+    setSelection(showAllOnNextAllClick ? allSourceIds : defaultSourceIds);
+    showAllOnNextAllClick = !showAllOnNextAllClick;
+  });
   for (const button of sourceButtons) {
     button.addEventListener("click", () => {
+      showAllOnNextAllClick = false;
+      if (!hasUserSelection) {
+        hasUserSelection = true;
+        setSelection([button.dataset.sourceId]);
+        return;
+      }
+
+      const selectedButtons = sourceButtons.filter((peer) => peer.classList.contains("is-active"));
       const selected = !button.classList.contains("is-active");
+      if (!selected && selectedButtons.length === 1) return;
       button.classList.toggle("is-active", selected);
       button.setAttribute("aria-pressed", String(selected));
       syncAllButton();
