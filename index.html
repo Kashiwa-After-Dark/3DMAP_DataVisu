@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles/style.css?v=20260724-14" />
+    <link rel="stylesheet" href="./styles/style.css?v=20260724-18" />
     <script type="importmap">
       {
         "imports": {
@@ -100,12 +100,26 @@
               <span style="left: 83.3333%">23</span>
               <span style="left: 100%">24</span>
             </div>
-            <div class="time-gauge-segments" aria-hidden="true">
-              <i><b data-time-gauge-fill></b></i>
-              <i><b data-time-gauge-fill></b></i>
-              <i><b data-time-gauge-fill></b></i>
+            <div class="time-lanes">
+              <div class="time-lane time-lane--upper" data-time-lane="reysol">
+                <span class="time-lane__label">レイソル</span>
+                <div class="time-gauge-segments" aria-hidden="true">
+                  <i><b data-time-gauge-fill></b></i>
+                  <i><b data-time-gauge-fill></b></i>
+                  <i><b data-time-gauge-fill></b></i>
+                </div>
+                <div class="time-event-markers" data-time-event-markers="reysol" aria-label="レイソル担当の観察データ時刻"></div>
+              </div>
+              <div class="time-lane time-lane--lower" data-time-lane="terrace">
+                <span class="time-lane__label">テラス</span>
+                <div class="time-gauge-segments" aria-hidden="true">
+                  <i><b data-time-gauge-fill></b></i>
+                  <i><b data-time-gauge-fill></b></i>
+                  <i><b data-time-gauge-fill></b></i>
+                </div>
+                <div class="time-event-markers" data-time-event-markers="terrace" aria-label="テラス担当の観察データ時刻"></div>
+              </div>
             </div>
-            <div id="time-event-markers" class="time-event-markers" aria-label="観察データの時刻"></div>
             <input id="time-slider" type="range" min="0" max="0" step="1" value="0" aria-label="表示時刻" />
           </div>
           <output id="time-readout">--:--:--</output>
@@ -129,6 +143,6 @@
       </section>
     </main>
 
-    <script type="module" src="./src/index.js?v=20260724-12"></script>
+    <script type="module" src="./src/index.js?v=20260724-22"></script>
   </body>
 </html>

@@ -13,15 +13,15 @@ import {
   TIME_BASE_Y,
   TIME_END_HOUR,
   TIME_START_HOUR,
-} from "./config.js";
-import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260722-25";
-import { createLegendFilter } from "../r4U_js/filters.js?v=20260724-11";
+} from "./config.js?v=20260724-17";
+import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260724-20";
+import { createLegendFilter } from "../r4U_js/filters.js?v=20260724-12";
 import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260724-12";
 import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-25";
 import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";
 import { createMapDisplay } from "./main.js?v=20260724-04";
-import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260722-25";
+import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260724-26";
 import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260722-25";
 import { createMemoScroller } from "../r4U_js/memoScroller.js?v=20260722-25";
 import { getMemoProfile } from "../r4U_js/profiles.js";
@@ -34,9 +34,11 @@ const timeSlider = document.querySelector("#time-slider");
 const timeReadout = document.querySelector("#time-readout");
 const speedSlider = document.querySelector("#speed-slider");
 const speedReadout = document.querySelector("#speed-readout");
-const timeGaugeFills = [...document.querySelectorAll("[data-time-gauge-fill]")];
-const timeGaugeSegments = [...document.querySelectorAll(".time-gauge-segments > i")];
-const timeEventMarkers = document.querySelector("#time-event-markers");
+const timeLaneElements = [...document.querySelectorAll("[data-time-lane]")];
+const timeEventMarkerLanes = new Map(
+  [...document.querySelectorAll("[data-time-event-markers]")]
+    .map((element) => [element.dataset.timeEventMarkers, element]),
+);
 const memoList = document.querySelector("#memo-list");
 const memoScrollViewport = document.querySelector("#memo-scroll-viewport");
 const memoScrollSlider = document.querySelector("#memo-scroll-slider");
@@ -48,6 +50,7 @@ const analogClock = document.querySelector("#analog-clock");
 const compassCard = document.querySelector("#compass-card");
 const speedEngine = document.querySelector("#speed-engine");
 const assigneeList = document.querySelector("#assignee-list");
+const sourcesById = new Map(GPX_FILES.map((source) => [source.id, source]));
 
 const mapDisplay = createMapDisplay(canvas);
 const {
@@ -317,12 +320,19 @@ async function loadGpx() {
   assigneeFilter = createAssigneeFilter({
     root: assigneeList,
     sources: GPX_FILES,
-    onChange: ({ sourceIds, segmentIndexes }) => {
+    onChange: ({ sourceIds, segmentIndexes, laneSegmentIndexes }) => {
       legendFilter.setSources(sourceIds);
-      setHighlightedTimeSegments(segmentIndexes);
+      setHighlightedTimeSegments(segmentIndexes, laneSegmentIndexes);
       applyFilters();
     },
   });
+  const initialAssigneeSelection = assigneeFilter.getSelection();
+  legendFilter.setSources(initialAssigneeSelection.sourceIds);
+  setHighlightedTimeSegments(
+    initialAssigneeSelection.segmentIndexes,
+    initialAssigneeSelection.laneSegmentIndexes,
+  );
+  applyFilters();
   legendFilter.updateCount(memoPoints);
   renderTimelineMarkers();
   updateCameraVisualDensity();
@@ -416,6 +426,7 @@ function addRouteLines() {
     const routeHead = createRouteHead();
     gpxGroup.add(routeHead);
     elapsedRouteLines.push({
+      fullRouteLine,
       line,
       head: routeHead,
       points: track.points,
@@ -752,16 +763,20 @@ function updateTimeline(seconds) {
   timeSlider.value = String(seconds);
   timeReadout.textContent = formatTime(currentTime);
   const progress = THREE.MathUtils.clamp(seconds / Number(timeSlider.max), 0, 1);
-  for (const [index, fill] of timeGaugeFills.entries()) {
-    const segmentProgress = THREE.MathUtils.clamp(progress * timeGaugeFills.length - index, 0, 1);
-    fill.style.width = `${segmentProgress * 100}%`;
+  for (const lane of timeLaneElements) {
+    const fills = [...lane.querySelectorAll("[data-time-gauge-fill]")];
+    for (const [index, fill] of fills.entries()) {
+      const segmentProgress = THREE.MathUtils.clamp(progress * fills.length - index, 0, 1);
+      fill.style.width = `${segmentProgress * 100}%`;
+    }
   }
 
-  for (const { line, head, points, sourceId } of elapsedRouteLines) {
+  for (const { fullRouteLine, line, head, points, sourceId } of elapsedRouteLines) {
     const sourceVisible = sourceIsVisible(sourceId);
     const routeCount = countPointsUntil(points, currentTime);
     const routeIsActive = currentTime >= points[0].time
       && currentTime <= points[points.length - 1].time;
+    fullRouteLine.visible = sourceVisible;
     line.visible = sourceVisible;
     line.geometry.setDrawRange(0, routeCount);
     head.visible = sourceVisible && routeIsActive;
@@ -822,31 +837,45 @@ function syncMemoMarkerOpacity(memo, isRecent) {
 }
 
 function renderTimelineMarkers() {
-  const collisionCounts = new Map();
+  const collisionCounts = new Map(
+    [...timeEventMarkerLanes.keys()].map((lane) => [lane, new Map()]),
+  );
+  const markersByLane = new Map(
+    [...timeEventMarkerLanes.keys()].map((lane) => [lane, []]),
+  );
   const offsets = [0, -3, 3, -6, 6, -9, 9];
   const duration = timelineEnd - timelineStart;
-  const markers = memoPoints
-    .filter((memo) => memo.time >= timelineStart && memo.time <= timelineEnd && memoMatchesFilters(memo))
-    .map((memo) => {
-      const marker = document.createElement("i");
-      const position = ((memo.time - timelineStart) / duration) * 100;
-      const collisionKey = Math.floor((memo.time - timelineStart) / 30_000);
-      const collisionIndex = collisionCounts.get(collisionKey) || 0;
-      collisionCounts.set(collisionKey, collisionIndex + 1);
-      const height = memo.isPeople
-        ? THREE.MathUtils.clamp(7 + (memo.count || 1) * 1.7, 9, 28)
-        : 6;
+  const visibleMemos = memoPoints.filter(
+    (memo) => memo.time >= timelineStart
+      && memo.time <= timelineEnd
+      && memoMatchesFilters(memo),
+  );
 
-      marker.className = `time-event-marker${memo.isPeople ? "" : " is-neutral"}`;
-      marker.style.left = `${position}%`;
-      marker.style.height = `${height}px`;
-      marker.style.setProperty("--marker-color", CATEGORY_STYLES[memo.category].color);
-      marker.style.setProperty("--marker-offset", `${offsets[collisionIndex % offsets.length]}px`);
-      return marker;
-    });
+  for (const memo of visibleMemos) {
+    const lane = sourcesById.get(memo.sourceId)?.lane || "reysol";
+    const laneCollisions = collisionCounts.get(lane);
+    const collisionKey = Math.floor((memo.time - timelineStart) / 30_000);
+    const collisionIndex = laneCollisions.get(collisionKey) || 0;
+    laneCollisions.set(collisionKey, collisionIndex + 1);
 
-  timeEventMarkers.replaceChildren(...markers);
-  timeEventMarkers.setAttribute("aria-label", `${markers.length}件の観察データの時刻`);
+    const marker = document.createElement("i");
+    const position = ((memo.time - timelineStart) / duration) * 100;
+    const height = memo.isPeople
+      ? THREE.MathUtils.clamp(7 + (memo.count || 1) * 1.7, 9, 28)
+      : 6;
+    marker.className = `time-event-marker${memo.isPeople ? "" : " is-neutral"}`;
+    marker.style.left = `${position}%`;
+    marker.style.height = `${height}px`;
+    marker.style.setProperty("--marker-color", CATEGORY_STYLES[memo.category].color);
+    marker.style.setProperty("--marker-offset", `${offsets[collisionIndex % offsets.length]}px`);
+    markersByLane.get(lane).push(marker);
+  }
+
+  for (const [lane, container] of timeEventMarkerLanes) {
+    const markers = markersByLane.get(lane);
+    container.replaceChildren(...markers);
+    container.setAttribute("aria-label", `${markers.length}件の観察データの時刻`);
+  }
 }
 
 function memoMatchesFilters(memo) {
@@ -930,10 +959,14 @@ function stopPlayback({ ended = false } = {}) {
   syncPlaybackButton();
 }
 
-function setHighlightedTimeSegments(segmentIndexes) {
-  const activeSegments = new Set(segmentIndexes);
-  for (const [index, segment] of timeGaugeSegments.entries()) {
-    segment.classList.toggle("is-muted", !activeSegments.has(index));
+function setHighlightedTimeSegments(segmentIndexes, laneSegmentIndexes = null) {
+  for (const lane of timeLaneElements) {
+    const laneName = lane.dataset.timeLane;
+    const activeSegments = new Set(laneSegmentIndexes?.[laneName] ?? segmentIndexes);
+    const segments = [...lane.querySelectorAll(".time-gauge-segments > i")];
+    for (const [index, segment] of segments.entries()) {
+      segment.classList.toggle("is-muted", !activeSegments.has(index));
+    }
   }
 }
 
