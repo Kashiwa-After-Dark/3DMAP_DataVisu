@@ -77,7 +77,13 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
         `input[name="${selectedCode.dataset.name}"][value="${selectedCode.dataset.value}"]`,
       );
       const checked = [...root.querySelectorAll(`input[name="${selectedCode.dataset.name}"]:checked`)];
-      if (input && checked.length > 1) {
+      if (input && checked.length === 1) {
+        for (const peer of root.querySelectorAll(`input[name="${input.name}"]`)) {
+          peer.checked = true;
+          if (peer !== input) peer.dataset.animateNext = "true";
+        }
+        handleChange();
+      } else if (input && checked.length > 1) {
         input.checked = false;
         handleChange();
       }
@@ -99,6 +105,11 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       input.dataset.animateNext = "true";
     } else if (checked.length > 1) {
       input.checked = false;
+    } else {
+      for (const peer of peers) {
+        peer.checked = true;
+        if (peer !== input) peer.dataset.animateNext = "true";
+      }
     }
     handleChange();
   });

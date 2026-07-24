@@ -608,7 +608,7 @@ body.photo-mode #scene:active {
   color: var(--map-blue);
   background: transparent;
   box-shadow: none;
-  transform: rotate(45deg);
+  transform: translateY(1px) rotate(45deg);
 }
 
 .legend-filter__option[data-shape="u"] {
@@ -645,7 +645,7 @@ body.photo-mode #scene:active {
 }
 
 .legend-filter__option[data-shape="x"]:hover {
-  transform: rotate(45deg) scale(1.08);
+  transform: translateY(1px) rotate(45deg) scale(1.08);
 }
 
 .legend-filter__option[data-shape="x"] span {
