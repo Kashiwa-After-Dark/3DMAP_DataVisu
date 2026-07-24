@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="柏駅周辺の3Dモデルと夜間写真を重ねて比較するViewFinder可視化" />
+    <title>Kashiwa Photo ViewFinder</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../viewFinder.css?v=20260724-03" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.166.1/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.166.1/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body data-viewer-mode="developer">
+    <main id="viewfinder-app">
+      <canvas id="scene" aria-label="柏駅周辺の写真地点と3Dマップ"></canvas>
+
+      <header class="overview-ui site-header">
+        <a class="back-link" href="../../" aria-label="メインの3Dマップへ戻る">← 3D MAP</a>
+        <div class="site-header__title">
+          <span>KASHIWA AFTER DARK</span>
+          <h1>PHOTO VIEWFINDER</h1>
+        </div>
+        <div id="model-badge" class="model-badge"><i></i>3DMAP · OVERVIEW</div>
+      </header>
+
+      <section class="overview-ui intro-panel">
+        <span>01 / SELECT A POINT</span>
+        <h2>夜の景色を<br />3D空間でたどる</h2>
+        <p>白いリングを選ぶと、撮影地点から見た写真とBlosmモデルを重ねて表示します。</p>
+        <div class="intro-panel__actions">
+          <button id="open-photo-list" type="button">写真一覧を見る <b>31</b></button>
+          <button id="start-calibration" class="calibration-start" type="button">視点調整を開始 <b>→</b></button>
+        </div>
+      </section>
+
+      <div id="map-hint" class="overview-ui map-hint">
+        <i></i>
+        <span>PHOTO POINTを選択</span>
+      </div>
+
+      <aside id="photo-list" class="photo-list" aria-label="写真一覧" hidden>
+        <header>
+          <div><span>PHOTO ARCHIVE</span><strong>31 VIEWS</strong></div>
+          <button id="close-photo-list" type="button" aria-label="写真一覧を閉じる">×</button>
+        </header>
+        <div id="photo-grid" class="photo-grid"></div>
+      </aside>
+
+      <section id="photo-viewer" class="photo-viewer" aria-label="写真とBlosmモデルの比較" hidden>
+        <img id="photo-overlay" class="photo-viewer__image" alt="" />
+        <div class="photo-viewer__vignette" aria-hidden="true"></div>
+        <header class="photo-viewer__header">
+          <button id="photo-close" class="circle-button" type="button" aria-label="全体地図に戻る">×</button>
+          <div>
+            <span>BLENDED VIEW · BLOSM</span>
+            <strong id="photo-title">PHOTO</strong>
+          </div>
+          <output id="photo-position">1 / 31</output>
+        </header>
+        <div class="photo-viewer__reticle" aria-hidden="true"><i></i></div>
+        <aside id="calibration-panel" class="calibration-panel" aria-label="写真視点の座標と角度" hidden>
+          <header>
+            <div>
+              <span>CAMERA POSE CALIBRATION</span>
+              <strong id="calibration-progress">PHOTO 1 / 31</strong>
+            </div>
+            <div class="calibration-panel__header-actions">
+              <button id="reset-calibration" type="button">最初から</button>
+              <button id="cancel-calibration" type="button">中断</button>
+            </div>
+          </header>
+          <p>左ドラッグ＝角度、右ドラッグ／Shift＋ドラッグ＝位置、ホイール＝前後。下のボタンやWASD・Q/Eでも移動できます。</p>
+          <fieldset>
+            <legend>座標 / POSITION</legend>
+            <label>X<input data-pose="position.x" type="number" step="0.1" inputmode="decimal" /></label>
+            <label>Y<input data-pose="position.y" type="number" step="0.1" inputmode="decimal" /></label>
+            <label>Z<input data-pose="position.z" type="number" step="0.1" inputmode="decimal" /></label>
+          </fieldset>
+          <div class="calibration-nudge">
+            <label>移動量
+              <select id="calibration-step" aria-label="1回の移動量">
+                <option value="0.1">0.1</option>
+                <option value="0.5" selected>0.5</option>
+                <option value="1">1.0</option>
+                <option value="5">5.0</option>
+              </select>
+            </label>
+            <div>
+              <button type="button" data-nudge-axis="x" data-nudge-direction="-1">X−</button>
+              <button type="button" data-nudge-axis="x" data-nudge-direction="1">X＋</button>
+              <button type="button" data-nudge-axis="y" data-nudge-direction="-1">Y−</button>
+              <button type="button" data-nudge-axis="y" data-nudge-direction="1">Y＋</button>
+              <button type="button" data-nudge-axis="z" data-nudge-direction="-1">Z−</button>
+              <button type="button" data-nudge-axis="z" data-nudge-direction="1">Z＋</button>
+            </div>
+          </div>
+          <fieldset>
+            <legend>角度 / ROTATION (DEG)</legend>
+            <label>X<input data-pose="rotation.x" type="number" step="0.1" inputmode="decimal" /></label>
+            <label>Y<input data-pose="rotation.y" type="number" step="0.1" inputmode="decimal" /></label>
+            <label>Z<input data-pose="rotation.z" type="number" step="0.1" inputmode="decimal" /></label>
+          </fieldset>
+          <button id="confirm-calibration" class="calibration-confirm" type="button">この写真を確定して次へ</button>
+        </aside>
+        <footer class="photo-viewer__controls">
+          <button id="photo-prev" class="circle-button" type="button" aria-label="前の写真">←</button>
+          <div class="photo-viewer__sliders">
+            <label>
+              <span>3D MAP</span>
+              <input id="photo-opacity" type="range" min="0" max="100" value="58" aria-label="写真の重なり具合" />
+              <span>PHOTO</span>
+            </label>
+            <label>
+              <span>PHOTO SIZE</span>
+              <input id="photo-scale" type="range" min="25" max="300" step="1" value="100" aria-label="写真の拡大縮小" />
+              <output id="photo-scale-readout">100%</output>
+            </label>
+            <label>
+              <span>PERSPECTIVE</span>
+              <input id="camera-fov" type="range" min="20" max="100" step="1" value="62" aria-label="遠近感・画角の調整" />
+              <output id="camera-fov-readout">62°</output>
+            </label>
+          </div>
+          <button id="photo-next" class="circle-button" type="button" aria-label="次の写真">→</button>
+        </footer>
+        <div class="photo-viewer__hint">前後位置で遠近差、PERSPECTIVEで画角、PHOTO SIZEで写真サイズを調整</div>
+      </section>
+
+      <section id="calibration-summary" class="calibration-summary" aria-label="視点調整結果" hidden>
+        <div class="calibration-summary__dialog">
+          <header>
+            <div><span>CALIBRATION COMPLETE</span><h2>31枚の調整結果</h2></div>
+            <button id="close-calibration-summary" type="button" aria-label="結果を閉じる">×</button>
+          </header>
+          <p>下の内容をコピーして、そのままCodexへ送ってください。</p>
+          <div id="calibration-result-list" class="calibration-result-list"></div>
+          <textarea id="calibration-output" readonly aria-label="コピー用の視点調整JSON"></textarea>
+          <footer>
+            <button id="restart-calibration" type="button">最初から調整</button>
+            <button id="copy-calibration" class="calibration-copy" type="button">結果をコピー</button>
+          </footer>
+        </div>
+      </section>
+
+      <div id="loading" class="loading">
+        <i></i>
+        <span>LOADING KASHIWA 3D MAP</span>
+      </div>
+    </main>
+
+    <script type="module" src="../viewFinder.js?v=20260724-04"></script>
+  </body>
+</html>

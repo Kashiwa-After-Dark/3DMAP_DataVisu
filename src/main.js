@@ -41,6 +41,12 @@ export function createMapDisplay(canvas) {
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
   scene.add(ambientLight);
 
+  function setDetailLighting(bright = false) {
+    hemiLight.intensity = bright ? 3.2 : 1.8;
+    sunLight.intensity = bright ? 3.6 : 2;
+    ambientLight.intensity = bright ? 1.35 : 0.7;
+  }
+
   const mapGroup = new THREE.Group();
   scene.add(mapGroup);
   let overviewModel = null;
@@ -94,23 +100,36 @@ export function createMapDisplay(canvas) {
     if (detailModelPromise) return detailModelPromise;
 
     detailModelPromise = new Promise((resolve, reject) => {
-      new FBXLoader().load(
-        new URL("../assets/models/kashiwa_Blosm.fbx", import.meta.url).href,
-        (model) => {
-          model.traverse((child) => {
-            if (!child.isMesh) return;
-            child.castShadow = false;
-            child.receiveShadow = true;
-            keepOriginalMaterial(child);
-          });
-          alignDetailModel(model);
-          model.visible = false;
-          mapGroup.add(model);
-          detailModel = model;
-          resolve(model);
-        },
+      const finish = (model) => {
+        model.traverse((child) => {
+          if (!child.isMesh) return;
+          child.castShadow = false;
+          child.receiveShadow = true;
+          prepareDetailMaterials(child);
+        });
+        alignDetailModel(model);
+        model.visible = false;
+        mapGroup.add(model);
+        detailModel = model;
+        resolve(model);
+      };
+      const loadFbxFallback = () => {
+        new FBXLoader().load(
+          new URL("../assets/models/kashiwa_Blosm.fbx", import.meta.url).href,
+          finish,
+          undefined,
+          reject,
+        );
+      };
+
+      new GLTFLoader().load(
+        new URL("../assets/models/kashiwa_Blosm.glb", import.meta.url).href,
+        (gltf) => finish(gltf.scene),
         undefined,
-        reject,
+        (error) => {
+          console.warn("Blosm GLB could not be loaded; falling back to FBX.", error);
+          loadFbxFallback();
+        },
       );
     });
     return detailModelPromise;
@@ -122,19 +141,22 @@ export function createMapDisplay(canvas) {
     const detailBounds = new THREE.Box3().setFromObject(model);
     const overviewSize = overviewBounds.getSize(new THREE.Vector3());
     const detailSize = detailBounds.getSize(new THREE.Vector3());
-    const scale = Math.min(
-      overviewSize.x / Math.max(detailSize.x, 1),
-      overviewSize.z / Math.max(detailSize.z, 1),
-    );
-    model.scale.multiplyScalar(scale);
+    const scaleX = overviewSize.x / Math.max(detailSize.x, 1);
+    const scaleZ = overviewSize.z / Math.max(detailSize.z, 1);
+    const verticalScale = (scaleX + scaleZ) * 0.5;
+    model.scale.set(scaleX, verticalScale, scaleZ);
     model.updateWorldMatrix(true, true);
 
     const scaledBounds = new THREE.Box3().setFromObject(model);
     const overviewCenter = overviewBounds.getCenter(new THREE.Vector3());
     const detailCenter = scaledBounds.getCenter(new THREE.Vector3());
-    model.position.add(overviewCenter.sub(detailCenter));
+    model.position.x += overviewCenter.x - detailCenter.x;
+    model.position.z += overviewCenter.z - detailCenter.z;
     model.updateWorldMatrix(true, true);
-    model.position.y -= new THREE.Box3().setFromObject(model).min.y;
+
+    const groundY = getModelYQuantile(model, 0.1);
+    model.position.y += overviewBounds.min.y - groundY;
+    model.updateWorldMatrix(true, true);
   }
 
   async function setModelMode(mode) {
@@ -145,10 +167,25 @@ export function createMapDisplay(canvas) {
       groundGrid.visible = false;
       return model;
     }
+    setDetailLighting(false);
     if (overviewModel) overviewModel.visible = true;
     if (detailModel) detailModel.visible = false;
     groundGrid.visible = true;
     return overviewModel;
+  }
+
+  function getDetailSurfaceHeight(point) {
+    if (!detailModel) return null;
+    detailModel.updateWorldMatrix(true, true);
+    const detailBounds = new THREE.Box3().setFromObject(detailModel);
+    const surfaceRay = new THREE.Raycaster(
+      new THREE.Vector3(point.x, detailBounds.max.y + 100, point.z),
+      new THREE.Vector3(0, -1, 0),
+      0,
+      detailBounds.getSize(new THREE.Vector3()).y + 200,
+    );
+    const hit = surfaceRay.intersectObject(detailModel, true)[0];
+    return hit?.point.y ?? null;
   }
 
   return {
@@ -170,6 +207,8 @@ export function createMapDisplay(canvas) {
     loadModel,
     loadDetailModel,
     setModelMode,
+    setDetailLighting,
+    getDetailSurfaceHeight,
     worldToGeo,
     geoToWorld,
   };
@@ -203,6 +242,45 @@ function keepOriginalMaterial(mesh) {
   for (const material of materials) {
     if (!material) continue;
     material.side = THREE.DoubleSide;
+    if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
     material.needsUpdate = true;
   }
+}
+
+function prepareDetailMaterials(mesh) {
+  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  if (materials.some((material) => material?.map)) {
+    keepOriginalMaterial(mesh);
+    return;
+  }
+
+  const urbanPalette = [0x71808a, 0x817a72, 0x65766f, 0x697483, 0x858076, 0x60717b];
+  mesh.material = materials.map((material, index) => new THREE.MeshStandardMaterial({
+    name: material?.name || `Blosm surface ${index + 1}`,
+    color: urbanPalette[index % urbanPalette.length],
+    emissive: 0x071018,
+    emissiveIntensity: 0.18,
+    roughness: 0.9,
+    metalness: 0.02,
+    side: THREE.DoubleSide,
+  }));
+}
+
+function getModelYQuantile(model, quantile) {
+  const values = [];
+  const point = new THREE.Vector3();
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+    const position = child.geometry?.attributes?.position;
+    if (!position) return;
+    const stride = Math.max(1, Math.floor(position.count / 40_000));
+    for (let index = 0; index < position.count; index += stride) {
+      point.fromBufferAttribute(position, index).applyMatrix4(child.matrixWorld);
+      if (Number.isFinite(point.y)) values.push(point.y);
+    }
+  });
+  if (!values.length) return new THREE.Box3().setFromObject(model).min.y;
+  values.sort((a, b) => a - b);
+  const index = Math.round(THREE.MathUtils.clamp(quantile, 0, 1) * (values.length - 1));
+  return values[index];
 }

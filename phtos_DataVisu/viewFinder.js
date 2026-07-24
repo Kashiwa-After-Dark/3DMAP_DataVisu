@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { GPX_FILES, INITIAL_CENTER_GEO } from "../src/config.js";
-import { createMapDisplay } from "../src/main.js?v=20260723-01";
+import { createMapDisplay } from "../src/main.js?v=20260724-01";
 import { PHOTOS } from "../src/photos.js";
 
 const canvas = document.querySelector("#scene");
 const loading = document.querySelector("#loading");
 const modelBadge = document.querySelector("#model-badge");
 const openPhotoListButton = document.querySelector("#open-photo-list");
+const startCalibrationButton = document.querySelector("#start-calibration");
 const closePhotoListButton = document.querySelector("#close-photo-list");
 const photoList = document.querySelector("#photo-list");
 const photoGrid = document.querySelector("#photo-grid");
@@ -16,8 +17,27 @@ const photoClose = document.querySelector("#photo-close");
 const photoPrev = document.querySelector("#photo-prev");
 const photoNext = document.querySelector("#photo-next");
 const photoOpacity = document.querySelector("#photo-opacity");
+const photoScale = document.querySelector("#photo-scale");
+const photoScaleReadout = document.querySelector("#photo-scale-readout");
+const cameraFov = document.querySelector("#camera-fov");
+const cameraFovReadout = document.querySelector("#camera-fov-readout");
 const photoTitle = document.querySelector("#photo-title");
 const photoPosition = document.querySelector("#photo-position");
+const calibrationPanel = document.querySelector("#calibration-panel");
+const calibrationProgress = document.querySelector("#calibration-progress");
+const calibrationConfirm = document.querySelector("#confirm-calibration");
+const calibrationCancel = document.querySelector("#cancel-calibration");
+const calibrationReset = document.querySelector("#reset-calibration");
+const poseInputs = [...document.querySelectorAll("[data-pose]")];
+const calibrationStep = document.querySelector("#calibration-step");
+const nudgeButtons = [...document.querySelectorAll("[data-nudge-axis]")];
+const calibrationSummary = document.querySelector("#calibration-summary");
+const calibrationResultList = document.querySelector("#calibration-result-list");
+const calibrationOutput = document.querySelector("#calibration-output");
+const copyCalibrationButton = document.querySelector("#copy-calibration");
+const restartCalibrationButton = document.querySelector("#restart-calibration");
+const closeCalibrationSummaryButton = document.querySelector("#close-calibration-summary");
+const CALIBRATION_DRAFT_KEY = "kashiwa-photo-calibration-draft-v1";
 
 const {
   renderer,
@@ -33,6 +53,8 @@ const {
   pointer,
   loadModel,
   setModelMode,
+  setDetailLighting,
+  getDetailSurfaceHeight,
   geoToWorld,
 } = createMapDisplay(canvas);
 
@@ -46,6 +68,8 @@ let activePhotoIndex = -1;
 let cameraSnapshot = null;
 let pointerDown = null;
 let viewToken = 0;
+let calibrationMode = false;
+let calibrationResults = [];
 
 loadModel(async () => {
   fitOverviewCamera();
@@ -59,13 +83,38 @@ loadModel(async () => {
 openPhotoListButton.addEventListener("click", () => {
   photoList.hidden = false;
 });
+startCalibrationButton?.addEventListener("click", startCalibration);
 closePhotoListButton.addEventListener("click", () => {
   photoList.hidden = true;
 });
-photoClose.addEventListener("click", closePhoto);
+photoClose.addEventListener("click", () => {
+  if (calibrationMode) cancelCalibration();
+  else closePhoto();
+});
 photoPrev.addEventListener("click", () => stepPhoto(-1));
 photoNext.addEventListener("click", () => stepPhoto(1));
 photoOpacity.addEventListener("input", updatePhotoOpacity);
+photoScale.addEventListener("input", updatePhotoScale);
+cameraFov?.addEventListener("input", updateCameraFov);
+calibrationConfirm?.addEventListener("click", confirmCalibrationPose);
+calibrationCancel?.addEventListener("click", cancelCalibration);
+calibrationReset?.addEventListener("click", resetCalibration);
+poseInputs.forEach((input) => input.addEventListener("change", applyPoseInputs));
+nudgeButtons.forEach((button) => button.addEventListener("click", () => {
+  nudgeCamera(
+    button.dataset.nudgeAxis,
+    Number(button.dataset.nudgeDirection) * Number(calibrationStep.value),
+  );
+}));
+copyCalibrationButton?.addEventListener("click", copyCalibrationOutput);
+restartCalibrationButton?.addEventListener("click", () => {
+  calibrationSummary.hidden = true;
+  clearCalibrationDraft();
+  startCalibration();
+});
+closeCalibrationSummaryButton?.addEventListener("click", () => {
+  calibrationSummary.hidden = true;
+});
 canvas.addEventListener("pointerdown", (event) => {
   pointerDown = { x: event.clientX, y: event.clientY };
 });
@@ -84,9 +133,9 @@ function fitOverviewCamera() {
 
   const sphere = bounds.getBoundingSphere(new THREE.Sphere());
   const focus = geoToWorld(INITIAL_CENTER_GEO);
-  focus.y = modelCenter.y + modelSize.y * 0.06;
+  focus.y = modelCenter.y - modelSize.y * 0.22;
   const fov = THREE.MathUtils.degToRad(perspectiveCamera.fov);
-  const distance = (sphere.radius / Math.tan(fov / 2)) * 0.68;
+  const distance = (sphere.radius / Math.tan(fov / 2)) * 0.34;
 
   perspectiveCamera.position.set(
     focus.x + distance * 0.36,
@@ -313,19 +362,33 @@ async function openPhoto(index) {
   photoOverlay.alt = `${photo.author}が${formatPhotoTime(photo.capturedAt)}に撮影した写真`;
   photoTitle.textContent = `${photo.author.toUpperCase()} · ${formatPhotoTime(photo.capturedAt)}`;
   photoPosition.textContent = `${normalizedIndex + 1} / ${PHOTOS.length}`;
+  if (calibrationMode) {
+    updateCalibrationProgress(normalizedIndex);
+  }
   modelBadge.innerHTML = "<i></i>BLOSM · PHOTO VIEW";
+  const savedCalibration = calibrationResults[normalizedIndex];
+  photoOpacity.value = String(Math.round((savedCalibration?.photoOpacity ?? 0.58) * 100));
+  photoScale.value = String(Math.round((savedCalibration?.photoScale || 1) * 100));
+  if (cameraFov) cameraFov.value = String(savedCalibration?.fov ?? 62);
   updatePhotoOpacity();
+  updatePhotoScale();
+  updateCameraFov();
 
   controls.enabled = true;
-  controls.enablePan = false;
-  controls.minDistance = 4;
-  controls.maxDistance = 60;
+  controls.enablePan = calibrationMode;
+  controls.screenSpacePanning = true;
+  controls.rotateSpeed = calibrationMode ? 0.45 : 1;
+  controls.panSpeed = calibrationMode ? 0.8 : 1;
+  controls.zoomSpeed = calibrationMode ? 0.7 : 1;
+  controls.minDistance = calibrationMode ? 0.5 : 4;
+  controls.maxDistance = calibrationMode ? 100 : 60;
+  perspectiveCamera.up.set(0, 1, 0);
   const position = photo.worldPosition.clone();
   position.y = 7;
   const target = position.clone().addScaledVector(photo.direction, 28);
   target.y = 7;
   perspectiveCamera.position.copy(position);
-  perspectiveCamera.fov = 62;
+  perspectiveCamera.fov = Number(cameraFov?.value ?? 62);
   perspectiveCamera.near = 0.1;
   perspectiveCamera.far = Math.max(cameraSnapshot?.far || 3000, 3000);
   perspectiveCamera.updateProjectionMatrix();
@@ -333,8 +396,26 @@ async function openPhoto(index) {
   controls.update();
 
   try {
+    setDetailLighting(isPhotoBeforeTwenty(photo.capturedAt));
     await setModelMode("detail");
-    if (token !== viewToken || !photoMode) setModelMode("overview");
+    if (token !== viewToken || !photoMode) {
+      setModelMode("overview");
+      return;
+    }
+    const surfaceY = getDetailSurfaceHeight(photo.worldPosition);
+    if (savedCalibration) {
+      restoreCalibrationPose(savedCalibration);
+    } else if (Number.isFinite(surfaceY)) {
+      position.y = surfaceY + 2.4;
+      target.y = position.y;
+      perspectiveCamera.position.copy(position);
+      controls.target.copy(target);
+      controls.update();
+    }
+    if (calibrationMode) {
+      updatePoseFields(true);
+      calibrationConfirm.disabled = false;
+    }
   } catch (error) {
     console.error("Blosm model could not be loaded.", error);
     closePhoto();
@@ -355,6 +436,7 @@ function closePhoto() {
 
   if (!cameraSnapshot) return;
   perspectiveCamera.position.copy(cameraSnapshot.position);
+  perspectiveCamera.up.set(0, 1, 0);
   perspectiveCamera.fov = cameraSnapshot.fov;
   perspectiveCamera.near = cameraSnapshot.near;
   perspectiveCamera.far = cameraSnapshot.far;
@@ -367,11 +449,304 @@ function closePhoto() {
 }
 
 function stepPhoto(offset) {
-  if (photoMode) openPhoto(activePhotoIndex + offset);
+  if (photoMode && !calibrationMode) openPhoto(activePhotoIndex + offset);
 }
 
 function updatePhotoOpacity() {
   photoViewer.style.setProperty("--photo-opacity", String(Number(photoOpacity.value) / 100));
+}
+
+function updatePhotoScale() {
+  const scale = Number(photoScale.value) / 100;
+  photoViewer.style.setProperty("--photo-scale", String(scale));
+  photoScaleReadout.textContent = `${photoScale.value}%`;
+}
+
+function updateCameraFov() {
+  const fov = Number(cameraFov?.value ?? 62);
+  if (!Number.isFinite(fov)) return;
+  perspectiveCamera.fov = fov;
+  perspectiveCamera.updateProjectionMatrix();
+  if (cameraFovReadout) cameraFovReadout.textContent = `${Math.round(fov)}°`;
+}
+
+async function startCalibration() {
+  if (!PHOTOS[0]?.worldPosition) return;
+  calibrationResults = loadCalibrationDraft();
+  const resumeIndex = getResumeIndex();
+  calibrationMode = true;
+  calibrationSummary.hidden = true;
+  calibrationPanel.hidden = false;
+  calibrationConfirm.disabled = true;
+  document.body.classList.add("calibration-mode");
+  await openPhoto(resumeIndex);
+}
+
+function cancelCalibration() {
+  calibrationMode = false;
+  calibrationPanel.hidden = true;
+  calibrationConfirm.disabled = false;
+  document.body.classList.remove("calibration-mode");
+  closePhoto();
+}
+
+async function resetCalibration() {
+  clearCalibrationDraft();
+  calibrationResults = [];
+  calibrationConfirm.disabled = true;
+  await openPhoto(0);
+}
+
+async function confirmCalibrationPose() {
+  if (!calibrationMode || activePhotoIndex < 0 || calibrationConfirm.disabled) return;
+  calibrationResults[activePhotoIndex] = makeCalibrationRecord(
+    PHOTOS[activePhotoIndex],
+    activePhotoIndex,
+  );
+  saveCalibrationDraft();
+
+  if (activePhotoIndex >= PHOTOS.length - 1) {
+    finishCalibration();
+    return;
+  }
+
+  calibrationConfirm.disabled = true;
+  await openPhoto(activePhotoIndex + 1);
+}
+
+function makeCalibrationRecord(photo, index) {
+  const euler = new THREE.Euler().setFromQuaternion(perspectiveCamera.quaternion, "YXZ");
+  return {
+    index: index + 1,
+    id: photo.id,
+    author: photo.author,
+    file: photo.file,
+    position: {
+      x: roundNumber(perspectiveCamera.position.x, 4),
+      y: roundNumber(perspectiveCamera.position.y, 4),
+      z: roundNumber(perspectiveCamera.position.z, 4),
+    },
+    rotationDegrees: {
+      x: roundNumber(THREE.MathUtils.radToDeg(euler.x), 4),
+      y: roundNumber(THREE.MathUtils.radToDeg(euler.y), 4),
+      z: roundNumber(THREE.MathUtils.radToDeg(euler.z), 4),
+    },
+    quaternion: {
+      x: roundNumber(perspectiveCamera.quaternion.x, 6),
+      y: roundNumber(perspectiveCamera.quaternion.y, 6),
+      z: roundNumber(perspectiveCamera.quaternion.z, 6),
+      w: roundNumber(perspectiveCamera.quaternion.w, 6),
+    },
+    fov: roundNumber(perspectiveCamera.fov, 2),
+    photoOpacity: Number(photoOpacity.value) / 100,
+    photoScale: Number(photoScale.value) / 100,
+  };
+}
+
+function restoreCalibrationPose(record) {
+  const position = record?.position;
+  const quaternion = record?.quaternion;
+  if (
+    !position
+    || !quaternion
+    || ![position.x, position.y, position.z, quaternion.x, quaternion.y, quaternion.z, quaternion.w]
+      .every(Number.isFinite)
+  ) return;
+
+  perspectiveCamera.position.set(position.x, position.y, position.z);
+  perspectiveCamera.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w).normalize();
+  perspectiveCamera.updateMatrixWorld(true);
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(perspectiveCamera.quaternion);
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(perspectiveCamera.quaternion);
+  perspectiveCamera.up.copy(up);
+  controls.target.copy(perspectiveCamera.position).addScaledVector(forward, 28);
+  controls.update();
+}
+
+function updateCalibrationProgress(index = activePhotoIndex) {
+  const savedCount = calibrationResults.filter(Boolean).length;
+  calibrationProgress.textContent = `PHOTO ${index + 1} / ${PHOTOS.length} · SAVED ${savedCount}`;
+}
+
+function getResumeIndex() {
+  const missingIndex = PHOTOS.findIndex((photo, index) => (
+    !calibrationResults[index] || calibrationResults[index].id !== photo.id
+  ));
+  return missingIndex < 0 ? PHOTOS.length - 1 : missingIndex;
+}
+
+function loadCalibrationDraft() {
+  try {
+    const draft = JSON.parse(localStorage.getItem(CALIBRATION_DRAFT_KEY) || "null");
+    if (!draft || draft.format !== "kashiwa-photo-camera-calibration-draft-v1") return [];
+    if (!Array.isArray(draft.photos)) return [];
+    return PHOTOS.map((photo, index) => (
+      draft.photos[index]?.id === photo.id ? draft.photos[index] : undefined
+    ));
+  } catch {
+    return [];
+  }
+}
+
+function saveCalibrationDraft() {
+  try {
+    localStorage.setItem(CALIBRATION_DRAFT_KEY, JSON.stringify({
+      format: "kashiwa-photo-camera-calibration-draft-v1",
+      updatedAt: new Date().toISOString(),
+      photos: calibrationResults,
+    }));
+    updateCalibrationProgress();
+  } catch (error) {
+    console.warn("Calibration draft could not be saved.", error);
+  }
+}
+
+function clearCalibrationDraft() {
+  try {
+    localStorage.removeItem(CALIBRATION_DRAFT_KEY);
+  } catch (error) {
+    console.warn("Calibration draft could not be cleared.", error);
+  }
+}
+
+function updatePoseFields(force = false) {
+  if (!calibrationMode || !photoMode) return;
+  if (!force && poseInputs.includes(document.activeElement)) return;
+  const euler = new THREE.Euler().setFromQuaternion(perspectiveCamera.quaternion, "YXZ");
+  const values = {
+    "position.x": perspectiveCamera.position.x,
+    "position.y": perspectiveCamera.position.y,
+    "position.z": perspectiveCamera.position.z,
+    "rotation.x": THREE.MathUtils.radToDeg(euler.x),
+    "rotation.y": THREE.MathUtils.radToDeg(euler.y),
+    "rotation.z": THREE.MathUtils.radToDeg(euler.z),
+  };
+  poseInputs.forEach((input) => {
+    input.value = Number(values[input.dataset.pose]).toFixed(
+      input.dataset.pose.startsWith("position") ? 3 : 2,
+    );
+  });
+}
+
+function applyPoseInputs() {
+  if (!calibrationMode || !photoMode) return;
+  const values = Object.fromEntries(
+    poseInputs.map((input) => [input.dataset.pose, Number(input.value)]),
+  );
+  if (Object.values(values).some((value) => !Number.isFinite(value))) return;
+
+  perspectiveCamera.position.set(
+    values["position.x"],
+    values["position.y"],
+    values["position.z"],
+  );
+  perspectiveCamera.rotation.order = "YXZ";
+  perspectiveCamera.rotation.set(
+    THREE.MathUtils.degToRad(values["rotation.x"]),
+    THREE.MathUtils.degToRad(values["rotation.y"]),
+    THREE.MathUtils.degToRad(values["rotation.z"]),
+    "YXZ",
+  );
+  perspectiveCamera.updateMatrixWorld(true);
+
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(perspectiveCamera.quaternion);
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(perspectiveCamera.quaternion);
+  perspectiveCamera.up.copy(up);
+  controls.target.copy(perspectiveCamera.position).addScaledVector(forward, 28);
+  controls.update();
+  updatePoseFields(true);
+}
+
+function nudgeCamera(axis, amount) {
+  if (!calibrationMode || !photoMode || !["x", "y", "z"].includes(axis)) return;
+  const offset = new THREE.Vector3();
+  offset[axis] = amount;
+  translateCamera(offset);
+}
+
+function translateCamera(offset) {
+  perspectiveCamera.position.add(offset);
+  controls.target.add(offset);
+  controls.update();
+  updatePoseFields(true);
+}
+
+function moveCameraWithKeyboard(key, multiplier = 1) {
+  const amount = Number(calibrationStep.value) * multiplier;
+  const forward = new THREE.Vector3();
+  perspectiveCamera.getWorldDirection(forward);
+  forward.y = 0;
+  if (forward.lengthSq() < 0.001) forward.set(0, 0, -1);
+  forward.normalize();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+  const offset = new THREE.Vector3();
+
+  if (key === "w") offset.copy(forward).multiplyScalar(amount);
+  if (key === "s") offset.copy(forward).multiplyScalar(-amount);
+  if (key === "a") offset.copy(right).multiplyScalar(-amount);
+  if (key === "d") offset.copy(right).multiplyScalar(amount);
+  if (key === "q") offset.y = -amount;
+  if (key === "e") offset.y = amount;
+  if (offset.lengthSq() > 0) translateCamera(offset);
+}
+
+function finishCalibration() {
+  const payload = {
+    format: "kashiwa-photo-camera-calibration-v1",
+    model: "kashiwa_Blosm.glb",
+    coordinateSystem: "Three.js world coordinates; Y-up",
+    rotationUnit: "degrees",
+    rotationOrder: "YXZ",
+    photos: calibrationResults,
+  };
+
+  calibrationMode = false;
+  calibrationPanel.hidden = true;
+  calibrationConfirm.disabled = false;
+  document.body.classList.remove("calibration-mode");
+  closePhoto();
+
+  calibrationOutput.value = JSON.stringify(payload, null, 2);
+  calibrationResultList.replaceChildren(...calibrationResults.map((result) => {
+    const row = document.createElement("div");
+    row.className = "calibration-result-row";
+    const number = document.createElement("b");
+    number.textContent = String(result.index).padStart(2, "0");
+    const file = document.createElement("span");
+    file.textContent = `${result.author}/${result.file}`;
+    const position = document.createElement("span");
+    position.textContent = `P ${formatVector(result.position)}`;
+    const rotation = document.createElement("span");
+    rotation.textContent = `R ${formatVector(result.rotationDegrees)}° · FOV ${result.fov}° · SIZE ${Math.round(result.photoScale * 100)}%`;
+    row.append(number, file, position, rotation);
+    return row;
+  }));
+  calibrationSummary.hidden = false;
+}
+
+async function copyCalibrationOutput() {
+  const text = calibrationOutput.value;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    calibrationOutput.focus();
+    calibrationOutput.select();
+    document.execCommand("copy");
+  }
+  const originalLabel = copyCalibrationButton.textContent;
+  copyCalibrationButton.textContent = "コピーしました";
+  window.setTimeout(() => {
+    copyCalibrationButton.textContent = originalLabel;
+  }, 1800);
+}
+
+function formatVector(vector) {
+  return `[${vector.x.toFixed(2)}, ${vector.y.toFixed(2)}, ${vector.z.toFixed(2)}]`;
+}
+
+function roundNumber(value, digits) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
 }
 
 function selectPhotoPoint(event) {
@@ -387,9 +762,20 @@ function selectPhotoPoint(event) {
 
 function handleKeyDown(event) {
   if (!photoMode) return;
-  if (event.key === "Escape") closePhoto();
-  if (event.key === "ArrowLeft") stepPhoto(-1);
-  if (event.key === "ArrowRight") stepPhoto(1);
+  if (event.key === "Escape") {
+    if (calibrationMode) cancelCalibration();
+    else closePhoto();
+  }
+  if (
+    calibrationMode
+    && !["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName)
+    && ["w", "a", "s", "d", "q", "e"].includes(event.key.toLowerCase())
+  ) {
+    event.preventDefault();
+    moveCameraWithKeyboard(event.key.toLowerCase(), event.shiftKey ? 5 : 1);
+  }
+  if (!calibrationMode && event.key === "ArrowLeft") stepPhoto(-1);
+  if (!calibrationMode && event.key === "ArrowRight") stepPhoto(1);
 }
 
 function formatPhotoTime(time) {
@@ -399,6 +785,15 @@ function formatPhotoTime(time) {
     second: "2-digit",
     timeZone: "Asia/Tokyo",
   }).format(time);
+}
+
+function isPhotoBeforeTwenty(time) {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Asia/Tokyo",
+  }).format(time));
+  return hour < 20;
 }
 
 function resize() {
@@ -411,6 +806,7 @@ function resize() {
 
 function animate() {
   controls.update();
+  updatePoseFields();
   if (!photoMode) {
     for (const photo of PHOTOS) {
       if (!photo.marker) continue;

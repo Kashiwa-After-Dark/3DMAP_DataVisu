@@ -20,7 +20,7 @@ import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260722-2
 import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-25";
 import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";
-import { createMapDisplay } from "./main.js?v=20260723-01";
+import { createMapDisplay } from "./main.js?v=20260723-03";
 import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260722-25";
 import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260722-25";
 import { createMemoScroller } from "../r4U_js/memoScroller.js?v=20260722-25";
