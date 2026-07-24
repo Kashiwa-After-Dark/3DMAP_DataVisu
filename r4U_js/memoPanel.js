@@ -1,5 +1,5 @@
 import { hexToRgbChannels } from "../src/formatters.js";
-import { formatProfileBadge } from "./profiles.js";
+import { formatProfileBadge } from "./profiles.js?v=20260725-2";
 
 const renderStates = new WeakMap();
 
