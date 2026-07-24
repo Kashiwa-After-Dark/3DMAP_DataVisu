@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./viewFinder.css?v=20260724-15" />
+    <link rel="stylesheet" href="./viewFinder.css?v=20260725-19" />
     <script type="importmap">
       {
         "imports": {
@@ -35,12 +35,20 @@
 
       <section class="overview-ui intro-panel">
         <span>01 / SELECT A POINT</span>
-        <h2>夜の景色を<br />3D空間でたどる</h2>
+        <h2>夜の柏駅を<br />地図で辿る</h2>
         <p>白いリングを選ぶと、撮影地点から見た写真とBlosmモデルを重ねて表示します。</p>
         <div class="intro-panel__actions">
-          <button id="open-photo-list" type="button">写真一覧を見る <b>31</b></button>
+          <button id="open-photo-list" type="button">写真一覧を見る <b id="visible-photo-count">31</b></button>
         </div>
       </section>
+
+      <nav id="time-filter" class="overview-ui time-filter" aria-label="写真の時間帯">
+        <span class="time-filter__label">TIME PERIOD</span>
+        <button type="button" data-time-period="all" aria-pressed="true">ALL <span>31</span></button>
+        <button type="button" data-time-period="twilight" aria-pressed="false">18:00–19:59 <span>11</span></button>
+        <button type="button" data-time-period="night" aria-pressed="false">20:00–22:59 <span>8</span></button>
+        <button type="button" data-time-period="late" aria-pressed="false">23:00– <span>12</span></button>
+      </nav>
 
       <div id="map-hint" class="overview-ui map-hint">
         <i></i>
@@ -49,7 +57,7 @@
 
       <aside id="photo-list" class="photo-list" aria-label="写真一覧" hidden>
         <header>
-          <div><span>PHOTO ARCHIVE</span><strong>31 VIEWS</strong></div>
+          <div><span>PHOTO ARCHIVE</span><strong id="photo-list-count">31 VIEWS</strong></div>
           <button id="close-photo-list" type="button" aria-label="写真一覧を閉じる">×</button>
         </header>
         <div id="photo-grid" class="photo-grid"></div>
@@ -92,6 +100,6 @@
       </div>
     </main>
 
-    <script type="module" src="./viewFinder.js?v=20260724-18"></script>
+    <script type="module" src="./viewFinder.js?v=20260725-26"></script>
   </body>
 </html>
