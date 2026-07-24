@@ -418,7 +418,7 @@ body.photo-mode #scene:active {
 }
 
 .age-legend.is-collapsed {
-  width: 70px;
+  width: 84px;
 }
 
 .age-legend.is-filter-only {
@@ -434,16 +434,18 @@ body.photo-mode #scene:active {
 }
 
 .age-legend.is-collapsed .legend-filter__header {
-  display: block;
+  display: grid;
+  grid-template-columns: 22px auto;
 }
 
-.age-legend.is-collapsed .legend-filter__header > :not(.legend-filter__toggle) {
+.age-legend.is-collapsed .legend-filter__header > span,
+.age-legend.is-collapsed .legend-filter__header > strong {
   display: none;
 }
 
 .age-legend.is-collapsed .legend-filter__header .legend-filter__toggle {
-  width: 58px;
-  font-size: 9px;
+  width: 22px;
+  font-size: 14px;
 }
 
 .age-legend.is-filter-only .legend-filter__workspace {
