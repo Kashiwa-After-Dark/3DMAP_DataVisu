@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../viewFinder.css?v=20260724-14" />
+    <link rel="stylesheet" href="../viewFinder.css?v=20260724-15" />
     <script type="importmap">
       {
         "imports": {
@@ -79,6 +79,12 @@
             </div>
           </header>
           <p>左ドラッグ＝角度、右ドラッグ／Shift＋ドラッグ＝位置、ホイール＝前後。下のボタンやWASD・Q/Eでも移動できます。</p>
+          <div class="calibration-photo-picker">
+            <label>
+              写真番号
+              <select id="calibration-photo-select" aria-label="調整する写真を番号で選択"></select>
+            </label>
+          </div>
           <fieldset>
             <legend>座標 / POSITION</legend>
             <label>X<input data-pose="position.x" type="number" step="0.1" inputmode="decimal" /></label>
@@ -109,7 +115,12 @@
             <label>Y<input data-pose="rotation.y" type="number" step="0.1" inputmode="decimal" /></label>
             <label>Z<input data-pose="rotation.z" type="number" step="0.1" inputmode="decimal" /></label>
           </fieldset>
-          <button id="confirm-calibration" class="calibration-confirm" type="button">この写真を確定して次へ</button>
+          <div class="calibration-actions">
+            <button id="calibration-back" type="button">← 戻る</button>
+            <button id="calibration-skip" type="button">スキップ →</button>
+            <button id="confirm-calibration" class="calibration-confirm" type="button">この写真を確定して次へ</button>
+            <button id="partial-calibration" class="calibration-partial" type="button">途中確定・コピー</button>
+          </div>
         </aside>
         <footer class="photo-viewer__controls">
           <button id="photo-prev" class="circle-button" type="button" aria-label="前の写真">←</button>
@@ -138,7 +149,7 @@
       <section id="calibration-summary" class="calibration-summary" aria-label="視点調整結果" hidden>
         <div class="calibration-summary__dialog">
           <header>
-            <div><span>CALIBRATION COMPLETE</span><h2>31枚の調整結果</h2></div>
+            <div><span id="calibration-summary-label">CALIBRATION COMPLETE</span><h2 id="calibration-summary-title">31枚の調整結果</h2></div>
             <button id="close-calibration-summary" type="button" aria-label="結果を閉じる">×</button>
           </header>
           <p>下の内容をコピーして、そのままCodexへ送ってください。</p>
@@ -157,6 +168,6 @@
       </div>
     </main>
 
-    <script type="module" src="../viewFinder.js?v=20260724-16"></script>
+    <script type="module" src="../viewFinder.js?v=20260724-18"></script>
   </body>
 </html>
