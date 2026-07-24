@@ -16,7 +16,9 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
 
   const content = document.createElement("div");
   content.className = "legend-filter__content";
-  content.append(
+  const codeSelector = document.createElement("div");
+  codeSelector.className = "legend-filter__code-selector";
+  codeSelector.append(
     makeOptionGroup("AGE", ageKeys.map((value) => ({
       name: "category",
       value,
@@ -38,18 +40,23 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       { name: "gender", value: "U", label: "U", title: "不明", shape: "u" },
     ], "gen"),
     makeNumberControl(),
-    makeSearchControl(),
-    makeDescription(),
   );
+  const selectedStack = makeSelectedStack();
+  const workspace = document.createElement("div");
+  workspace.className = "legend-filter__workspace";
+  workspace.append(codeSelector, selectedStack);
+  content.append(workspace, makeSearchControl(), makeDescription());
 
   const handleChange = () => {
     syncStateFromUi(state, root);
+    syncSelectedStack(root, selectedStack, categories);
     onChange?.();
   };
   const header = makeHeader({
     countReadout,
     onReset: () => {
       resetState(state, root, allSourceIds);
+      syncSelectedStack(root, selectedStack, categories);
       onSourcesReset?.();
       onChange?.();
     },
@@ -62,7 +69,21 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
   });
 
   root.replaceChildren(header, content);
+  syncSelectedStack(root, selectedStack, categories);
   root.addEventListener("click", (event) => {
+    const selectedCode = event.target.closest(".legend-filter__selected-code");
+    if (selectedCode && root.contains(selectedCode)) {
+      const input = root.querySelector(
+        `input[name="${selectedCode.dataset.name}"][value="${selectedCode.dataset.value}"]`,
+      );
+      const checked = [...root.querySelectorAll(`input[name="${selectedCode.dataset.name}"]:checked`)];
+      if (input && checked.length > 1) {
+        input.checked = false;
+        handleChange();
+      }
+      return;
+    }
+
     const option = event.target.closest(".legend-filter__option");
     if (!option || !root.contains(option)) return;
     event.preventDefault();
@@ -72,8 +93,10 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
 
     if (checked.length === peers.length) {
       for (const peer of peers) peer.checked = peer === input;
+      input.dataset.animateNext = "true";
     } else if (!input.checked) {
       input.checked = true;
+      input.dataset.animateNext = "true";
     } else if (checked.length > 1) {
       input.checked = false;
     }
@@ -104,6 +127,61 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     },
     state,
   };
+}
+
+function makeSelectedStack() {
+  const stack = document.createElement("section");
+  stack.className = "legend-filter__selected-stack";
+  stack.setAttribute("aria-label", "表示中のコード");
+
+  const heading = document.createElement("b");
+  heading.textContent = "表示中";
+  const pile = document.createElement("div");
+  pile.className = "legend-filter__selected-pile";
+  stack.append(heading, pile);
+  return stack;
+}
+
+function syncSelectedStack(root, stack, categories) {
+  const selected = [...root.querySelectorAll('.legend-filter__option input[type="checkbox"]:checked')];
+  const pile = stack.querySelector(".legend-filter__selected-pile");
+  const existingItems = new Map(
+    [...pile.children].map((item) => [`${item.dataset.name}:${item.dataset.value}`, item]),
+  );
+  const pileOffsets = [0, 2, 1, 3];
+  const items = selected.map((input, index) => {
+    const option = input.closest(".legend-filter__option");
+    const key = `${input.name}:${input.value}`;
+    const existingItem = existingItems.get(key);
+    const item = existingItem || document.createElement("button");
+    if (!existingItem) {
+      item.type = "button";
+      item.className = "legend-filter__selected-code";
+      item.append(document.createElement("span"));
+    }
+    item.dataset.name = input.name;
+    item.dataset.value = input.value;
+    item.dataset.kind = input.name;
+    if (option.dataset.shape) item.dataset.shape = option.dataset.shape;
+    item.style.setProperty("--legend-color", categories[input.value]?.color || "var(--map-blue)");
+    item.style.setProperty("--pile-shift", `${pileOffsets[index % pileOffsets.length]}px`);
+    item.style.setProperty("--drop-delay", `${Math.min(index * 28, 280)}ms`);
+    item.style.setProperty("--drop-rotate", `${((index % 5) - 2) * 5}deg`);
+    item.style.setProperty("--shape-rotate", option.dataset.shape === "x" ? "45deg" : "0deg");
+    item.querySelector("span").textContent = input.value;
+    item.title = `${input.value}を非表示`;
+    if (!existingItem || input.dataset.animateNext === "true") playCodeDrop(item);
+    delete input.dataset.animateNext;
+    return item;
+  });
+  pile.replaceChildren(...items);
+}
+
+function playCodeDrop(item) {
+  item.classList.remove("is-dropping");
+  void item.offsetWidth;
+  item.classList.add("is-dropping");
+  item.addEventListener("animationend", () => item.classList.remove("is-dropping"), { once: true });
 }
 
 function makeHeader({ countReadout, onReset, onToggle }) {
