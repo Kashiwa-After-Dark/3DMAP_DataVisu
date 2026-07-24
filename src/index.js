@@ -15,8 +15,8 @@ import {
   TIME_START_HOUR,
 } from "./config.js";
 import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260722-25";
-import { createLegendFilter } from "../r4U_js/filters.js?v=20260722-25";
-import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260722-25";
+import { createLegendFilter } from "../r4U_js/filters.js?v=20260724-11";
+import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260724-12";
 import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-25";
 import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";

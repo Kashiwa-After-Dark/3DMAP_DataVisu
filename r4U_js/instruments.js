@@ -1,6 +1,20 @@
 import * as THREE from "three";
 
 export function createTimelineInstruments({ clock, compassCard, speedEngine }) {
+  addFineTicks(clock, {
+    count: 24,
+    hiddenIndexes: new Set([0, 6, 12, 18]),
+  });
+  addFineTicks(compassCard, { count: 24 });
+  addFineTicks(speedEngine, {
+    count: 15,
+    startAngle: -120,
+    endAngle: 120,
+    includeEnd: true,
+    majorEvery: 0,
+    majorIndexes: new Set([0, 2, 4, 6, 8, 10, 12, 14]),
+  });
+
   const hourHand = clock.querySelector("[data-clock-hour]");
   const minuteHand = clock.querySelector("[data-clock-minute]");
   const forward = new THREE.Vector3();
@@ -52,4 +66,32 @@ export function createTimelineInstruments({ clock, compassCard, speedEngine }) {
   }
 
   return { updateTime, updateCompass, updateSpeed };
+}
+
+function addFineTicks(dial, {
+  count = 24,
+  startAngle = 0,
+  endAngle = 360,
+  includeEnd = false,
+  majorEvery = 3,
+  majorIndexes = new Set(),
+  hiddenIndexes = new Set(),
+} = {}) {
+  const ring = document.createElement("div");
+  ring.className = "instrument-fine-ticks";
+  ring.setAttribute("aria-hidden", "true");
+
+  const angleDivisor = includeEnd ? Math.max(count - 1, 1) : count;
+  const ticks = Array.from({ length: count }, (_, index) => {
+    if (hiddenIndexes.has(index)) return null;
+    const tick = document.createElement("i");
+    const angle = startAngle + ((endAngle - startAngle) * index) / angleDivisor;
+    tick.style.setProperty("--tick-angle", `${angle}deg`);
+    if (majorIndexes.has(index) || (majorEvery && index % majorEvery === 0)) {
+      tick.className = "is-major";
+    }
+    return tick;
+  }).filter(Boolean);
+  ring.append(...ticks);
+  dial.prepend(ring);
 }
