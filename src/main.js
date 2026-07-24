@@ -9,6 +9,8 @@ import {
   ORIGIN,
 } from "./config.js";
 
+const materialTimeTintState = new WeakMap();
+
 export function createMapDisplay(canvas) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -41,10 +43,32 @@ export function createMapDisplay(canvas) {
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
   scene.add(ambientLight);
 
-  function setDetailLighting(bright = false) {
-    hemiLight.intensity = bright ? 3.2 : 1.8;
-    sunLight.intensity = bright ? 3.6 : 2;
-    ambientLight.intensity = bright ? 1.35 : 0.7;
+  let currentLightingPeriod = "default";
+  const lightingProfiles = {
+    default: { hemisphere: 1.8, sun: 2, ambient: 0.7, tint: 1, grade: [1, 1, 1] },
+    twilight: { hemisphere: 3.2, sun: 3.6, ambient: 1.35, tint: 1, grade: [1, 1, 1] },
+    night: { hemisphere: 1.35, sun: 1.5, ambient: 0.48, tint: 0.78, grade: [1, 1, 1] },
+    late: { hemisphere: 0.72, sun: 0.82, ambient: 0.22, tint: 0.48, grade: [0.55, 0.78, 1.35] },
+  };
+
+  function setDetailLighting(period = "default") {
+    const normalizedPeriod = period === true
+      ? "twilight"
+      : period === false
+        ? "default"
+        : period;
+    const profile = lightingProfiles[normalizedPeriod] ?? lightingProfiles.default;
+    currentLightingPeriod = normalizedPeriod;
+    const detailIsActive = detailModel?.visible && overviewModel?.visible === false;
+    applyLightProfile(detailIsActive ? normalizedPeriod : "default");
+    applyModelTimeTint(detailModel, profile.tint, profile.grade);
+  }
+
+  function applyLightProfile(period) {
+    const profile = lightingProfiles[period] ?? lightingProfiles.default;
+    hemiLight.intensity = profile.hemisphere;
+    sunLight.intensity = profile.sun;
+    ambientLight.intensity = profile.ambient;
   }
 
   const mapGroup = new THREE.Group();
@@ -110,6 +134,7 @@ export function createMapDisplay(canvas) {
         model.visible = false;
         mapGroup.add(model);
         detailModel = model;
+        setDetailLighting(currentLightingPeriod);
         resolve(model);
       };
       const loadFbxFallback = () => {
@@ -140,35 +165,47 @@ export function createMapDisplay(canvas) {
       if (overviewModel) overviewModel.visible = false;
       model.visible = true;
       groundGrid.visible = false;
+      applyLightProfile(currentLightingPeriod);
       return model;
     }
-    setDetailLighting(false);
+    applyLightProfile("default");
     if (overviewModel) overviewModel.visible = true;
     if (detailModel) detailModel.visible = false;
     groundGrid.visible = true;
     return overviewModel;
   }
 
-  function renderDetailLayer(layerRenderer, camera) {
+  function renderDetailLayer(layerRenderer, camera, renderTarget = null) {
     if (!detailModel) return false;
     const overviewVisible = overviewModel?.visible;
     const detailVisible = detailModel.visible;
     const gridVisible = groundGrid.visible;
     const tracksVisible = gpxGroup.visible;
     const background = scene.background;
+    const lightLevels = {
+      hemisphere: hemiLight.intensity,
+      sun: sunLight.intensity,
+      ambient: ambientLight.intensity,
+    };
 
     if (overviewModel) overviewModel.visible = false;
     detailModel.visible = true;
     groundGrid.visible = false;
     gpxGroup.visible = false;
     scene.background = null;
+    applyLightProfile(currentLightingPeriod);
+    layerRenderer.setRenderTarget(renderTarget);
     layerRenderer.render(scene, camera);
+    layerRenderer.setRenderTarget(null);
 
     if (overviewModel) overviewModel.visible = overviewVisible;
     detailModel.visible = detailVisible;
     groundGrid.visible = gridVisible;
     gpxGroup.visible = tracksVisible;
     scene.background = background;
+    hemiLight.intensity = lightLevels.hemisphere;
+    sunLight.intensity = lightLevels.sun;
+    ambientLight.intensity = lightLevels.ambient;
     return true;
   }
 
@@ -234,6 +271,41 @@ function geoToWorld({ lat, lon }) {
     0,
     ((lat - ORIGIN.lat) * metersPerDegreeLat) / COORDINATE_SCALE.north,
   );
+}
+
+function applyModelTimeTint(model, tint, grade = [1, 1, 1]) {
+  if (!model) return;
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    for (const material of materials) {
+      if (!material) continue;
+      let base = materialTimeTintState.get(material);
+      if (!base) {
+        base = {
+          color: material.color?.clone() ?? null,
+          emissive: material.emissive?.clone() ?? null,
+          emissiveIntensity: material.emissiveIntensity,
+        };
+        materialTimeTintState.set(material, base);
+      }
+      if (base.color && material.color) {
+        material.color.copy(base.color).multiplyScalar(tint);
+        material.color.r *= grade[0];
+        material.color.g *= grade[1];
+        material.color.b *= grade[2];
+      }
+      if (base.emissive && material.emissive) {
+        material.emissive.copy(base.emissive).multiplyScalar(tint);
+        material.emissive.r *= grade[0];
+        material.emissive.g *= grade[1];
+        material.emissive.b *= grade[2];
+      }
+      if (Number.isFinite(base.emissiveIntensity)) {
+        material.emissiveIntensity = base.emissiveIntensity * tint;
+      }
+    }
+  });
 }
 
 function keepOriginalMaterial(mesh) {

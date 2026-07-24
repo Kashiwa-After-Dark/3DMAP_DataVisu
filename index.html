@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles/style.css?v=20260724-18" />
+    <link rel="stylesheet" href="./styles/style.css?v=20260725-42" />
     <script type="importmap">
       {
         "imports": {
@@ -32,13 +32,6 @@
       </a>
       <aside id="legend-filter" class="age-legend" aria-label="データ説明と絞り込み"></aside>
       <aside id="memo-panel" class="memo-panel" aria-label="メモ">
-        <div class="memo-scroll-control">
-          <i id="memo-scroll-progress" class="memo-scroll-control__progress" aria-hidden="true"></i>
-          <output id="memo-scroll-total" class="memo-scroll-control__total">0</output>
-          <output id="memo-scroll-current" class="memo-scroll-control__current">0</output>
-          <span class="memo-scroll-control__minimum">0</span>
-          <input id="memo-scroll-slider" type="range" min="0" max="1" step="1" value="0" aria-label="データ一覧の位置" />
-        </div>
         <div id="memo-scroll-viewport" class="memo-scroll-viewport">
           <div id="memo-list" class="memo-list"></div>
         </div>
@@ -75,6 +68,16 @@
         </div>
       </aside>
       <section class="timeline" aria-label="時間操作">
+        <button
+          id="timeline-minimize"
+          class="timeline-minimize"
+          type="button"
+          aria-label="タイムラインを最小化"
+          aria-expanded="true"
+          title="最小化"
+        >
+          <span aria-hidden="true"></span>
+        </button>
         <header class="timeline__header">
           <div>
             <span>TIMELINE</span>
@@ -82,14 +85,16 @@
           </div>
         </header>
         <div class="timeline__controls">
-          <button id="play-toggle" type="button" aria-label="再生" aria-pressed="false" title="再生">
-            <span class="play-toggle__icon" aria-hidden="true"></span>
-          </button>
-          <label class="speed-control" for="speed-slider">
-            <span>SPEED</span>
-            <input id="speed-slider" type="range" min="0.25" max="2" step="0.25" value="1" list="speed-marks" />
-            <output id="speed-readout" for="speed-slider">1×</output>
-          </label>
+          <div class="playback-column">
+            <button id="play-toggle" type="button" aria-label="再生" aria-pressed="false" title="再生">
+              <span class="play-toggle__icon" aria-hidden="true"></span>
+            </button>
+            <label class="speed-control" for="speed-slider">
+              <span>SPEED</span>
+              <input id="speed-slider" type="range" min="0.25" max="2" step="0.25" value="1" list="speed-marks" />
+              <output id="speed-readout" for="speed-slider">1×</output>
+            </label>
+          </div>
           <div class="time-track-shell">
             <div class="time-hour-labels" aria-hidden="true">
               <span style="left: 0%">18</span>
@@ -143,6 +148,6 @@
       </section>
     </main>
 
-    <script type="module" src="./src/index.js?v=20260724-22"></script>
+    <script type="module" src="./src/index.js?v=20260725-49"></script>
   </body>
 </html>

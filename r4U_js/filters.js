@@ -7,6 +7,7 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     genders: new Set(["M", "F", "X", "U"]),
     sources: new Set(allSourceIds),
     minCount: 0,
+    maxCount: 30,
     keyword: "",
   };
 
@@ -23,6 +24,7 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       name: "category",
       value,
       label: value,
+      range: getAgeRange(value),
       title: getCategoryHelp(value),
       color: categories[value].color,
     })), "age"),
@@ -32,6 +34,7 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       label: value,
       title: getCategoryHelp(value),
       color: categories[value].color,
+      shape: getCategoryShape(value),
     })), "group"),
     makeOptionGroup("GEN", [
       { name: "gender", value: "M", label: "M", title: "男性", shape: "m" },
@@ -39,15 +42,18 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       { name: "gender", value: "X", label: "X", title: "混合", shape: "x" },
       { name: "gender", value: "U", label: "U", title: "不明", shape: "u" },
     ], "gen"),
-    makeNumberControl(),
+    makeCountRangeControl(),
+    makeSearchControl(),
   );
   const selectedStack = makeSelectedStack();
   const workspace = document.createElement("div");
   workspace.className = "legend-filter__workspace";
   workspace.append(codeSelector, selectedStack);
-  content.append(workspace, makeSearchControl(), makeDescription());
+  content.append(workspace, makeDescription());
+  let viewLevel = 1;
 
-  const handleChange = () => {
+  const handleChange = (changedInput) => {
+    syncCountRangeUi(root, changedInput);
     syncStateFromUi(state, root);
     syncSelectedStack(root, selectedStack, categories);
     onChange?.();
@@ -61,14 +67,33 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       onChange?.();
     },
     onToggle: (button) => {
-      const collapsed = root.classList.toggle("is-collapsed");
-      button.textContent = collapsed ? "+" : "−";
-      button.title = collapsed ? "フィルターを拡大" : "フィルターを最小化";
-      button.setAttribute("aria-expanded", String(!collapsed));
+      viewLevel = viewLevel === 2 ? 0 : viewLevel + 1;
+      root.classList.toggle("is-collapsed", viewLevel === 0);
+      root.classList.toggle("is-filter-only", viewLevel === 1);
+      root.dataset.viewLevel = String(viewLevel);
+
+      if (viewLevel === 0) {
+        button.textContent = "全表示";
+        button.title = "フィルターを表示";
+        button.setAttribute("aria-label", "フィルターを表示");
+      } else if (viewLevel === 1) {
+        button.textContent = "+";
+        button.title = "選択コードも表示";
+        button.setAttribute("aria-label", "選択コードも表示");
+      } else {
+        button.textContent = "−";
+        button.title = "フィルターを最小化";
+        button.setAttribute("aria-label", "フィルターを最小化");
+      }
+      button.setAttribute("aria-expanded", String(viewLevel > 0));
     },
   });
 
+  root.classList.remove("is-collapsed");
+  root.classList.add("is-filter-only");
+  root.dataset.viewLevel = String(viewLevel);
   root.replaceChildren(header, content);
+  syncCountRangeUi(root);
   syncSelectedStack(root, selectedStack, categories);
   root.addEventListener("click", (event) => {
     const selectedCode = event.target.closest(".legend-filter__selected-code");
@@ -121,11 +146,11 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
   });
   root.addEventListener("input", (event) => {
     if (event.target.matches('input[type="checkbox"]')) return;
-    handleChange();
+    handleChange(event.target);
   });
   root.addEventListener("change", (event) => {
     if (event.target.matches('input[type="checkbox"]')) return;
-    handleChange();
+    handleChange(event.target);
   });
 
   return {
@@ -179,7 +204,7 @@ function syncSelectedStack(root, stack, categories) {
     item.style.setProperty("--drop-delay", `${Math.min(index * 28, 280)}ms`);
     item.style.setProperty("--drop-rotate", `${((index % 5) - 2) * 5}deg`);
     item.style.setProperty("--shape-rotate", option.dataset.shape === "x" ? "45deg" : "0deg");
-    item.querySelector("span").textContent = input.value;
+    item.querySelector("span").textContent = option.querySelector(":scope > span")?.textContent || input.value;
     item.title = `${input.value}を非表示`;
     if (!existingItem || input.dataset.animateNext === "true") playCodeDrop(item);
     delete input.dataset.animateNext;
@@ -214,9 +239,9 @@ function makeHeader({ countReadout, onReset, onToggle }) {
   const toggle = document.createElement("button");
   toggle.type = "button";
   toggle.className = "legend-filter__toggle";
-  toggle.textContent = "−";
-  toggle.title = "フィルターを最小化";
-  toggle.setAttribute("aria-label", "フィルターの最小化と拡大");
+  toggle.textContent = "+";
+  toggle.title = "選択コードも表示";
+  toggle.setAttribute("aria-label", "選択コードも表示");
   toggle.setAttribute("aria-expanded", "true");
   toggle.addEventListener("click", () => onToggle(toggle));
 
@@ -249,20 +274,33 @@ function makeOptionGroup(title, options, variant = "") {
     const text = document.createElement("span");
     text.textContent = option.label;
     label.append(input, text);
+    if (variant === "age") {
+      const range = document.createElement("small");
+      range.textContent = option.range;
+      label.append(range);
+    }
     group.append(label);
   }
 
   return group;
 }
 
-function makeNumberControl() {
-  const label = document.createElement("label");
-  label.className = "legend-filter__control";
-  label.innerHTML = `
-    <span>MIN</span>
-    <input name="min-count" type="number" min="0" max="30" step="1" value="0" aria-label="最小件数" />
+function makeCountRangeControl() {
+  const control = document.createElement("div");
+  control.className = "legend-filter__control legend-filter__control--count-range";
+  control.innerHTML = `
+    <span>COUNT</span>
+    <output data-count-range-readout>0–30</output>
+    <div class="count-range">
+      <i class="count-range__track" aria-hidden="true"></i>
+      <input name="min-count" type="range" min="0" max="30" step="1" value="0" aria-label="最小人数" />
+      <input name="max-count" type="range" min="0" max="30" step="1" value="30" aria-label="最大人数" />
+    </div>
+    <div class="count-range__ticks" aria-hidden="true">
+      <span>0</span><span>10</span><span>20</span><span>30</span>
+    </div>
   `;
-  return label;
+  return control;
 }
 
 function makeSearchControl() {
@@ -286,15 +324,44 @@ function syncStateFromUi(state, root) {
   state.categories = getCheckedValues(root, "category");
   state.genders = getCheckedValues(root, "gender");
   state.minCount = Number(root.querySelector('[name="min-count"]')?.value || 0);
+  state.maxCount = Number(root.querySelector('[name="max-count"]')?.value || 30);
   state.keyword = root.querySelector('[name="keyword"]')?.value.trim().toLowerCase() || "";
+}
+
+function syncCountRangeUi(root, changedInput) {
+  const minInput = root.querySelector('[name="min-count"]');
+  const maxInput = root.querySelector('[name="max-count"]');
+  if (!minInput || !maxInput) return;
+
+  let min = Number(minInput.value);
+  let max = Number(maxInput.value);
+  if (min > max) {
+    if (changedInput?.name === "min-count") {
+      max = min;
+      maxInput.value = String(max);
+    } else {
+      min = max;
+      minInput.value = String(min);
+    }
+  }
+
+  const lowerBound = Number(minInput.min);
+  const span = Number(maxInput.max) - lowerBound || 1;
+  const control = minInput.closest(".legend-filter__control--count-range");
+  control?.style.setProperty("--count-min", `${((min - lowerBound) / span) * 100}%`);
+  control?.style.setProperty("--count-max", `${((max - lowerBound) / span) * 100}%`);
+  const readout = control?.querySelector("[data-count-range-readout]");
+  if (readout) readout.textContent = `${min}–${max}`;
 }
 
 function resetState(state, root, allSourceIds) {
   for (const input of root.querySelectorAll("input")) {
     if (input.type === "checkbox") input.checked = true;
     if (input.name === "min-count") input.value = "0";
+    if (input.name === "max-count") input.value = "30";
     if (input.name === "keyword") input.value = "";
   }
+  syncCountRangeUi(root);
   syncStateFromUi(state, root);
   state.sources = new Set(allSourceIds);
 }
@@ -308,6 +375,7 @@ function memoMatchesState(memo, state) {
   if (!state.genders.has(memo.gender)) return false;
   if (!state.sources.has(memo.sourceId)) return false;
   if ((memo.count || 0) < state.minCount) return false;
+  if ((memo.count || 0) > state.maxCount) return false;
   if (state.keyword) {
     const searchableText = `${memo.name} ${memo.desc} ${memo.sourceLabel} ${memo.symbol}`.toLowerCase();
     if (!searchableText.includes(state.keyword)) return false;
@@ -327,4 +395,21 @@ function getCategoryHelp(value) {
     MX: "年齢・属性混合グループ",
     UN: "不明",
   }[value] || value;
+}
+
+function getCategoryShape(value) {
+  return {
+    CP: "heart",
+    UN: "question",
+  }[value] || "";
+}
+
+function getAgeRange(value) {
+  return {
+    H: "15–18",
+    U: "18–22",
+    Y: "23–34",
+    A: "35–64",
+    S: "65+",
+  }[value] || "";
 }

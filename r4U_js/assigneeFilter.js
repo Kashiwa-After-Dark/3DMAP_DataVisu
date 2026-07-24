@@ -9,9 +9,27 @@ export function createAssigneeFilter({ root, sources, onChange }) {
   const allButtonSelections = [defaultSourceIds, allSourceIds, addedSourceIds];
   const allButton = makeButton("全員", "all");
   const sourceButtons = sources.map((source) => makeButton(source.label, source.id));
+  const sourceButtonById = new Map(sourceButtons.map((button) => [button.dataset.sourceId, button]));
+  const sourceGroups = [
+    [0, "reysol"],
+    [0, "terrace"],
+    [1, "reysol"],
+    [1, "terrace"],
+    [2, "reysol"],
+    [2, "terrace"],
+  ].map(([segmentIndex, lane]) => {
+    const groupSources = sources.filter(
+      (source) => getSourceSegmentIndex(source) === segmentIndex && source.lane === lane,
+    );
+    return makeSourceGroup(
+      groupSources.map((source) => sourceButtonById.get(source.id)),
+      lane,
+      segmentIndex,
+    );
+  }).filter(Boolean);
   let hasUserSelection = false;
   let allButtonClickIndex = 0;
-  root.replaceChildren(allButton, ...sourceButtons);
+  root.replaceChildren(allButton, ...sourceGroups);
 
   const getSelection = () => {
     const sourceIds = sourceButtons
@@ -92,6 +110,20 @@ function makeButton(label, value) {
   button.textContent = label;
   button.setAttribute("aria-pressed", "false");
   return button;
+}
+
+function makeSourceGroup(buttons, lane, segmentIndex) {
+  if (!buttons.length) return null;
+  const placeLabel = lane === "terrace" ? "テラス" : "レイソル";
+  const timeLabels = ["18–20時", "20–22時", "22–24時"];
+  const group = document.createElement("span");
+  group.className = "assignee-list__group";
+  group.dataset.lane = lane;
+  group.dataset.segment = String(segmentIndex);
+  group.title = `${placeLabel} / ${timeLabels[segmentIndex]}`;
+  group.setAttribute("aria-label", `${placeLabel}、${timeLabels[segmentIndex]}の担当者`);
+  group.append(...buttons);
+  return group;
 }
 
 function getSourceSegmentIndex(source) {

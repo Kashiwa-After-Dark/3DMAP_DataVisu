@@ -14,22 +14,23 @@ import {
   TIME_END_HOUR,
   TIME_START_HOUR,
 } from "./config.js?v=20260724-17";
-import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260724-20";
-import { createLegendFilter } from "../r4U_js/filters.js?v=20260724-12";
+import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260725-21";
+import { createLegendFilter } from "../r4U_js/filters.js?v=20260725-39";
 import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260724-12";
 import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-25";
 import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";
-import { createMapDisplay } from "./main.js?v=20260724-04";
-import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260724-26";
-import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260722-25";
-import { createMemoScroller } from "../r4U_js/memoScroller.js?v=20260722-25";
-import { getMemoProfile } from "../r4U_js/profiles.js";
+import { createMapDisplay } from "./main.js?v=20260725-10";
+import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260725-27";
+import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260725-34";
+import { getMemoProfile } from "../r4U_js/profiles.js?v=20260725-2";
 
 const canvas = document.querySelector("#scene");
 const view3dButton = document.querySelector("#view-3d");
 const view2dButton = document.querySelector("#view-2d");
 const playToggle = document.querySelector("#play-toggle");
+const timelinePanel = document.querySelector(".timeline");
+const timelineMinimize = document.querySelector("#timeline-minimize");
 const timeSlider = document.querySelector("#time-slider");
 const timeReadout = document.querySelector("#time-readout");
 const speedSlider = document.querySelector("#speed-slider");
@@ -40,11 +41,6 @@ const timeEventMarkerLanes = new Map(
     .map((element) => [element.dataset.timeEventMarkers, element]),
 );
 const memoList = document.querySelector("#memo-list");
-const memoScrollViewport = document.querySelector("#memo-scroll-viewport");
-const memoScrollSlider = document.querySelector("#memo-scroll-slider");
-const memoScrollProgress = document.querySelector("#memo-scroll-progress");
-const memoScrollTotal = document.querySelector("#memo-scroll-total");
-const memoScrollCurrent = document.querySelector("#memo-scroll-current");
 const legendFilterRoot = document.querySelector("#legend-filter");
 const analogClock = document.querySelector("#analog-clock");
 const compassCard = document.querySelector("#compass-card");
@@ -77,6 +73,9 @@ let routeTracks = [];
 let memoPoints = [];
 let memosBySource = new Map();
 let activeMemo = null;
+let hoveredMemo = null;
+let hoverSuppressedMemo = null;
+let selectionHaloTexture = null;
 let legendFilter = null;
 let assigneeFilter = null;
 let elapsedRouteLines = [];
@@ -86,6 +85,9 @@ let playStartOffset = 0;
 let isPlaying = false;
 let playbackEnded = false;
 let returnToDefaultViewOnPlay = false;
+let timelineTransition = null;
+let timelineDragState = null;
+const timelineDragOffset = { x: 0, y: 0 };
 let timelineStart = 0;
 let timelineEnd = 0;
 let playbackScale = 1;
@@ -111,13 +113,6 @@ const timelineInstruments = createTimelineInstruments({
   speedEngine,
 });
 timelineInstruments.updateSpeed(playbackRate);
-const memoScroller = createMemoScroller({
-  viewport: memoScrollViewport,
-  slider: memoScrollSlider,
-  progress: memoScrollProgress,
-  totalReadout: memoScrollTotal,
-  currentReadout: memoScrollCurrent,
-});
 viewToggle.setActive(viewMode);
 
 loadModel(() => {
@@ -126,6 +121,11 @@ loadModel(() => {
 });
 
 playToggle.addEventListener("click", togglePlayback);
+timelineMinimize.addEventListener("click", toggleTimelineMinimized);
+timelinePanel.addEventListener("pointerdown", startTimelineDrag);
+timelinePanel.addEventListener("pointermove", moveTimelineDrag);
+timelinePanel.addEventListener("pointerup", endTimelineDrag);
+timelinePanel.addEventListener("pointercancel", endTimelineDrag);
 speedSlider.addEventListener("input", () => setPlaybackRate(Number(speedSlider.value)));
 timeSlider.addEventListener("input", () => {
   stopPlayback();
@@ -236,7 +236,7 @@ function syncMemoMarkerScale(memo) {
   const baseScale = stamp?.userData.baseScale;
   if (!stamp || !baseScale) return;
   const cameraScale = CAMERA_MODES[cameraMode].stampScale ?? 1;
-  const selectedScale = memo === activeMemo ? 1.35 : 1;
+  const selectedScale = memo === activeMemo ? 1.35 : memo === hoveredMemo ? 1.16 : 1;
   stamp.scale.copy(baseScale).multiplyScalar(cameraScale * selectedScale);
 }
 
@@ -746,15 +746,52 @@ function createMemoMarker(memo, offsetSlot) {
   const stamp = makeGraffitiStamp(memo, category);
   stamp.position.y = 2.2;
   stamp.userData.baseScale = stamp.scale.clone();
+  const selectionHalo = makeSelectionHalo(categoryColor, stamp);
   const coordinateLabel = makeCoordinateLabel(memo);
   coordinateLabel.position.y = stamp.scale.y * 0.55 + 7;
   group.userData.stamp = stamp;
   group.userData.head = head;
   group.userData.leader = leader;
+  group.userData.selectionHalo = selectionHalo;
   group.userData.coordinateLabel = coordinateLabel;
 
-  group.add(leader, head, stamp, coordinateLabel);
+  group.add(leader, head, selectionHalo, stamp, coordinateLabel);
   return group;
+}
+
+function makeSelectionHalo(color, stamp) {
+  if (!selectionHaloTexture) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const context = canvas.getContext("2d");
+    const gradient = context.createRadialGradient(64, 64, 24, 64, 64, 60);
+    gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+    gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.08)");
+    gradient.addColorStop(0.68, "rgba(255, 255, 255, 1)");
+    gradient.addColorStop(0.82, "rgba(255, 255, 255, 0.24)");
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 128, 128);
+    selectionHaloTexture = new THREE.CanvasTexture(canvas);
+    selectionHaloTexture.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: selectionHaloTexture,
+    color,
+    transparent: true,
+    opacity: 0.9,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  halo.position.copy(stamp.position);
+  halo.scale.copy(stamp.scale).multiplyScalar(1.75);
+  halo.userData.baseScale = halo.scale.clone();
+  halo.renderOrder = 31;
+  halo.visible = false;
+  return halo;
 }
 
 function updateTimeline(seconds) {
@@ -809,29 +846,33 @@ function updateTimeline(seconds) {
     const hasOccurred = memo.time <= currentTime;
     memo.marker.visible = sourceIsVisible(memo.sourceId);
     memo.marker.userData.leader.visible = true;
-    memo.marker.userData.stamp.visible = hasOccurred && matches;
-    memo.marker.userData.head.visible = hasOccurred && matches;
+    const isHovered = memo === hoveredMemo;
+    const isEmphasized = memo === activeMemo || isHovered;
+    memo.marker.userData.stamp.visible = matches && (hasOccurred || isHovered);
+    memo.marker.userData.head.visible = matches && (hasOccurred || isHovered);
+    memo.marker.userData.selectionHalo.visible = matches && isEmphasized && (hasOccurred || isHovered);
     memo.marker.userData.coordinateLabel.visible = matches && memo === activeMemo;
     syncMemoMarkerScale(memo);
     syncMemoMarkerOpacity(memo, recentMemos.has(memo));
   }
 
-  const memoPanelChanged = renderMemoPanel({
+  renderMemoPanel({
     list: memoList,
     memos: memoPoints.filter(memoMatchesFilters),
-    currentTime,
     activeMemo,
+    suppressedMemo: hoverSuppressedMemo,
     categories: CATEGORY_STYLES,
     formatTime,
     onSelect: selectMemo,
+    onHover: setHoveredMemo,
+    onHoverSuppressionEnd: clearHoverSuppression,
   });
-  if (memoPanelChanged) memoScroller.refresh({ afterContentChange: true });
 }
 
 function syncMemoMarkerOpacity(memo, isRecent) {
   const stamp = memo.marker?.userData.stamp;
   const head = memo.marker?.userData.head;
-  const opacity = memo === activeMemo || isRecent ? 1 : 0.5;
+  const opacity = memo === activeMemo || memo === hoveredMemo || isRecent ? 1 : 0.5;
   if (stamp?.material) stamp.material.opacity = opacity;
   if (head?.material) head.material.opacity = opacity;
 }
@@ -894,9 +935,15 @@ function applyFilters() {
 }
 
 function selectMemo(memo) {
+  if (activeMemo === memo) {
+    deselectMemo(memo);
+    return;
+  }
+
   if (activeMemo?.marker?.userData.coordinateLabel) {
     activeMemo.marker.userData.coordinateLabel.visible = false;
   }
+  hoverSuppressedMemo = null;
   activeMemo = memo;
   returnToDefaultViewOnPlay = true;
   if (memo.marker?.userData.coordinateLabel) {
@@ -906,6 +953,30 @@ function selectMemo(memo) {
   const seconds = Math.round((memo.time - timelineStart) / 1000);
   updateTimeline(THREE.MathUtils.clamp(seconds, 0, Number(timeSlider.max)));
   focusCameraOnMemo(memo);
+}
+
+function deselectMemo(memo) {
+  if (memo.marker?.userData.coordinateLabel) {
+    memo.marker.userData.coordinateLabel.visible = false;
+  }
+  activeMemo = null;
+  hoveredMemo = null;
+  hoverSuppressedMemo = memo;
+  returnToDefaultViewOnPlay = false;
+  stopPlayback();
+  updateTimeline(Number(timeSlider.value));
+  setCameraMode("free");
+}
+
+function setHoveredMemo(memo) {
+  if (hoveredMemo === memo || hoverSuppressedMemo === memo) return;
+  hoveredMemo = memo;
+  updateTimeline(Number(timeSlider.value));
+}
+
+function clearHoverSuppression(memo) {
+  if (hoverSuppressedMemo !== memo) return;
+  hoverSuppressedMemo = null;
 }
 
 function focusCameraOnMemo(memo) {
@@ -977,6 +1048,244 @@ function syncPlaybackButton() {
   const label = isPlaying ? "一時停止" : playbackEnded ? "リピート" : "再生";
   playToggle.setAttribute("aria-label", label);
   playToggle.title = label;
+}
+
+async function toggleTimelineMinimized() {
+  if (timelineTransition) return;
+
+  const shouldMinimize = !timelinePanel.classList.contains("is-minimized");
+  if (shouldMinimize) alignMinimizedTimelineToButton();
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  timelineMinimize.disabled = true;
+
+  if (!shouldMinimize && hasTimelineDragOffset()) {
+    if (reducedMotion) {
+      resetTimelineDragOffset();
+    } else {
+      await returnTimelineToAnchor();
+    }
+  }
+
+  if (reducedMotion) {
+    timelinePanel.classList.toggle("is-minimized", shouldMinimize);
+    syncTimelineToggleUi(shouldMinimize);
+    timelineMinimize.disabled = false;
+    return;
+  }
+
+  timelinePanel.classList.add("is-morphing");
+  let playTransition = null;
+
+  if (shouldMinimize) {
+    timelinePanel.classList.add("is-collapsing");
+    await waitForTimelineFade();
+    const expandedRect = timelinePanel.getBoundingClientRect();
+    const expandedPlayRect = playToggle.getBoundingClientRect();
+    timelinePanel.classList.add("is-minimized");
+    const minimizedRect = timelinePanel.getBoundingClientRect();
+    const minimizedPlayRect = playToggle.getBoundingClientRect();
+    timelinePanel.classList.remove("is-minimized");
+    const targetClip = getInsetClip(expandedRect, minimizedRect);
+    const playTranslateX = minimizedPlayRect.left - expandedPlayRect.left;
+    const playTranslateY = minimizedPlayRect.top - expandedPlayRect.top;
+
+    timelineTransition = timelinePanel.animate(
+      [
+        { clipPath: "inset(0 0 0 0 round 999px)", opacity: 1 },
+        { clipPath: targetClip, opacity: 0.88 },
+      ],
+      {
+        duration: 420,
+        easing: "cubic-bezier(0.4, 0, 0.15, 1)",
+        fill: "forwards",
+      },
+    );
+    playTransition = playToggle.animate(
+      [
+        { transform: "translate(0, 0)" },
+        { transform: `translate(${playTranslateX}px, ${playTranslateY}px)` },
+      ],
+      {
+        duration: 420,
+        easing: "cubic-bezier(0.4, 0, 0.15, 1)",
+        fill: "forwards",
+      },
+    );
+    await Promise.all([
+      timelineTransition.finished.catch(() => {}),
+      playTransition.finished.catch(() => {}),
+    ]);
+    timelinePanel.classList.add("is-minimized");
+  } else {
+    const minimizedRect = timelinePanel.getBoundingClientRect();
+    const minimizedPlayRect = playToggle.getBoundingClientRect();
+    timelinePanel.classList.add("is-expanding");
+    timelinePanel.classList.remove("is-minimized");
+    const expandedRect = timelinePanel.getBoundingClientRect();
+    const expandedPlayRect = playToggle.getBoundingClientRect();
+    const sourceClip = getInsetClip(expandedRect, minimizedRect);
+    const playTranslateX = minimizedPlayRect.left - expandedPlayRect.left;
+    const playTranslateY = minimizedPlayRect.top - expandedPlayRect.top;
+
+    timelineTransition = timelinePanel.animate(
+      [
+        { clipPath: sourceClip, opacity: 0.88 },
+        { clipPath: "inset(0 0 0 0 round 999px)", opacity: 1 },
+      ],
+      {
+        duration: 460,
+        easing: "cubic-bezier(0.16, 0.82, 0.28, 1)",
+        fill: "forwards",
+      },
+    );
+    playTransition = playToggle.animate(
+      [
+        { transform: `translate(${playTranslateX}px, ${playTranslateY}px)` },
+        { transform: "translate(0, 0)" },
+      ],
+      {
+        duration: 460,
+        easing: "cubic-bezier(0.16, 0.82, 0.28, 1)",
+        fill: "forwards",
+      },
+    );
+    await Promise.all([
+      timelineTransition.finished.catch(() => {}),
+      playTransition.finished.catch(() => {}),
+    ]);
+  }
+
+  playTransition?.cancel();
+  timelineTransition.cancel();
+  timelineTransition = null;
+  timelinePanel.classList.remove("is-morphing", "is-collapsing", "is-expanding");
+  timelineMinimize.disabled = false;
+  syncTimelineToggleUi(shouldMinimize);
+}
+
+function startTimelineDrag(event) {
+  if (
+    !timelinePanel.classList.contains("is-minimized")
+    || timelineTransition
+    || event.button !== 0
+    || event.target.closest("button, input, label")
+  ) {
+    return;
+  }
+
+  const rect = timelinePanel.getBoundingClientRect();
+  timelineDragState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    baseX: timelineDragOffset.x,
+    baseY: timelineDragOffset.y,
+    rect,
+  };
+  timelinePanel.setPointerCapture(event.pointerId);
+  timelinePanel.classList.add("is-dragging");
+  event.preventDefault();
+}
+
+function moveTimelineDrag(event) {
+  if (!timelineDragState || timelineDragState.pointerId !== event.pointerId) return;
+
+  const rawX = event.clientX - timelineDragState.startX;
+  const rawY = event.clientY - timelineDragState.startY;
+  const minLeft = 8;
+  const maxLeft = Math.max(minLeft, window.innerWidth - timelineDragState.rect.width - 8);
+  const minTop = 8;
+  const maxTop = Math.max(minTop, window.innerHeight - timelineDragState.rect.height - 8);
+  const nextLeft = THREE.MathUtils.clamp(
+    timelineDragState.rect.left + rawX,
+    minLeft,
+    maxLeft,
+  );
+  const nextTop = THREE.MathUtils.clamp(
+    timelineDragState.rect.top + rawY,
+    minTop,
+    maxTop,
+  );
+  timelineDragOffset.x = timelineDragState.baseX + nextLeft - timelineDragState.rect.left;
+  timelineDragOffset.y = timelineDragState.baseY + nextTop - timelineDragState.rect.top;
+  syncTimelineDragOffset();
+}
+
+function endTimelineDrag(event) {
+  if (!timelineDragState || timelineDragState.pointerId !== event.pointerId) return;
+  if (timelinePanel.hasPointerCapture(event.pointerId)) {
+    timelinePanel.releasePointerCapture(event.pointerId);
+  }
+  timelineDragState = null;
+  timelinePanel.classList.remove("is-dragging");
+}
+
+function syncTimelineDragOffset() {
+  timelinePanel.style.setProperty("--timeline-drag-x", `${timelineDragOffset.x}px`);
+  timelinePanel.style.setProperty("--timeline-drag-y", `${timelineDragOffset.y}px`);
+}
+
+function hasTimelineDragOffset() {
+  return Math.abs(timelineDragOffset.x) > 0.5 || Math.abs(timelineDragOffset.y) > 0.5;
+}
+
+function resetTimelineDragOffset() {
+  timelineDragOffset.x = 0;
+  timelineDragOffset.y = 0;
+  syncTimelineDragOffset();
+}
+
+async function returnTimelineToAnchor() {
+  timelinePanel.classList.add("is-returning");
+  timelineTransition = timelinePanel.animate(
+    [
+      { transform: `translate(${timelineDragOffset.x}px, ${timelineDragOffset.y}px)` },
+      { transform: "translate(0, 0)" },
+    ],
+    {
+      duration: 320,
+      easing: "cubic-bezier(0.16, 0.82, 0.28, 1)",
+      fill: "forwards",
+    },
+  );
+  await timelineTransition.finished.catch(() => {});
+  resetTimelineDragOffset();
+  timelineTransition.cancel();
+  timelineTransition = null;
+  timelinePanel.classList.remove("is-returning");
+}
+
+function alignMinimizedTimelineToButton() {
+  const buttonRect = timelineMinimize.getBoundingClientRect();
+  const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+  const minimizedHeight = 52;
+  const bottom = Math.max(8, window.innerHeight - buttonCenterY - minimizedHeight / 2);
+  timelinePanel.style.setProperty("--timeline-minimized-bottom", `${bottom}px`);
+}
+
+function getInsetClip(containerRect, targetRect) {
+  const top = Math.max(0, targetRect.top - containerRect.top);
+  const right = Math.max(0, containerRect.right - targetRect.right);
+  const bottom = Math.max(0, containerRect.bottom - targetRect.bottom);
+  const left = Math.max(0, targetRect.left - containerRect.left);
+  return `inset(${top}px ${right}px ${bottom}px ${left}px round 999px)`;
+}
+
+function waitForTimelineFade() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      window.setTimeout(resolve, 140);
+    });
+  });
+}
+
+function syncTimelineToggleUi(isMinimized) {
+  timelineMinimize.setAttribute("aria-expanded", String(!isMinimized));
+  timelineMinimize.setAttribute(
+    "aria-label",
+    isMinimized ? "タイムラインを展開" : "タイムラインを最小化",
+  );
+  timelineMinimize.title = isMinimized ? "展開" : "最小化";
 }
 
 function setPlaybackRate(nextRate) {
@@ -1160,6 +1469,17 @@ function animate() {
     controls.update();
   } else {
     updateFollowCamera(deltaSeconds);
+  }
+  const emphasizedMemos = new Set([activeMemo, hoveredMemo].filter(Boolean));
+  for (const memo of emphasizedMemos) {
+    const halo = memo.marker?.userData.selectionHalo;
+    if (!halo?.visible) continue;
+    const pulseWave = Math.sin(frameMs * 0.007);
+    const pulse = 1 + pulseWave * (memo === activeMemo ? 0.09 : 0.05);
+    halo.scale.copy(halo.userData.baseScale).multiplyScalar(pulse);
+    halo.material.opacity = memo === activeMemo
+      ? 0.82 + pulseWave * 0.12
+      : 0.4 + pulseWave * 0.08;
   }
   timelineInstruments.updateCompass(activeCamera);
   renderer.render(scene, activeCamera);

@@ -1,7 +1,12 @@
 import * as THREE from "three";
 import { GPX_FILES, INITIAL_CENTER_GEO } from "../src/config.js?v=20260724-17";
-import { createMapDisplay } from "../src/main.js?v=20260724-04";
+import { createMapDisplay } from "../src/main.js?v=20260725-10";
 import { PHOTOS } from "../src/photos.js";
+import {
+  getPhotoViewData,
+  hasPhotoViewData,
+  PHOTO_VIEW_DEFAULTS,
+} from "./photoViewData.js?v=20260724-01";
 
 const canvas = document.querySelector("#scene");
 const detailRevealCanvas = document.querySelector("#detail-reveal-scene");
@@ -44,6 +49,9 @@ const restartCalibrationButton = document.querySelector("#restart-calibration");
 const closeCalibrationSummaryButton = document.querySelector("#close-calibration-summary");
 const calibrationSummaryLabel = document.querySelector("#calibration-summary-label");
 const calibrationSummaryTitle = document.querySelector("#calibration-summary-title");
+const timeFilterButtons = [...document.querySelectorAll("[data-time-period]")];
+const visiblePhotoCount = document.querySelector("#visible-photo-count");
+const photoListCount = document.querySelector("#photo-list-count");
 const CALIBRATION_DRAFT_KEY = "kashiwa-photo-calibration-draft-v1";
 const isPublicViewer = document.body.dataset.viewerMode === "public";
 
@@ -82,6 +90,15 @@ if (detailRevealRenderer) {
   detailRevealRenderer.setClearColor(0x000000, 0);
 }
 
+const REVEAL_OPTICAL_EFFECT = Object.freeze({
+  edgeWidth: 28,
+  distortion: 5.2,
+  chromaticAberration: 1.15,
+});
+const revealPostEffect = detailRevealRenderer
+  ? createRevealPostEffect(detailRevealRenderer)
+  : null;
+
 const photoGroup = new THREE.Group();
 const photoHitTargets = [];
 scene.add(photoGroup);
@@ -100,12 +117,127 @@ let overviewRevealCenter = null;
 let overviewRevealVelocity = { x: 0, y: 0 };
 let overviewRevealLastPointerAt = 0;
 let overviewRevealLastFrameAt = performance.now();
+let overviewRevealRadius = 100;
+let overviewRevealShape = { direction: 0, strength: 0, phase: 0 };
+let activeTimePeriod = "all";
+
+function createRevealPostEffect(layerRenderer) {
+  const target = new THREE.WebGLRenderTarget(1, 1, {
+    depthBuffer: true,
+    stencilBuffer: false,
+  });
+  const material = new THREE.ShaderMaterial({
+    depthTest: false,
+    depthWrite: false,
+    transparent: true,
+    toneMapped: false,
+    uniforms: {
+      sourceTexture: { value: target.texture },
+      resolution: { value: new THREE.Vector2(1, 1) },
+      center: { value: new THREE.Vector2(0.5, 0.5) },
+      radius: { value: 100 },
+      edgeWidth: { value: REVEAL_OPTICAL_EFFECT.edgeWidth },
+      distortion: { value: REVEAL_OPTICAL_EFFECT.distortion },
+      chromaticAberration: { value: REVEAL_OPTICAL_EFFECT.chromaticAberration },
+      shapeDirection: { value: 0 },
+      shapeStrength: { value: 0 },
+      shapePhase: { value: 0 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+
+      void main() {
+        vUv = uv;
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D sourceTexture;
+      uniform vec2 resolution;
+      uniform vec2 center;
+      uniform float radius;
+      uniform float edgeWidth;
+      uniform float distortion;
+      uniform float chromaticAberration;
+      uniform float shapeDirection;
+      uniform float shapeStrength;
+      uniform float shapePhase;
+      varying vec2 vUv;
+
+      void main() {
+        vec2 deltaPixels = (vUv - center) * resolution;
+        float distanceFromCenter = length(deltaPixels);
+        vec2 radial = distanceFromCenter > 0.001
+          ? deltaPixels / distanceFromCenter
+          : vec2(0.0);
+        float angle = atan(deltaPixels.y, deltaPixels.x);
+        float alignment = cos(angle - shapeDirection);
+        float lateral = abs(sin(angle - shapeDirection));
+        float stretch = shapeStrength * (0.52 * abs(alignment) - 0.2 * lateral);
+        float tail = shapeStrength * 0.3 * pow(max(0.0, -alignment), 2.0);
+        float ripple = shapeStrength * (
+          sin(-angle * 3.0 + shapePhase) * 0.08
+          + sin(-angle * 5.0 - shapePhase * 0.7) * 0.035
+        );
+        float localRadius = radius * (1.0 + stretch + tail + ripple);
+        float boundaryDistance = distanceFromCenter - localRadius;
+        float innerBand = smoothstep(-edgeWidth, -3.0, boundaryDistance);
+        float outerBand = 1.0 - smoothstep(3.0, edgeWidth * 0.45, boundaryDistance);
+        float edgeBand = innerBand * outerBand;
+        float lensCurve = sin(edgeBand * 1.5707963);
+        vec2 lensOffset = radial * (distortion * lensCurve) / resolution;
+        vec2 warpedUv = clamp(vUv - lensOffset, vec2(0.001), vec2(0.999));
+        vec2 colorOffset = radial * (chromaticAberration * edgeBand) / resolution;
+        vec4 base = texture2D(sourceTexture, warpedUv);
+        float red = texture2D(sourceTexture, clamp(warpedUv + colorOffset, vec2(0.001), vec2(0.999))).r;
+        float blue = texture2D(sourceTexture, clamp(warpedUv - colorOffset, vec2(0.001), vec2(0.999))).b;
+
+        gl_FragColor = vec4(red, base.g, blue, base.a);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  const effectScene = new THREE.Scene();
+  const effectCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  effectScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+
+  return {
+    target,
+    resize(width, height) {
+      const pixelRatio = layerRenderer.getPixelRatio();
+      const renderWidth = Math.max(1, Math.round(width * pixelRatio));
+      const renderHeight = Math.max(1, Math.round(height * pixelRatio));
+      target.setSize(renderWidth, renderHeight);
+      material.uniforms.resolution.value.set(renderWidth, renderHeight);
+    },
+    render(centerPoint, radiusPixels) {
+      const pixelRatio = layerRenderer.getPixelRatio();
+      material.uniforms.center.value.set(
+        centerPoint.x / window.innerWidth,
+        1 - centerPoint.y / window.innerHeight,
+      );
+      material.uniforms.radius.value = radiusPixels * pixelRatio;
+      material.uniforms.edgeWidth.value = REVEAL_OPTICAL_EFFECT.edgeWidth * pixelRatio;
+      material.uniforms.distortion.value = REVEAL_OPTICAL_EFFECT.distortion * pixelRatio;
+      material.uniforms.chromaticAberration.value = (
+        REVEAL_OPTICAL_EFFECT.chromaticAberration * pixelRatio
+      );
+      material.uniforms.shapeDirection.value = -overviewRevealShape.direction;
+      material.uniforms.shapeStrength.value = overviewRevealShape.strength;
+      material.uniforms.shapePhase.value = overviewRevealShape.phase;
+      layerRenderer.setRenderTarget(null);
+      layerRenderer.render(effectScene, effectCamera);
+    },
+  };
+}
+
 
 loadModel(async () => {
   fitOverviewCamera();
   routeTracks = await loadRouteTracks();
   placePhotos();
   renderPhotoGrid();
+  applyTimePeriod("all");
   if (detailRevealRenderer) {
     loadDetailModel()
       .then(() => {
@@ -144,6 +276,9 @@ calibrationPhotoSelect?.addEventListener("change", () => {
 calibrationBack?.addEventListener("click", () => navigateCalibration(-1));
 calibrationSkip?.addEventListener("click", skipCalibrationPhoto);
 calibrationPartial?.addEventListener("click", () => showCalibrationSummary(true));
+timeFilterButtons.forEach((button) => {
+  button.addEventListener("click", () => applyTimePeriod(button.dataset.timePeriod));
+});
 poseInputs.forEach((input) => input.addEventListener("change", applyPoseInputs));
 nudgeButtons.forEach((button) => button.addEventListener("click", () => {
   nudgeCamera(
@@ -250,6 +385,7 @@ function placePhotos() {
     const frame = getPhotoFrame(photo);
     photo.worldPosition = frame.position;
     photo.direction = getPhotoDirection(photo, frame.tangent);
+    photo.timePeriod = getPhotoTimePeriod(photo.capturedAt);
 
     const marker = new THREE.Group();
     marker.position.copy(photo.worldPosition);
@@ -375,10 +511,18 @@ function renderPhotoGrid() {
     const label = document.createElement("span");
     label.textContent = `${String(index + 1).padStart(2, "0")} · ${photo.author.toUpperCase()} · ${formatPhotoTime(photo.capturedAt)}`;
     button.append(image, label);
+    if (!isPublicViewer) {
+      const status = document.createElement("em");
+      const configured = hasPhotoViewData(photo.id);
+      status.className = `photo-card__status ${configured ? "is-configured" : "is-unconfigured"}`;
+      status.textContent = configured ? "JS設定済み" : "未設定";
+      button.append(status);
+    }
     button.addEventListener("click", () => {
       photoList.hidden = true;
       openPhoto(index);
     });
+    photo.card = button;
     return button;
   });
   photoGrid.replaceChildren(...cards);
@@ -420,10 +564,20 @@ async function openPhoto(index) {
     updateCalibrationProgress(normalizedIndex);
   }
   modelBadge.innerHTML = "<i></i>BLOSM · PHOTO VIEW";
-  const savedCalibration = calibrationResults[normalizedIndex];
-  photoOpacity.value = String(Math.round((savedCalibration?.photoOpacity ?? 0.58) * 100));
-  photoScale.value = String(Math.round((savedCalibration?.photoScale || 1) * 100));
-  if (cameraFov) cameraFov.value = String(savedCalibration?.fov ?? 62);
+  const registeredView = getPhotoViewData(photo.id);
+  const draftView = calibrationResults[normalizedIndex];
+  const savedCalibration = calibrationMode
+    ? (draftView ?? registeredView)
+    : registeredView;
+  photoOpacity.value = String(Math.round(
+    (savedCalibration?.photoOpacity ?? PHOTO_VIEW_DEFAULTS.photoOpacity) * 100,
+  ));
+  photoScale.value = String(Math.round(
+    (savedCalibration?.photoScale ?? PHOTO_VIEW_DEFAULTS.photoScale) * 100,
+  ));
+  if (cameraFov) {
+    cameraFov.value = String(savedCalibration?.fov ?? PHOTO_VIEW_DEFAULTS.fov);
+  }
   updatePhotoOpacity();
   updatePhotoScale();
   updateCameraFov();
@@ -443,7 +597,7 @@ async function openPhoto(index) {
   const target = position.clone().addScaledVector(photo.direction, 28);
   target.y = 7;
   perspectiveCamera.position.copy(position);
-  perspectiveCamera.fov = Number(cameraFov?.value ?? 62);
+  perspectiveCamera.fov = Number(cameraFov?.value ?? PHOTO_VIEW_DEFAULTS.fov);
   perspectiveCamera.near = 0.1;
   perspectiveCamera.far = Math.max(cameraSnapshot?.far || 3000, 3000);
   perspectiveCamera.updateProjectionMatrix();
@@ -451,7 +605,7 @@ async function openPhoto(index) {
   controls.update();
 
   try {
-    setDetailLighting(isPhotoBeforeTwenty(photo.capturedAt));
+    setDetailLighting(photo.timePeriod ?? getPhotoTimePeriod(photo.capturedAt));
     await setModelMode("detail");
     if (token !== viewToken || !photoMode) {
       setModelMode("overview");
@@ -461,7 +615,7 @@ async function openPhoto(index) {
     if (savedCalibration) {
       restoreCalibrationPose(savedCalibration);
     } else if (Number.isFinite(surfaceY)) {
-      position.y = surfaceY + 2.4;
+      position.y = surfaceY + PHOTO_VIEW_DEFAULTS.cameraHeight;
       target.y = position.y;
       perspectiveCamera.position.copy(position);
       controls.target.copy(target);
@@ -488,6 +642,7 @@ function closePhoto() {
   photoGroup.visible = true;
   modelBadge.innerHTML = "<i></i>3DMAP · OVERVIEW";
   setModelMode("overview");
+  setDetailLighting(activeTimePeriod === "all" ? "default" : activeTimePeriod);
 
   if (!cameraSnapshot) return;
   perspectiveCamera.position.copy(cameraSnapshot.position);
@@ -506,7 +661,49 @@ function closePhoto() {
 }
 
 function stepPhoto(offset) {
-  if (photoMode && !calibrationMode) openPhoto(activePhotoIndex + offset);
+  if (!photoMode || calibrationMode) return;
+  const availableIndices = PHOTOS
+    .map((photo, index) => (matchesTimePeriod(photo) ? index : -1))
+    .filter((index) => index >= 0);
+  if (!availableIndices.length) return;
+  const currentPosition = availableIndices.indexOf(activePhotoIndex);
+  const nextPosition = (
+    (currentPosition < 0 ? 0 : currentPosition + offset)
+    + availableIndices.length
+  ) % availableIndices.length;
+  openPhoto(availableIndices[nextPosition]);
+}
+
+function applyTimePeriod(period) {
+  if (!["all", "twilight", "night", "late"].includes(period)) return;
+  activeTimePeriod = period;
+  document.body.dataset.timePeriod = period;
+
+  let visibleCount = 0;
+  for (const photo of PHOTOS) {
+    const visible = matchesTimePeriod(photo);
+    if (photo.marker) photo.marker.visible = visible;
+    if (photo.card) photo.card.hidden = !visible;
+    if (visible) visibleCount += 1;
+  }
+
+  timeFilterButtons.forEach((button) => {
+    const selected = button.dataset.timePeriod === period;
+    button.setAttribute("aria-pressed", String(selected));
+    const count = PHOTOS.filter((photo) => (
+      button.dataset.timePeriod === "all"
+      || photo.timePeriod === button.dataset.timePeriod
+    )).length;
+    const countLabel = button.querySelector("span");
+    if (countLabel) countLabel.textContent = String(count);
+  });
+  if (visiblePhotoCount) visiblePhotoCount.textContent = String(visibleCount);
+  if (photoListCount) photoListCount.textContent = `${visibleCount} VIEWS`;
+  setDetailLighting(period === "all" ? "default" : period);
+}
+
+function matchesTimePeriod(photo) {
+  return activeTimePeriod === "all" || photo.timePeriod === activeTimePeriod;
 }
 
 function updatePhotoOpacity() {
@@ -579,7 +776,9 @@ function updateLiquidOverviewReveal(now) {
   const radius = window.innerWidth <= 700
     ? 88
     : THREE.MathUtils.clamp(window.innerWidth * 0.1, 82, 132);
+  overviewRevealRadius = radius;
   const phase = now * 0.004;
+  overviewRevealShape = { direction, strength, phase };
   const points = [];
 
   for (let index = 0; index < 48; index += 1) {
@@ -620,7 +819,7 @@ function setPhotoMarkerAppearance(color, fluorescent = false) {
 }
 
 function updateCameraFov() {
-  const fov = Number(cameraFov?.value ?? 62);
+  const fov = Number(cameraFov?.value ?? PHOTO_VIEW_DEFAULTS.fov);
   if (!Number.isFinite(fov)) return;
   perspectiveCamera.fov = fov;
   perspectiveCamera.updateProjectionMatrix();
@@ -748,7 +947,8 @@ function restoreCalibrationPose(record) {
 
 function updateCalibrationProgress(index = activePhotoIndex) {
   const savedCount = calibrationResults.filter(Boolean).length;
-  calibrationProgress.textContent = `PHOTO ${index + 1} / ${PHOTOS.length} · SAVED ${savedCount}`;
+  const configuredCount = PHOTOS.filter((photo) => hasPhotoViewData(photo.id)).length;
+  calibrationProgress.textContent = `PHOTO ${index + 1} / ${PHOTOS.length} · DRAFT ${savedCount} · JS ${configuredCount}`;
   updateCalibrationPhotoSelect(index);
   if (calibrationBack) calibrationBack.disabled = index <= 0;
   if (calibrationPartial) calibrationPartial.disabled = savedCount === 0;
@@ -759,8 +959,12 @@ function updateCalibrationPhotoSelect(selectedIndex = activePhotoIndex) {
   const options = PHOTOS.map((photo, index) => {
     const option = document.createElement("option");
     option.value = String(index);
-    const status = calibrationResults[index] ? "✓" : "·";
-    option.textContent = `${String(index + 1).padStart(2, "0")} ${status} ${photo.author} / ${photo.file}`;
+    const status = calibrationResults[index]
+      ? "調整中"
+      : hasPhotoViewData(photo.id)
+        ? "JS設定済み"
+        : "未設定";
+    option.textContent = `${String(index + 1).padStart(2, "0")} · ${status} · ${photo.author} / ${photo.file}`;
     return option;
   });
   calibrationPhotoSelect.replaceChildren(...options);
@@ -769,7 +973,8 @@ function updateCalibrationPhotoSelect(selectedIndex = activePhotoIndex) {
 
 function getResumeIndex() {
   const missingIndex = PHOTOS.findIndex((photo, index) => (
-    !calibrationResults[index] || calibrationResults[index].id !== photo.id
+    (!calibrationResults[index] || calibrationResults[index].id !== photo.id)
+    && !hasPhotoViewData(photo.id)
   ));
   return missingIndex < 0 ? PHOTOS.length - 1 : missingIndex;
 }
@@ -970,7 +1175,9 @@ function selectPhotoPoint(event) {
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, perspectiveCamera);
-  const hit = raycaster.intersectObjects(photoHitTargets, false)[0];
+  const hit = raycaster
+    .intersectObjects(photoHitTargets, false)
+    .find((result) => result.object.parent?.visible);
   if (hit) openPhoto(hit.object.userData.photoIndex);
 }
 
@@ -1001,13 +1208,15 @@ function formatPhotoTime(time) {
   }).format(time);
 }
 
-function isPhotoBeforeTwenty(time) {
+function getPhotoTimePeriod(time) {
   const hour = Number(new Intl.DateTimeFormat("en-GB", {
     hour: "2-digit",
     hourCycle: "h23",
     timeZone: "Asia/Tokyo",
   }).format(time));
-  return hour < 20;
+  if (hour < 20) return "twilight";
+  if (hour < 23) return "night";
+  return "late";
 }
 
 function resize() {
@@ -1017,6 +1226,7 @@ function resize() {
   perspectiveCamera.updateProjectionMatrix();
   renderer.setSize(width, height, false);
   detailRevealRenderer?.setSize(width, height, false);
+  revealPostEffect?.resize(width, height);
 }
 
 function animate() {
@@ -1044,8 +1254,20 @@ function animate() {
     && document.body.classList.contains("overview-reveal-active")
   ) {
     setPhotoMarkerAppearance(0x008cff, true);
-    renderDetailLayer(detailRevealRenderer, perspectiveCamera);
-    setPhotoMarkerAppearance(0xffffff);
+    try {
+      if (revealPostEffect && overviewRevealCenter) {
+        renderDetailLayer(
+          detailRevealRenderer,
+          perspectiveCamera,
+          revealPostEffect.target,
+        );
+        revealPostEffect.render(overviewRevealCenter, overviewRevealRadius);
+      } else {
+        renderDetailLayer(detailRevealRenderer, perspectiveCamera);
+      }
+    } finally {
+      setPhotoMarkerAppearance(0xffffff);
+    }
   }
   requestAnimationFrame(animate);
 }

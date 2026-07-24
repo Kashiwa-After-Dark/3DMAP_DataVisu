@@ -99,6 +99,15 @@ function drawGenderShape(ctx, gender) {
     return;
   }
 
+  if (gender === "U") {
+    ctx.beginPath();
+    ctx.moveTo(128, 38);
+    ctx.lineTo(220, 208);
+    ctx.lineTo(36, 208);
+    ctx.closePath();
+    return;
+  }
+
   if (gender === "X") {
     ctx.beginPath();
     ctx.moveTo(128, 42);
