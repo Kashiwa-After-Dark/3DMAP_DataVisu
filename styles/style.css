@@ -1417,8 +1417,8 @@ body.photo-mode #scene:active {
   z-index: 3;
   display: grid;
   grid-template-columns: repeat(3, 54px);
-  gap: 8px;
-  width: 178px;
+  gap: 14px;
+  width: 190px;
   box-sizing: border-box;
   border: 0;
   padding: 0;
@@ -1498,6 +1498,7 @@ body.photo-mode #scene:active {
 
 .compass-dial {
   overflow: visible;
+  background: transparent;
   perspective: 90px;
 }
 
@@ -2206,8 +2207,17 @@ body.photo-mode #scene:active {
 
 .assignee-list {
   display: inline-flex;
-  gap: 3px;
+  gap: 4px;
   align-items: center;
+}
+
+.assignee-list__group {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  border: 1px solid rgba(var(--map-blue-rgb), 0.26);
+  padding: 2px;
+  background: rgba(var(--map-blue-rgb), 0.025);
 }
 
 .assignee-list button {
