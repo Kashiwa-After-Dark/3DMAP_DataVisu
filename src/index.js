@@ -29,6 +29,8 @@ const canvas = document.querySelector("#scene");
 const view3dButton = document.querySelector("#view-3d");
 const view2dButton = document.querySelector("#view-2d");
 const playToggle = document.querySelector("#play-toggle");
+const timelinePanel = document.querySelector(".timeline");
+const timelineMinimize = document.querySelector("#timeline-minimize");
 const timeSlider = document.querySelector("#time-slider");
 const timeReadout = document.querySelector("#time-readout");
 const speedSlider = document.querySelector("#speed-slider");
@@ -83,6 +85,9 @@ let playStartOffset = 0;
 let isPlaying = false;
 let playbackEnded = false;
 let returnToDefaultViewOnPlay = false;
+let timelineTransition = null;
+let timelineDragState = null;
+const timelineDragOffset = { x: 0, y: 0 };
 let timelineStart = 0;
 let timelineEnd = 0;
 let playbackScale = 1;
@@ -116,6 +121,11 @@ loadModel(() => {
 });
 
 playToggle.addEventListener("click", togglePlayback);
+timelineMinimize.addEventListener("click", toggleTimelineMinimized);
+timelinePanel.addEventListener("pointerdown", startTimelineDrag);
+timelinePanel.addEventListener("pointermove", moveTimelineDrag);
+timelinePanel.addEventListener("pointerup", endTimelineDrag);
+timelinePanel.addEventListener("pointercancel", endTimelineDrag);
 speedSlider.addEventListener("input", () => setPlaybackRate(Number(speedSlider.value)));
 timeSlider.addEventListener("input", () => {
   stopPlayback();
@@ -1038,6 +1048,244 @@ function syncPlaybackButton() {
   const label = isPlaying ? "一時停止" : playbackEnded ? "リピート" : "再生";
   playToggle.setAttribute("aria-label", label);
   playToggle.title = label;
+}
+
+async function toggleTimelineMinimized() {
+  if (timelineTransition) return;
+
+  const shouldMinimize = !timelinePanel.classList.contains("is-minimized");
+  if (shouldMinimize) alignMinimizedTimelineToButton();
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  timelineMinimize.disabled = true;
+
+  if (!shouldMinimize && hasTimelineDragOffset()) {
+    if (reducedMotion) {
+      resetTimelineDragOffset();
+    } else {
+      await returnTimelineToAnchor();
+    }
+  }
+
+  if (reducedMotion) {
+    timelinePanel.classList.toggle("is-minimized", shouldMinimize);
+    syncTimelineToggleUi(shouldMinimize);
+    timelineMinimize.disabled = false;
+    return;
+  }
+
+  timelinePanel.classList.add("is-morphing");
+  let playTransition = null;
+
+  if (shouldMinimize) {
+    timelinePanel.classList.add("is-collapsing");
+    await waitForTimelineFade();
+    const expandedRect = timelinePanel.getBoundingClientRect();
+    const expandedPlayRect = playToggle.getBoundingClientRect();
+    timelinePanel.classList.add("is-minimized");
+    const minimizedRect = timelinePanel.getBoundingClientRect();
+    const minimizedPlayRect = playToggle.getBoundingClientRect();
+    timelinePanel.classList.remove("is-minimized");
+    const targetClip = getInsetClip(expandedRect, minimizedRect);
+    const playTranslateX = minimizedPlayRect.left - expandedPlayRect.left;
+    const playTranslateY = minimizedPlayRect.top - expandedPlayRect.top;
+
+    timelineTransition = timelinePanel.animate(
+      [
+        { clipPath: "inset(0 0 0 0 round 999px)", opacity: 1 },
+        { clipPath: targetClip, opacity: 0.88 },
+      ],
+      {
+        duration: 420,
+        easing: "cubic-bezier(0.4, 0, 0.15, 1)",
+        fill: "forwards",
+      },
+    );
+    playTransition = playToggle.animate(
+      [
+        { transform: "translate(0, 0)" },
+        { transform: `translate(${playTranslateX}px, ${playTranslateY}px)` },
+      ],
+      {
+        duration: 420,
+        easing: "cubic-bezier(0.4, 0, 0.15, 1)",
+        fill: "forwards",
+      },
+    );
+    await Promise.all([
+      timelineTransition.finished.catch(() => {}),
+      playTransition.finished.catch(() => {}),
+    ]);
+    timelinePanel.classList.add("is-minimized");
+  } else {
+    const minimizedRect = timelinePanel.getBoundingClientRect();
+    const minimizedPlayRect = playToggle.getBoundingClientRect();
+    timelinePanel.classList.add("is-expanding");
+    timelinePanel.classList.remove("is-minimized");
+    const expandedRect = timelinePanel.getBoundingClientRect();
+    const expandedPlayRect = playToggle.getBoundingClientRect();
+    const sourceClip = getInsetClip(expandedRect, minimizedRect);
+    const playTranslateX = minimizedPlayRect.left - expandedPlayRect.left;
+    const playTranslateY = minimizedPlayRect.top - expandedPlayRect.top;
+
+    timelineTransition = timelinePanel.animate(
+      [
+        { clipPath: sourceClip, opacity: 0.88 },
+        { clipPath: "inset(0 0 0 0 round 999px)", opacity: 1 },
+      ],
+      {
+        duration: 460,
+        easing: "cubic-bezier(0.16, 0.82, 0.28, 1)",
+        fill: "forwards",
+      },
+    );
+    playTransition = playToggle.animate(
+      [
+        { transform: `translate(${playTranslateX}px, ${playTranslateY}px)` },
+        { transform: "translate(0, 0)" },
+      ],
+      {
+        duration: 460,
+        easing: "cubic-bezier(0.16, 0.82, 0.28, 1)",
+        fill: "forwards",
+      },
+    );
+    await Promise.all([
+      timelineTransition.finished.catch(() => {}),
+      playTransition.finished.catch(() => {}),
+    ]);
+  }
+
+  playTransition?.cancel();
+  timelineTransition.cancel();
+  timelineTransition = null;
+  timelinePanel.classList.remove("is-morphing", "is-collapsing", "is-expanding");
+  timelineMinimize.disabled = false;
+  syncTimelineToggleUi(shouldMinimize);
+}
+
+function startTimelineDrag(event) {
+  if (
+    !timelinePanel.classList.contains("is-minimized")
+    || timelineTransition
+    || event.button !== 0
+    || event.target.closest("button, input, label")
+  ) {
+    return;
+  }
+
+  const rect = timelinePanel.getBoundingClientRect();
+  timelineDragState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    baseX: timelineDragOffset.x,
+    baseY: timelineDragOffset.y,
+    rect,
+  };
+  timelinePanel.setPointerCapture(event.pointerId);
+  timelinePanel.classList.add("is-dragging");
+  event.preventDefault();
+}
+
+function moveTimelineDrag(event) {
+  if (!timelineDragState || timelineDragState.pointerId !== event.pointerId) return;
+
+  const rawX = event.clientX - timelineDragState.startX;
+  const rawY = event.clientY - timelineDragState.startY;
+  const minLeft = 8;
+  const maxLeft = Math.max(minLeft, window.innerWidth - timelineDragState.rect.width - 8);
+  const minTop = 8;
+  const maxTop = Math.max(minTop, window.innerHeight - timelineDragState.rect.height - 8);
+  const nextLeft = THREE.MathUtils.clamp(
+    timelineDragState.rect.left + rawX,
+    minLeft,
+    maxLeft,
+  );
+  const nextTop = THREE.MathUtils.clamp(
+    timelineDragState.rect.top + rawY,
+    minTop,
+    maxTop,
+  );
+  timelineDragOffset.x = timelineDragState.baseX + nextLeft - timelineDragState.rect.left;
+  timelineDragOffset.y = timelineDragState.baseY + nextTop - timelineDragState.rect.top;
+  syncTimelineDragOffset();
+}
+
+function endTimelineDrag(event) {
+  if (!timelineDragState || timelineDragState.pointerId !== event.pointerId) return;
+  if (timelinePanel.hasPointerCapture(event.pointerId)) {
+    timelinePanel.releasePointerCapture(event.pointerId);
+  }
+  timelineDragState = null;
+  timelinePanel.classList.remove("is-dragging");
+}
+
+function syncTimelineDragOffset() {
+  timelinePanel.style.setProperty("--timeline-drag-x", `${timelineDragOffset.x}px`);
+  timelinePanel.style.setProperty("--timeline-drag-y", `${timelineDragOffset.y}px`);
+}
+
+function hasTimelineDragOffset() {
+  return Math.abs(timelineDragOffset.x) > 0.5 || Math.abs(timelineDragOffset.y) > 0.5;
+}
+
+function resetTimelineDragOffset() {
+  timelineDragOffset.x = 0;
+  timelineDragOffset.y = 0;
+  syncTimelineDragOffset();
+}
+
+async function returnTimelineToAnchor() {
+  timelinePanel.classList.add("is-returning");
+  timelineTransition = timelinePanel.animate(
+    [
+      { transform: `translate(${timelineDragOffset.x}px, ${timelineDragOffset.y}px)` },
+      { transform: "translate(0, 0)" },
+    ],
+    {
+      duration: 320,
+      easing: "cubic-bezier(0.16, 0.82, 0.28, 1)",
+      fill: "forwards",
+    },
+  );
+  await timelineTransition.finished.catch(() => {});
+  resetTimelineDragOffset();
+  timelineTransition.cancel();
+  timelineTransition = null;
+  timelinePanel.classList.remove("is-returning");
+}
+
+function alignMinimizedTimelineToButton() {
+  const buttonRect = timelineMinimize.getBoundingClientRect();
+  const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+  const minimizedHeight = 52;
+  const bottom = Math.max(8, window.innerHeight - buttonCenterY - minimizedHeight / 2);
+  timelinePanel.style.setProperty("--timeline-minimized-bottom", `${bottom}px`);
+}
+
+function getInsetClip(containerRect, targetRect) {
+  const top = Math.max(0, targetRect.top - containerRect.top);
+  const right = Math.max(0, containerRect.right - targetRect.right);
+  const bottom = Math.max(0, containerRect.bottom - targetRect.bottom);
+  const left = Math.max(0, targetRect.left - containerRect.left);
+  return `inset(${top}px ${right}px ${bottom}px ${left}px round 999px)`;
+}
+
+function waitForTimelineFade() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      window.setTimeout(resolve, 140);
+    });
+  });
+}
+
+function syncTimelineToggleUi(isMinimized) {
+  timelineMinimize.setAttribute("aria-expanded", String(!isMinimized));
+  timelineMinimize.setAttribute(
+    "aria-label",
+    isMinimized ? "タイムラインを展開" : "タイムラインを最小化",
+  );
+  timelineMinimize.title = isMinimized ? "展開" : "最小化";
 }
 
 function setPlaybackRate(nextRate) {
