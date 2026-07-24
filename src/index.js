@@ -22,8 +22,7 @@ import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";
 import { createMapDisplay } from "./main.js?v=20260725-10";
 import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260724-26";
-import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260722-25";
-import { createMemoScroller } from "../r4U_js/memoScroller.js?v=20260722-25";
+import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260725-32";
 import { getMemoProfile } from "../r4U_js/profiles.js";
 
 const canvas = document.querySelector("#scene");
@@ -40,11 +39,6 @@ const timeEventMarkerLanes = new Map(
     .map((element) => [element.dataset.timeEventMarkers, element]),
 );
 const memoList = document.querySelector("#memo-list");
-const memoScrollViewport = document.querySelector("#memo-scroll-viewport");
-const memoScrollSlider = document.querySelector("#memo-scroll-slider");
-const memoScrollProgress = document.querySelector("#memo-scroll-progress");
-const memoScrollTotal = document.querySelector("#memo-scroll-total");
-const memoScrollCurrent = document.querySelector("#memo-scroll-current");
 const legendFilterRoot = document.querySelector("#legend-filter");
 const analogClock = document.querySelector("#analog-clock");
 const compassCard = document.querySelector("#compass-card");
@@ -77,6 +71,9 @@ let routeTracks = [];
 let memoPoints = [];
 let memosBySource = new Map();
 let activeMemo = null;
+let hoveredMemo = null;
+let hoverSuppressedMemo = null;
+let selectionHaloTexture = null;
 let legendFilter = null;
 let assigneeFilter = null;
 let elapsedRouteLines = [];
@@ -111,13 +108,6 @@ const timelineInstruments = createTimelineInstruments({
   speedEngine,
 });
 timelineInstruments.updateSpeed(playbackRate);
-const memoScroller = createMemoScroller({
-  viewport: memoScrollViewport,
-  slider: memoScrollSlider,
-  progress: memoScrollProgress,
-  totalReadout: memoScrollTotal,
-  currentReadout: memoScrollCurrent,
-});
 viewToggle.setActive(viewMode);
 
 loadModel(() => {
@@ -236,7 +226,7 @@ function syncMemoMarkerScale(memo) {
   const baseScale = stamp?.userData.baseScale;
   if (!stamp || !baseScale) return;
   const cameraScale = CAMERA_MODES[cameraMode].stampScale ?? 1;
-  const selectedScale = memo === activeMemo ? 1.35 : 1;
+  const selectedScale = memo === activeMemo ? 1.35 : memo === hoveredMemo ? 1.16 : 1;
   stamp.scale.copy(baseScale).multiplyScalar(cameraScale * selectedScale);
 }
 
@@ -746,15 +736,52 @@ function createMemoMarker(memo, offsetSlot) {
   const stamp = makeGraffitiStamp(memo, category);
   stamp.position.y = 2.2;
   stamp.userData.baseScale = stamp.scale.clone();
+  const selectionHalo = makeSelectionHalo(categoryColor, stamp);
   const coordinateLabel = makeCoordinateLabel(memo);
   coordinateLabel.position.y = stamp.scale.y * 0.55 + 7;
   group.userData.stamp = stamp;
   group.userData.head = head;
   group.userData.leader = leader;
+  group.userData.selectionHalo = selectionHalo;
   group.userData.coordinateLabel = coordinateLabel;
 
-  group.add(leader, head, stamp, coordinateLabel);
+  group.add(leader, head, selectionHalo, stamp, coordinateLabel);
   return group;
+}
+
+function makeSelectionHalo(color, stamp) {
+  if (!selectionHaloTexture) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const context = canvas.getContext("2d");
+    const gradient = context.createRadialGradient(64, 64, 24, 64, 64, 60);
+    gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+    gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.08)");
+    gradient.addColorStop(0.68, "rgba(255, 255, 255, 1)");
+    gradient.addColorStop(0.82, "rgba(255, 255, 255, 0.24)");
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 128, 128);
+    selectionHaloTexture = new THREE.CanvasTexture(canvas);
+    selectionHaloTexture.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: selectionHaloTexture,
+    color,
+    transparent: true,
+    opacity: 0.9,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  halo.position.copy(stamp.position);
+  halo.scale.copy(stamp.scale).multiplyScalar(1.75);
+  halo.userData.baseScale = halo.scale.clone();
+  halo.renderOrder = 31;
+  halo.visible = false;
+  return halo;
 }
 
 function updateTimeline(seconds) {
@@ -809,29 +836,33 @@ function updateTimeline(seconds) {
     const hasOccurred = memo.time <= currentTime;
     memo.marker.visible = sourceIsVisible(memo.sourceId);
     memo.marker.userData.leader.visible = true;
-    memo.marker.userData.stamp.visible = hasOccurred && matches;
-    memo.marker.userData.head.visible = hasOccurred && matches;
+    const isHovered = memo === hoveredMemo;
+    const isEmphasized = memo === activeMemo || isHovered;
+    memo.marker.userData.stamp.visible = matches && (hasOccurred || isHovered);
+    memo.marker.userData.head.visible = matches && (hasOccurred || isHovered);
+    memo.marker.userData.selectionHalo.visible = matches && isEmphasized && (hasOccurred || isHovered);
     memo.marker.userData.coordinateLabel.visible = matches && memo === activeMemo;
     syncMemoMarkerScale(memo);
     syncMemoMarkerOpacity(memo, recentMemos.has(memo));
   }
 
-  const memoPanelChanged = renderMemoPanel({
+  renderMemoPanel({
     list: memoList,
     memos: memoPoints.filter(memoMatchesFilters),
-    currentTime,
     activeMemo,
+    suppressedMemo: hoverSuppressedMemo,
     categories: CATEGORY_STYLES,
     formatTime,
     onSelect: selectMemo,
+    onHover: setHoveredMemo,
+    onHoverSuppressionEnd: clearHoverSuppression,
   });
-  if (memoPanelChanged) memoScroller.refresh({ afterContentChange: true });
 }
 
 function syncMemoMarkerOpacity(memo, isRecent) {
   const stamp = memo.marker?.userData.stamp;
   const head = memo.marker?.userData.head;
-  const opacity = memo === activeMemo || isRecent ? 1 : 0.5;
+  const opacity = memo === activeMemo || memo === hoveredMemo || isRecent ? 1 : 0.5;
   if (stamp?.material) stamp.material.opacity = opacity;
   if (head?.material) head.material.opacity = opacity;
 }
@@ -894,9 +925,15 @@ function applyFilters() {
 }
 
 function selectMemo(memo) {
+  if (activeMemo === memo) {
+    deselectMemo(memo);
+    return;
+  }
+
   if (activeMemo?.marker?.userData.coordinateLabel) {
     activeMemo.marker.userData.coordinateLabel.visible = false;
   }
+  hoverSuppressedMemo = null;
   activeMemo = memo;
   returnToDefaultViewOnPlay = true;
   if (memo.marker?.userData.coordinateLabel) {
@@ -906,6 +943,30 @@ function selectMemo(memo) {
   const seconds = Math.round((memo.time - timelineStart) / 1000);
   updateTimeline(THREE.MathUtils.clamp(seconds, 0, Number(timeSlider.max)));
   focusCameraOnMemo(memo);
+}
+
+function deselectMemo(memo) {
+  if (memo.marker?.userData.coordinateLabel) {
+    memo.marker.userData.coordinateLabel.visible = false;
+  }
+  activeMemo = null;
+  hoveredMemo = null;
+  hoverSuppressedMemo = memo;
+  returnToDefaultViewOnPlay = false;
+  stopPlayback();
+  updateTimeline(Number(timeSlider.value));
+  setCameraMode("free");
+}
+
+function setHoveredMemo(memo) {
+  if (hoveredMemo === memo || hoverSuppressedMemo === memo) return;
+  hoveredMemo = memo;
+  updateTimeline(Number(timeSlider.value));
+}
+
+function clearHoverSuppression(memo) {
+  if (hoverSuppressedMemo !== memo) return;
+  hoverSuppressedMemo = null;
 }
 
 function focusCameraOnMemo(memo) {
@@ -1160,6 +1221,17 @@ function animate() {
     controls.update();
   } else {
     updateFollowCamera(deltaSeconds);
+  }
+  const emphasizedMemos = new Set([activeMemo, hoveredMemo].filter(Boolean));
+  for (const memo of emphasizedMemos) {
+    const halo = memo.marker?.userData.selectionHalo;
+    if (!halo?.visible) continue;
+    const pulseWave = Math.sin(frameMs * 0.007);
+    const pulse = 1 + pulseWave * (memo === activeMemo ? 0.09 : 0.05);
+    halo.scale.copy(halo.userData.baseScale).multiplyScalar(pulse);
+    halo.material.opacity = memo === activeMemo
+      ? 0.82 + pulseWave * 0.12
+      : 0.4 + pulseWave * 0.08;
   }
   timelineInstruments.updateCompass(activeCamera);
   renderer.render(scene, activeCamera);

@@ -875,153 +875,30 @@ body.photo-mode #scene:active {
 .memo-panel {
   position: fixed;
   top: 66px;
-  right: 14px;
+  right: 0;
   z-index: 3;
-  width: min(360px, calc(100vw - 28px));
+  width: min(340px, calc(100vw - 8px));
   max-height: calc(100vh - 206px);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 70px;
-  gap: 6px;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: auto;
+  transform: translateX(75%);
+  transform-origin: right center;
+  transition: transform 360ms cubic-bezier(0.16, 0.82, 0.28, 1);
+  will-change: transform;
 }
 
-.memo-scroll-control {
-  --memo-bar-length: max(240px, calc(100vh - 233px));
-  position: relative;
-  grid-column: 2;
-  grid-row: 1;
-  width: 70px;
-  height: var(--memo-bar-length);
-}
-
-.memo-scroll-control::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 13px;
-  width: 5px;
-  border-radius: 3px;
-  background: #081724;
-  box-shadow: inset 0 0 0 1px rgba(var(--map-blue-rgb), 0.18);
-  content: "";
-}
-
-.memo-scroll-control::after {
-  position: absolute;
-  top: 0;
-  left: 11px;
-  width: 9px;
-  height: 1px;
-  background: #081724;
-  content: "";
-}
-
-.memo-scroll-control__progress {
-  position: absolute;
-  bottom: 0;
-  left: 13px;
-  width: 5px;
-  height: 100%;
-  border-radius: 3px;
-  background: var(--map-blue);
-  box-shadow: 0 0 7px rgba(var(--map-blue-rgb), 0.42);
-  pointer-events: none;
-}
-
-.memo-scroll-control__progress::before {
-  position: absolute;
-  bottom: 0;
-  left: -2px;
-  width: 9px;
-  height: 1px;
-  background: var(--map-blue);
-  content: "";
-}
-
-.memo-scroll-control__total,
-.memo-scroll-control__minimum,
-.memo-scroll-control__current {
-  position: absolute;
-  left: 36px;
-  color: #94a3b8;
-  font: 500 9px/1 var(--ui-font);
-  pointer-events: none;
-}
-
-.memo-scroll-control__total {
-  top: -1px;
-}
-
-.memo-scroll-control__minimum {
-  bottom: -1px;
-}
-
-.memo-scroll-control__current {
-  z-index: 2;
-  color: var(--map-blue);
-  font-weight: 700;
-  transform: translateY(-50%);
-  transition: top 100ms linear, opacity 100ms linear;
-}
-
-.memo-scroll-control__current.is-at-end {
-  opacity: 0;
-}
-
-#memo-scroll-slider {
-  position: absolute;
-  top: calc((var(--memo-bar-length) - 31px) / 2);
-  left: calc((31px - var(--memo-bar-length)) / 2);
-  z-index: 1;
-  width: var(--memo-bar-length);
-  height: 31px;
-  margin: 0;
-  appearance: none;
-  direction: ltr;
-  background: transparent;
-  cursor: pointer;
-  transform: rotate(-90deg);
-  transform-origin: center;
-}
-
-#memo-scroll-slider::-webkit-slider-runnable-track {
-  width: 100%;
-  height: 5px;
-  background: transparent;
-}
-
-#memo-scroll-slider::-webkit-slider-thumb {
-  width: 26px;
-  height: 9px;
-  margin-top: -2px;
-  appearance: none;
-  border: 0;
-  border-radius: 5px;
-  background: var(--map-blue);
-  box-shadow: 0 0 6px rgba(var(--map-blue-rgb), 0.46);
-}
-
-#memo-scroll-slider::-moz-range-track {
-  width: 100%;
-  height: 5px;
-  background: transparent;
-}
-
-#memo-scroll-slider::-moz-range-thumb {
-  width: 26px;
-  height: 9px;
-  border: 0;
-  border-radius: 5px;
-  background: var(--map-blue);
-  box-shadow: 0 0 6px rgba(var(--map-blue-rgb), 0.46);
+.memo-panel:hover,
+.memo-panel:focus-within,
+.memo-panel:has(.memo-item.is-current) {
+  transform: translateX(0);
 }
 
 .memo-scroll-viewport {
-  grid-column: 1;
-  grid-row: 1;
-  height: var(--memo-bar-length, max(240px, calc(100vh - 233px)));
+  height: max(240px, calc(100vh - 233px));
+  padding: 4px 0 22px 12px;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   scrollbar-width: none;
 }
 
@@ -1031,7 +908,9 @@ body.photo-mode #scene:active {
 
 .memo-list {
   display: grid;
-  gap: 8px;
+  align-content: start;
+  justify-items: stretch;
+  padding: 2px 0 0;
 }
 
 .memo-item {
@@ -1040,27 +919,126 @@ body.photo-mode #scene:active {
   --memo-rgb: 148, 163, 184;
   border: 1px solid rgba(var(--memo-rgb), 0.66);
   border-left-width: 4px;
-  border-radius: 8px;
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
   padding: 9px 11px;
   color: #f8fafc;
   background: linear-gradient(115deg, rgba(var(--memo-rgb), 0.2), rgba(2, 6, 17, 0.9) 52%);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.16);
   backdrop-filter: blur(12px);
   cursor: pointer;
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transform-origin: right center;
+  transition:
+    width 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
+    min-height 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
+    max-height 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
+    margin 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
+    padding 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
+    opacity 180ms ease,
+    border-color 160ms ease,
+    box-shadow 220ms ease,
+    transform 320ms cubic-bezier(0.2, 0.75, 0.2, 1);
 }
 
 .memo-item:hover,
 .memo-item:focus-visible {
   border-color: var(--memo-soft);
   outline: 0;
-  transform: translateX(-3px);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 12px 30px rgba(0, 0, 0, 0.22);
 }
 
-.memo-item.is-selected {
+.memo-item.is-stacked {
+  z-index: var(--deck-layer);
+  justify-self: end;
+  width: 100%;
+  min-height: 0;
+  max-height: 48px;
+  box-sizing: border-box;
+  margin-top: -9px;
+  padding: 7px 9px;
+  overflow: hidden;
+  opacity: 0.56;
+  transform:
+    translateX(var(--deck-offset))
+    rotate(var(--deck-tilt));
+}
+
+.memo-panel:is(:hover, :focus-within) .memo-item.is-stacked,
+.memo-panel:where(:has(.memo-item.is-current)) .memo-item.is-stacked {
+  transform:
+    translateX(calc(100% - 108px + var(--deck-offset)))
+    rotate(var(--deck-tilt));
+}
+
+.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed) {
+  z-index: 40;
+  min-height: 132px;
+  max-height: 300px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  overflow: visible;
   border-color: #ffffff;
+  opacity: 1;
+  transform: translateX(0) rotate(0);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42), 0 0 22px rgba(var(--memo-rgb), 0.46);
+}
+
+.memo-item.is-stacked .memo-meta {
+  margin-bottom: 3px;
+}
+
+.memo-item.is-stacked .memo-category,
+.memo-item.is-stacked .memo-source,
+.memo-item.is-stacked p {
+  display: none;
+}
+
+.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed)
+  .memo-category {
+  display: inline-block;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed)
+  .memo-source {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed) p {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.memo-item.is-stacked strong {
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed) strong {
+  font-size: 18px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.memo-item.is-stacked time {
+  font-size: 10px;
+}
+
+.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed) time {
+  font-size: 14px;
+}
+
+.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed)
+  .memo-meta {
+  margin-bottom: 9px;
 }
 
 .memo-meta {
