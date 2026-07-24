@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { hexToRgbChannels, makeSeededRandom, roundedRect } from "../src/formatters.js";
+import { hexToRgbChannels, roundedRect } from "../src/formatters.js";
 
 export function getMarkerSize(memo) {
   if (!memo.isPeople) return 9;
@@ -13,11 +13,7 @@ export function makeGraffitiStamp(memo, category) {
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
   const rgb = hexToRgbChannels(category.color);
-  const random = makeSeededRandom(`${memo.name}-${memo.time}`);
 
-  ctx.save();
-  ctx.shadowColor = category.color;
-  ctx.shadowBlur = 28;
   ctx.fillStyle = `rgba(${rgb}, 0.22)`;
   ctx.strokeStyle = category.color;
   ctx.lineWidth = 13;
@@ -25,19 +21,6 @@ export function makeGraffitiStamp(memo, category) {
   drawGenderShape(ctx, memo.gender);
   ctx.fill();
   ctx.stroke();
-  ctx.restore();
-
-  ctx.fillStyle = `rgba(${rgb}, 0.62)`;
-  const count = memo.count || 1;
-  const particleCount = memo.isPeople ? Math.min(34, 10 + count * 2) : 12;
-  for (let index = 0; index < particleCount; index += 1) {
-    const angle = random() * Math.PI * 2;
-    const distance = 68 + random() * 48;
-    const radius = 1.8 + random() * Math.min(9, 3 + count);
-    ctx.beginPath();
-    ctx.arc(128 + Math.cos(angle) * distance, 128 + Math.sin(angle) * distance, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

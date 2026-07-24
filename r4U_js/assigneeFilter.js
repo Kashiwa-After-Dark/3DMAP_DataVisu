@@ -3,10 +3,14 @@ export function createAssigneeFilter({ root, sources, onChange }) {
   const defaultSourceIds = sources
     .filter((source) => source.visibleByDefault !== false)
     .map((source) => source.id);
+  const addedSourceIds = sources
+    .filter((source) => source.visibleByDefault === false)
+    .map((source) => source.id);
+  const allButtonSelections = [defaultSourceIds, allSourceIds, addedSourceIds];
   const allButton = makeButton("全員", "all");
   const sourceButtons = sources.map((source) => makeButton(source.label, source.id));
   let hasUserSelection = false;
-  let showAllOnNextAllClick = false;
+  let allButtonClickIndex = 0;
   root.replaceChildren(allButton, ...sourceButtons);
 
   const getSelection = () => {
@@ -49,18 +53,18 @@ export function createAssigneeFilter({ root, sources, onChange }) {
 
   const selectAll = ({ notify = true } = {}) => {
     hasUserSelection = false;
-    showAllOnNextAllClick = false;
+    allButtonClickIndex = 0;
     setSelection(allSourceIds, { notify });
   };
 
   allButton.addEventListener("click", () => {
     hasUserSelection = false;
-    setSelection(showAllOnNextAllClick ? allSourceIds : defaultSourceIds);
-    showAllOnNextAllClick = !showAllOnNextAllClick;
+    setSelection(allButtonSelections[allButtonClickIndex]);
+    allButtonClickIndex = (allButtonClickIndex + 1) % allButtonSelections.length;
   });
   for (const button of sourceButtons) {
     button.addEventListener("click", () => {
-      showAllOnNextAllClick = false;
+      allButtonClickIndex = 0;
       if (!hasUserSelection) {
         hasUserSelection = true;
         setSelection([button.dataset.sourceId]);
