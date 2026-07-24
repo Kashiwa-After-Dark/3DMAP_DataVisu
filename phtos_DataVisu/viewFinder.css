@@ -52,6 +52,30 @@ a {
   height: 100vh;
 }
 
+#detail-reveal-scene {
+  --reveal-x: 50%;
+  --reveal-y: 50%;
+  --reveal-radius: clamp(82px, 10vw, 132px);
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  opacity: 0;
+  -webkit-clip-path: circle(var(--reveal-radius) at var(--reveal-x) var(--reveal-y));
+  clip-path: circle(var(--reveal-radius) at var(--reveal-x) var(--reveal-y));
+  transform: scale(1.012);
+  transform-origin: var(--reveal-x) var(--reveal-y);
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  will-change: opacity, transform, clip-path;
+}
+
+body.overview-reveal-active #detail-reveal-scene {
+  opacity: 1;
+}
+
 .site-header {
   position: fixed;
   top: 0;
@@ -848,6 +872,10 @@ body.photo-mode #scene {
   .photo-viewer__reticle {
     width: 56vw;
     height: 56vw;
+  }
+
+  #detail-reveal-scene {
+    --reveal-radius: 88px;
   }
 
   .calibration-panel {

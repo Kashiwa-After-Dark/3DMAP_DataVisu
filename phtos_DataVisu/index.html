@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./viewFinder.css?v=20260724-07" />
+    <link rel="stylesheet" href="./viewFinder.css?v=20260724-14" />
     <script type="importmap">
       {
         "imports": {
@@ -22,6 +22,7 @@
   <body data-viewer-mode="public">
     <main id="viewfinder-app">
       <canvas id="scene" aria-label="柏駅周辺の写真地点と3Dマップ"></canvas>
+      <canvas id="detail-reveal-scene" aria-hidden="true"></canvas>
 
       <header class="overview-ui site-header">
         <a class="back-link" href="../" aria-label="メインの3Dマップへ戻る">← 3D MAP</a>
@@ -74,9 +75,9 @@
               <input id="photo-opacity" type="range" min="0" max="100" value="58" aria-label="写真の重なり具合" />
               <span>PHOTO</span>
             </label>
-            <label>
+            <label hidden>
               <span>PHOTO SIZE</span>
-              <input id="photo-scale" type="range" min="25" max="300" step="1" value="100" aria-label="写真の拡大縮小" />
+              <input id="photo-scale" type="range" min="25" max="300" step="1" value="100" aria-label="写真の拡大縮小" disabled />
               <output id="photo-scale-readout">100%</output>
             </label>
           </div>
@@ -91,6 +92,6 @@
       </div>
     </main>
 
-    <script type="module" src="./viewFinder.js?v=20260724-04"></script>
+    <script type="module" src="./viewFinder.js?v=20260724-16"></script>
   </body>
 </html>

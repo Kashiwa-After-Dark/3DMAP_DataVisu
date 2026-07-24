@@ -81,7 +81,7 @@ export function createMapDisplay(canvas) {
           child.castShadow = false;
           child.receiveShadow = true;
           selectableMeshes.push(child);
-          keepOriginalMaterial(child);
+          prepareOverviewMaterials(child);
         });
 
         mapGroup.add(model);
@@ -107,7 +107,6 @@ export function createMapDisplay(canvas) {
           child.receiveShadow = true;
           prepareDetailMaterials(child);
         });
-        alignDetailModel(model);
         model.visible = false;
         mapGroup.add(model);
         detailModel = model;
@@ -135,30 +134,6 @@ export function createMapDisplay(canvas) {
     return detailModelPromise;
   }
 
-  function alignDetailModel(model) {
-    if (!overviewModel) return;
-    const overviewBounds = new THREE.Box3().setFromObject(overviewModel);
-    const detailBounds = new THREE.Box3().setFromObject(model);
-    const overviewSize = overviewBounds.getSize(new THREE.Vector3());
-    const detailSize = detailBounds.getSize(new THREE.Vector3());
-    const scaleX = overviewSize.x / Math.max(detailSize.x, 1);
-    const scaleZ = overviewSize.z / Math.max(detailSize.z, 1);
-    const verticalScale = (scaleX + scaleZ) * 0.5;
-    model.scale.set(scaleX, verticalScale, scaleZ);
-    model.updateWorldMatrix(true, true);
-
-    const scaledBounds = new THREE.Box3().setFromObject(model);
-    const overviewCenter = overviewBounds.getCenter(new THREE.Vector3());
-    const detailCenter = scaledBounds.getCenter(new THREE.Vector3());
-    model.position.x += overviewCenter.x - detailCenter.x;
-    model.position.z += overviewCenter.z - detailCenter.z;
-    model.updateWorldMatrix(true, true);
-
-    const groundY = getModelYQuantile(model, 0.1);
-    model.position.y += overviewBounds.min.y - groundY;
-    model.updateWorldMatrix(true, true);
-  }
-
   async function setModelMode(mode) {
     if (mode === "detail") {
       const model = await loadDetailModel();
@@ -172,6 +147,29 @@ export function createMapDisplay(canvas) {
     if (detailModel) detailModel.visible = false;
     groundGrid.visible = true;
     return overviewModel;
+  }
+
+  function renderDetailLayer(layerRenderer, camera) {
+    if (!detailModel) return false;
+    const overviewVisible = overviewModel?.visible;
+    const detailVisible = detailModel.visible;
+    const gridVisible = groundGrid.visible;
+    const tracksVisible = gpxGroup.visible;
+    const background = scene.background;
+
+    if (overviewModel) overviewModel.visible = false;
+    detailModel.visible = true;
+    groundGrid.visible = false;
+    gpxGroup.visible = false;
+    scene.background = null;
+    layerRenderer.render(scene, camera);
+
+    if (overviewModel) overviewModel.visible = overviewVisible;
+    detailModel.visible = detailVisible;
+    groundGrid.visible = gridVisible;
+    gpxGroup.visible = tracksVisible;
+    scene.background = background;
+    return true;
   }
 
   function getDetailSurfaceHeight(point) {
@@ -207,6 +205,7 @@ export function createMapDisplay(canvas) {
     loadModel,
     loadDetailModel,
     setModelMode,
+    renderDetailLayer,
     setDetailLighting,
     getDetailSurfaceHeight,
     worldToGeo,
@@ -247,6 +246,40 @@ function keepOriginalMaterial(mesh) {
   }
 }
 
+function prepareOverviewMaterials(mesh) {
+  const hasMaterialArray = Array.isArray(mesh.material);
+  const materials = hasMaterialArray ? mesh.material : [mesh.material];
+  const preparedMaterials = materials.map((material, index) => {
+    const color = material?.color;
+    const emissive = material?.emissive;
+    const isBlue = (
+      color?.b > Math.max(color.r, color.g) * 1.4 && color.b > 0.08
+    ) || (
+      emissive?.b > Math.max(emissive.r, emissive.g) * 1.4 && emissive.b > 0.08
+    );
+
+    if (isBlue) {
+      return new THREE.MeshStandardMaterial({
+        name: material?.name || `Overview blue ${index + 1}`,
+        color: 0x003b9e,
+        emissive: 0x0074e8,
+        emissiveIntensity: 0.48,
+        roughness: 0.72,
+        metalness: 0,
+        side: THREE.DoubleSide,
+      });
+    }
+
+    return new THREE.MeshBasicMaterial({
+      name: material?.name || `Overview black ${index + 1}`,
+      color: 0x000000,
+      side: THREE.DoubleSide,
+    });
+  });
+
+  mesh.material = hasMaterialArray ? preparedMaterials : preparedMaterials[0];
+}
+
 function prepareDetailMaterials(mesh) {
   const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
   if (materials.some((material) => material?.map)) {
@@ -264,23 +297,4 @@ function prepareDetailMaterials(mesh) {
     metalness: 0.02,
     side: THREE.DoubleSide,
   }));
-}
-
-function getModelYQuantile(model, quantile) {
-  const values = [];
-  const point = new THREE.Vector3();
-  model.traverse((child) => {
-    if (!child.isMesh) return;
-    const position = child.geometry?.attributes?.position;
-    if (!position) return;
-    const stride = Math.max(1, Math.floor(position.count / 40_000));
-    for (let index = 0; index < position.count; index += stride) {
-      point.fromBufferAttribute(position, index).applyMatrix4(child.matrixWorld);
-      if (Number.isFinite(point.y)) values.push(point.y);
-    }
-  });
-  if (!values.length) return new THREE.Box3().setFromObject(model).min.y;
-  values.sort((a, b) => a - b);
-  const index = Math.round(THREE.MathUtils.clamp(quantile, 0, 1) * (values.length - 1));
-  return values[index];
 }

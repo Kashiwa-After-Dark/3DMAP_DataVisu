@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { GPX_FILES, INITIAL_CENTER_GEO } from "../src/config.js";
-import { createMapDisplay } from "../src/main.js?v=20260724-01";
+import { createMapDisplay } from "../src/main.js?v=20260724-04";
 import { PHOTOS } from "../src/photos.js";
 
 const canvas = document.querySelector("#scene");
+const detailRevealCanvas = document.querySelector("#detail-reveal-scene");
 const loading = document.querySelector("#loading");
 const modelBadge = document.querySelector("#model-badge");
 const openPhotoListButton = document.querySelector("#open-photo-list");
@@ -38,6 +39,7 @@ const copyCalibrationButton = document.querySelector("#copy-calibration");
 const restartCalibrationButton = document.querySelector("#restart-calibration");
 const closeCalibrationSummaryButton = document.querySelector("#close-calibration-summary");
 const CALIBRATION_DRAFT_KEY = "kashiwa-photo-calibration-draft-v1";
+const isPublicViewer = document.body.dataset.viewerMode === "public";
 
 const {
   renderer,
@@ -52,11 +54,27 @@ const {
   raycaster,
   pointer,
   loadModel,
+  loadDetailModel,
   setModelMode,
+  renderDetailLayer,
   setDetailLighting,
   getDetailSurfaceHeight,
   geoToWorld,
 } = createMapDisplay(canvas);
+
+const detailRevealRenderer = detailRevealCanvas
+  ? new THREE.WebGLRenderer({
+      canvas: detailRevealCanvas,
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance",
+    })
+  : null;
+if (detailRevealRenderer) {
+  detailRevealRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+  detailRevealRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  detailRevealRenderer.setClearColor(0x000000, 0);
+}
 
 const photoGroup = new THREE.Group();
 const photoHitTargets = [];
@@ -70,12 +88,27 @@ let pointerDown = null;
 let viewToken = 0;
 let calibrationMode = false;
 let calibrationResults = [];
+let detailRevealReady = false;
+let overviewRevealTarget = null;
+let overviewRevealCenter = null;
+let overviewRevealVelocity = { x: 0, y: 0 };
+let overviewRevealLastPointerAt = 0;
+let overviewRevealLastFrameAt = performance.now();
 
 loadModel(async () => {
   fitOverviewCamera();
   routeTracks = await loadRouteTracks();
   placePhotos();
   renderPhotoGrid();
+  if (detailRevealRenderer) {
+    loadDetailModel()
+      .then(() => {
+        detailRevealReady = true;
+      })
+      .catch((error) => {
+        console.warn("Blosm overview reveal could not be prepared.", error);
+      });
+  }
   loading.classList.add("is-done");
   window.setTimeout(() => loading.remove(), 450);
 });
@@ -117,7 +150,10 @@ closeCalibrationSummaryButton?.addEventListener("click", () => {
 });
 canvas.addEventListener("pointerdown", (event) => {
   pointerDown = { x: event.clientX, y: event.clientY };
+  updateOverviewReveal(event);
 });
+canvas.addEventListener("pointermove", updateOverviewReveal);
+canvas.addEventListener("pointerleave", hideOverviewReveal);
 canvas.addEventListener("pointerup", selectPhotoPoint);
 window.addEventListener("resize", resize);
 window.addEventListener("keydown", handleKeyDown);
@@ -195,7 +231,7 @@ function parseTrackSegments(doc, source) {
 }
 
 function placePhotos() {
-  const ringGeometry = new THREE.RingGeometry(2.2, 3.2, 28);
+  const ringGeometry = new THREE.RingGeometry(2.7, 3.2, 28);
   const hitGeometry = new THREE.CircleGeometry(4.8, 24);
 
   PHOTOS.forEach((photo, index) => {
@@ -215,6 +251,7 @@ function placePhotos() {
         opacity: 0.92,
         depthTest: false,
         side: THREE.DoubleSide,
+        toneMapped: false,
       }),
     );
     ring.renderOrder = 80;
@@ -241,8 +278,10 @@ function placePhotos() {
         transparent: true,
         opacity: 0.42,
         depthTest: false,
+        toneMapped: false,
       }),
     );
+    stem.renderOrder = 80;
 
     marker.add(ring, hit, stem);
     photo.marker = marker;
@@ -348,6 +387,8 @@ async function openPhoto(index) {
       minDistance: controls.minDistance,
       maxDistance: controls.maxDistance,
       enablePan: controls.enablePan,
+      enabled: controls.enabled,
+      enableDamping: controls.enableDamping,
     };
   }
 
@@ -356,6 +397,7 @@ async function openPhoto(index) {
   activePhotoIndex = normalizedIndex;
   document.body.classList.add("photo-mode");
   photoViewer.hidden = false;
+  hideOverviewReveal();
   photoList.hidden = true;
   photoGroup.visible = false;
   photoOverlay.src = photo.url;
@@ -374,7 +416,8 @@ async function openPhoto(index) {
   updatePhotoScale();
   updateCameraFov();
 
-  controls.enabled = true;
+  controls.enabled = !isPublicViewer;
+  controls.enableDamping = !isPublicViewer;
   controls.enablePan = calibrationMode;
   controls.screenSpacePanning = true;
   controls.rotateSpeed = calibrationMode ? 0.45 : 1;
@@ -445,6 +488,8 @@ function closePhoto() {
   controls.minDistance = cameraSnapshot.minDistance;
   controls.maxDistance = cameraSnapshot.maxDistance;
   controls.enablePan = cameraSnapshot.enablePan;
+  controls.enabled = cameraSnapshot.enabled;
+  controls.enableDamping = cameraSnapshot.enableDamping;
   controls.update();
 }
 
@@ -460,6 +505,106 @@ function updatePhotoScale() {
   const scale = Number(photoScale.value) / 100;
   photoViewer.style.setProperty("--photo-scale", String(scale));
   photoScaleReadout.textContent = `${photoScale.value}%`;
+}
+
+function updateOverviewReveal(event) {
+  if (!isPublicViewer || photoMode || !detailRevealReady || !detailRevealCanvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = THREE.MathUtils.clamp(event.clientX - rect.left, 0, rect.width);
+  const y = THREE.MathUtils.clamp(event.clientY - rect.top, 0, rect.height);
+  const now = performance.now();
+  if (overviewRevealTarget) {
+    const elapsed = THREE.MathUtils.clamp(now - overviewRevealLastPointerAt, 8, 50);
+    const velocityX = (x - overviewRevealTarget.x) / elapsed;
+    const velocityY = (y - overviewRevealTarget.y) / elapsed;
+    overviewRevealVelocity.x = THREE.MathUtils.lerp(overviewRevealVelocity.x, velocityX, 0.42);
+    overviewRevealVelocity.y = THREE.MathUtils.lerp(overviewRevealVelocity.y, velocityY, 0.42);
+  } else {
+    overviewRevealCenter = { x, y };
+    detailRevealCanvas.style.setProperty("--reveal-x", `${x}px`);
+    detailRevealCanvas.style.setProperty("--reveal-y", `${y}px`);
+  }
+  overviewRevealTarget = { x, y };
+  overviewRevealLastPointerAt = now;
+  document.body.classList.add("overview-reveal-active");
+}
+
+function hideOverviewReveal() {
+  if (!isPublicViewer) return;
+  document.body.classList.remove("overview-reveal-active");
+  overviewRevealTarget = null;
+  overviewRevealCenter = null;
+  overviewRevealVelocity = { x: 0, y: 0 };
+  detailRevealCanvas?.style.removeProperty("-webkit-clip-path");
+  detailRevealCanvas?.style.removeProperty("clip-path");
+}
+
+function updateLiquidOverviewReveal(now) {
+  if (
+    !detailRevealCanvas
+    || !overviewRevealTarget
+    || !overviewRevealCenter
+    || !document.body.classList.contains("overview-reveal-active")
+  ) return;
+
+  const elapsed = THREE.MathUtils.clamp(now - overviewRevealLastFrameAt, 1, 50);
+  overviewRevealLastFrameAt = now;
+  const follow = 1 - Math.exp(-elapsed / 82);
+  overviewRevealCenter.x += (overviewRevealTarget.x - overviewRevealCenter.x) * follow;
+  overviewRevealCenter.y += (overviewRevealTarget.y - overviewRevealCenter.y) * follow;
+
+  const idleFor = now - overviewRevealLastPointerAt;
+  const viscosity = idleFor > 40 ? 470 : 900;
+  const damping = Math.exp(-elapsed / viscosity);
+  overviewRevealVelocity.x *= damping;
+  overviewRevealVelocity.y *= damping;
+
+  const speed = Math.hypot(overviewRevealVelocity.x, overviewRevealVelocity.y);
+  const strength = THREE.MathUtils.clamp(speed * 0.14, 0, 0.34);
+  const direction = speed > 0.001
+    ? Math.atan2(overviewRevealVelocity.y, overviewRevealVelocity.x)
+    : 0;
+  const radius = window.innerWidth <= 700
+    ? 88
+    : THREE.MathUtils.clamp(window.innerWidth * 0.1, 82, 132);
+  const phase = now * 0.004;
+  const points = [];
+
+  for (let index = 0; index < 48; index += 1) {
+    const angle = (index / 48) * Math.PI * 2;
+    const alignment = Math.cos(angle - direction);
+    const lateral = Math.abs(Math.sin(angle - direction));
+    const stretch = strength * (0.52 * Math.abs(alignment) - 0.2 * lateral);
+    const tail = strength * 0.3 * Math.max(0, -alignment) ** 2;
+    const ripple = strength * (
+      Math.sin(angle * 3 + phase) * 0.08
+      + Math.sin(angle * 5 - phase * 0.7) * 0.035
+    );
+    const pointRadius = radius * (1 + stretch + tail + ripple);
+    const x = overviewRevealCenter.x + Math.cos(angle) * pointRadius;
+    const y = overviewRevealCenter.y + Math.sin(angle) * pointRadius;
+    points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
+  }
+
+  const clip = `polygon(${points.join(", ")})`;
+  detailRevealCanvas.style.setProperty("--reveal-x", `${overviewRevealCenter.x}px`);
+  detailRevealCanvas.style.setProperty("--reveal-y", `${overviewRevealCenter.y}px`);
+  detailRevealCanvas.style.setProperty("-webkit-clip-path", clip);
+  detailRevealCanvas.style.setProperty("clip-path", clip);
+}
+
+function setPhotoMarkerAppearance(color, fluorescent = false) {
+  for (const photo of PHOTOS) {
+    if (!photo.marker) continue;
+    const [ring, , stem] = photo.marker.children;
+    for (const part of [ring, stem]) {
+      if (!part?.material) continue;
+      part.material.color.setHex(color);
+      part.material.blending = fluorescent
+        ? THREE.AdditiveBlending
+        : THREE.NormalBlending;
+    }
+  }
 }
 
 function updateCameraFov() {
@@ -802,9 +947,11 @@ function resize() {
   perspectiveCamera.aspect = width / height;
   perspectiveCamera.updateProjectionMatrix();
   renderer.setSize(width, height, false);
+  detailRevealRenderer?.setSize(width, height, false);
 }
 
 function animate() {
+  const now = performance.now();
   controls.update();
   updatePoseFields();
   if (!photoMode) {
@@ -820,5 +967,16 @@ function animate() {
     }
   }
   renderer.render(scene, perspectiveCamera);
+  updateLiquidOverviewReveal(now);
+  if (
+    detailRevealRenderer
+    && detailRevealReady
+    && !photoMode
+    && document.body.classList.contains("overview-reveal-active")
+  ) {
+    setPhotoMarkerAppearance(0x008cff, true);
+    renderDetailLayer(detailRevealRenderer, perspectiveCamera);
+    setPhotoMarkerAppearance(0xffffff);
+  }
   requestAnimationFrame(animate);
 }
