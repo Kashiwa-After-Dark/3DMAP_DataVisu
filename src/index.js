@@ -22,7 +22,7 @@ import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";
 import { createMapDisplay } from "./main.js?v=20260725-10";
 import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260725-27";
-import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260725-34";
+import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260725-40";
 import { getMemoProfile } from "../r4U_js/profiles.js?v=20260725-2";
 
 const canvas = document.querySelector("#scene");
