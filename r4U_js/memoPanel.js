@@ -3,6 +3,7 @@ import { formatProfileBadge } from "./profiles.js?v=20260725-2";
 
 const renderStates = new WeakMap();
 const dockStates = new WeakMap();
+const dockAnimations = new WeakMap();
 const keyboardEnabledLists = new WeakSet();
 
 export function renderMemoPanel({
@@ -232,25 +233,90 @@ function scrollMemoItemVertically(item) {
 function setDockFocus(item) {
   const list = item.parentElement;
   if (!list) return;
-  clearDockFocus(list);
+  if (list.querySelector(".is-dock-focus") === item) return;
 
-  const items = [...list.children];
-  const focusIndex = items.indexOf(item);
-  const affectedItems = [];
-  for (let offset = -2; offset <= 2; offset += 1) {
-    const neighbor = items[focusIndex + offset];
-    if (!neighbor) continue;
-    const distance = Math.abs(offset);
-    neighbor.classList.add(distance === 0 ? "is-dock-focus" : `is-dock-near-${distance}`);
-    affectedItems.push(neighbor);
-  }
-  dockStates.set(list, affectedItems);
+  animateDockLayout(list, () => {
+    clearDockClasses(list);
+    const items = [...list.children];
+    const focusIndex = items.indexOf(item);
+    const affectedItems = [];
+    for (let offset = -2; offset <= 2; offset += 1) {
+      const neighbor = items[focusIndex + offset];
+      if (!neighbor) continue;
+      const distance = Math.abs(offset);
+      neighbor.classList.add(distance === 0 ? "is-dock-focus" : `is-dock-near-${distance}`);
+      affectedItems.push(neighbor);
+    }
+    dockStates.set(list, affectedItems);
+  }, item);
 }
 
 function clearDockFocus(list) {
   if (!list) return;
+  if (!dockStates.has(list)) return;
+  animateDockLayout(list, () => clearDockClasses(list));
+}
+
+function clearDockClasses(list) {
   for (const item of dockStates.get(list) || []) {
     item.classList.remove("is-dock-focus", "is-dock-near-1", "is-dock-near-2");
   }
   dockStates.delete(list);
+}
+
+function animateDockLayout(list, updateClasses, focusedItem = null) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    updateClasses();
+    return;
+  }
+
+  const before = getVisibleCardPositions(list);
+  updateClasses();
+  const after = getVisibleCardPositions(list);
+  const timing = {
+    duration: 260,
+    easing: "cubic-bezier(0.2, 0.75, 0.2, 1)",
+  };
+
+  for (const [item, afterTop] of after) {
+    const beforeTop = before.get(item);
+    if (beforeTop === undefined) continue;
+    const deltaY = beforeTop - afterTop;
+    if (Math.abs(deltaY) < 0.5) continue;
+    dockAnimations.get(item)?.cancel();
+    const animation = item.animate(
+      [{ translate: `0 ${deltaY}px` }, { translate: "0 0" }],
+      timing,
+    );
+    dockAnimations.set(item, animation);
+    animation.addEventListener("finish", () => dockAnimations.delete(item), { once: true });
+    animation.addEventListener("cancel", () => dockAnimations.delete(item), { once: true });
+  }
+
+  if (focusedItem) {
+    focusedItem.animate(
+      [
+        { clipPath: "inset(0 0 64% 0)", opacity: 0.78 },
+        { clipPath: "inset(0 0 0 0)", opacity: 1 },
+      ],
+      timing,
+    );
+  }
+}
+
+function getVisibleCardPositions(list) {
+  const viewport = list.closest(".memo-scroll-viewport");
+  const viewportRect = viewport?.getBoundingClientRect();
+  const positions = new Map();
+  for (const item of list.children) {
+    const rect = item.getBoundingClientRect();
+    if (
+      viewportRect
+      && (rect.bottom < viewportRect.top - 180 || rect.top > viewportRect.bottom + 180)
+    ) {
+      continue;
+    }
+    positions.set(item, rect.top);
+  }
+  return positions;
 }

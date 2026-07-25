@@ -1240,6 +1240,7 @@ body.photo-mode #scene:active {
   align-content: start;
   justify-items: stretch;
   padding: 2px 0 0;
+  contain: layout style;
 }
 
 .memo-item {
@@ -1261,13 +1262,10 @@ body.photo-mode #scene:active {
   cursor: pointer;
   transform-origin: right center;
   transition:
-    max-height 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
-    margin 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
-    padding 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
-    opacity 180ms ease,
+    opacity 220ms ease,
     border-color 160ms ease,
     box-shadow 220ms ease,
-    transform 320ms cubic-bezier(0.2, 0.75, 0.2, 1);
+    transform 260ms cubic-bezier(0.2, 0.75, 0.2, 1);
 }
 
 .memo-item.is-dock-focus {
