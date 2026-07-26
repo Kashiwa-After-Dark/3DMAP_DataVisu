@@ -1331,6 +1331,9 @@ body.photo-mode #scene:active {
 }
 
 .compass-dial {
+  width: 50px;
+  height: 50px;
+  margin: 2px;
   overflow: visible;
   background: transparent;
   perspective: 90px;
@@ -1487,7 +1490,7 @@ body.photo-mode #scene:active {
   bottom: 5px;
   left: 0;
   color: var(--map-blue);
-  font: 700 8px/1 var(--ui-font);
+  font: 700 9px/1 var(--ui-font);
   text-align: center;
 }
 
