@@ -41,6 +41,15 @@ input {
   font: inherit;
 }
 
+[data-decrypt] {
+  font-variant-ligatures: none;
+}
+
+.time-filter button em {
+  color: inherit;
+  font-style: normal;
+}
+
 button,
 a {
   color: inherit;
@@ -919,6 +928,77 @@ body.photo-mode #scene {
   cursor: grab;
 }
 
+.overview-ui {
+  transition: opacity 420ms ease;
+}
+
+body.map-opening .overview-ui:not(.site-header) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.map-opening .site-header {
+  opacity: 1;
+  pointer-events: none;
+}
+
+body.map-opening #scene {
+  cursor: wait;
+  pointer-events: none;
+}
+
+body.map-opening #detail-reveal-scene {
+  opacity: 0 !important;
+}
+
+.map-opening-status {
+  position: fixed;
+  left: 24px;
+  bottom: 26px;
+  z-index: 12;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  align-items: center;
+  width: min(300px, calc(100vw - 48px));
+  color: #dceaf2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 280ms ease;
+}
+
+body.map-opening .map-opening-status {
+  opacity: 1;
+}
+
+.map-opening-status span {
+  color: var(--blue);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+}
+
+.map-opening-status strong {
+  justify-self: end;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.map-opening-status > i {
+  grid-column: 1 / -1;
+  display: block;
+  height: 1px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.map-opening-status > i > b {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.72);
+}
+
 .loading {
   position: fixed;
   inset: 0;
@@ -968,8 +1048,22 @@ body.photo-mode #scene {
     font-size: 12px;
   }
 
+  .map-opening-status {
+    right: 14px;
+    bottom: 18px;
+    left: 14px;
+    width: auto;
+  }
+
   .model-badge {
     display: none;
+  }
+
+  body.map-opening .model-badge {
+    position: fixed;
+    top: 70px;
+    right: 12px;
+    display: flex;
   }
 
   .intro-panel {
