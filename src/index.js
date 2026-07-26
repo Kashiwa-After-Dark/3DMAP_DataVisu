@@ -15,7 +15,7 @@ import {
   TIME_START_HOUR,
 } from "./config.js?v=20260724-17";
 import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260725-21";
-import { createLegendFilter } from "../r4U_js/filters.js?v=20260725-40";
+import { createLegendFilter } from "../r4U_js/filters.js?v=20260726-41";
 import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260724-12";
 import { create2DMapController } from "../r4U_js/map2d.js?v=20260726-30";
 import { createMemoTopDownView } from "../r4U_js/memoTopDownView.js?v=20260726-04";
@@ -25,7 +25,6 @@ import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";
 import { getTimeRange, loadGpxDataset } from "./gpxData.js?v=20260726-01";
 import { createMapDisplay } from "./main.js?v=20260725-10";
-import { TIME_PERIODS } from "./timePeriods.js?v=20260726-01";
 import { makeAxisLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260726-30";
 import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260726-43";
 
@@ -630,21 +629,6 @@ function addTimeAxis() {
     label.position.set(minX - padding * 0.65, y, minZ);
     label.userData.baseScale = label.scale.clone();
     timeAxisLevels.push({ hour, frame, label });
-    gpxGroup.add(label);
-  }
-
-  for (const period of TIME_PERIODS) {
-    const midpointHour = (period.startHour + period.endHour) / 2;
-    const ratio = (midpointHour - TIME_START_HOUR) / (TIME_END_HOUR - TIME_START_HOUR);
-    const label = makeAxisLabel(period.label);
-    label.position.set(
-      minX - padding * 2.1,
-      TIME_BASE_Y + ratio * TIME_AXIS_HEIGHT,
-      minZ,
-    );
-    label.userData.setEmphasized?.(true);
-    label.scale.multiplyScalar(1.16);
-    label.renderOrder = 37;
     gpxGroup.add(label);
   }
 

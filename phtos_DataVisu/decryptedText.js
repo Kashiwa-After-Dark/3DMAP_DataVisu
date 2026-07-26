@@ -1,6 +1,10 @@
 const SCRAMBLE_CHARACTERS = "!<>-_\\/[]{}=+*^?#01";
+const ELEMENT_COOLDOWN_MS = 2400;
+const GLOBAL_COOLDOWN_MS = 650;
 const originalText = new WeakMap();
 const activeTimers = new WeakMap();
+const lastRunTimes = new WeakMap();
+let lastGlobalRunTime = 0;
 
 export function enableDecryptedText(root = document) {
   root.addEventListener("pointerover", (event) => {
@@ -16,6 +20,14 @@ export function enableDecryptedText(root = document) {
 }
 
 function runDecryptedText(element) {
+  const now = performance.now();
+  if (
+    now - (lastRunTimes.get(element) || -Infinity) < ELEMENT_COOLDOWN_MS
+    || now - lastGlobalRunTime < GLOBAL_COOLDOWN_MS
+  ) return;
+  lastRunTimes.set(element, now);
+  lastGlobalRunTime = now;
+
   const target = originalText.get(element) ?? element.textContent;
   originalText.set(element, target);
 

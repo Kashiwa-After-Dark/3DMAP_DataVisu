@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./viewFinder.css?v=20260726-22" />
+    <link rel="stylesheet" href="./viewFinder.css?v=20260726-25" />
     <script type="importmap">
       {
         "imports": {
@@ -25,7 +25,7 @@
       <canvas id="detail-reveal-scene" aria-hidden="true"></canvas>
 
       <header class="overview-ui site-header">
-        <a class="back-link" href="../" aria-label="メインの3Dマップへ戻る" data-decrypt>← 3D MAP</a>
+        <a class="back-link" href="../" aria-label="メインの3Dマップへ戻る">← 3D MAP</a>
         <div class="site-header__title">
           <span data-decrypt>KASHIWA AFTER DARK</span>
           <h1 data-decrypt>PHOTO VIEWFINDER</h1>
@@ -35,19 +35,19 @@
 
       <section class="overview-ui intro-panel">
         <span data-decrypt>01 / SELECT A POINT</span>
-        <h2><span data-decrypt>夜の柏駅を</span><br /><span data-decrypt>地図で辿る</span></h2>
+        <h2><span data-intro-typewriter>夜の柏駅を</span><br /><span data-intro-typewriter>地図で辿る</span></h2>
         <p>白いリングを選ぶと、撮影地点から見た写真とBlosmモデルを重ねて表示します。</p>
         <div class="intro-panel__actions">
-          <button id="open-photo-list" type="button"><span data-decrypt>写真一覧を見る</span> <b id="visible-photo-count">31</b></button>
+          <button id="open-photo-list" type="button"><span>写真一覧を見る</span> <b id="visible-photo-count">31</b></button>
         </div>
       </section>
 
       <nav id="time-filter" class="overview-ui time-filter" aria-label="写真の時間帯">
         <span class="time-filter__label" data-decrypt>TIME PERIOD</span>
-        <button type="button" data-time-period="all" aria-pressed="true"><em data-decrypt>ALL</em> <span>31</span></button>
-        <button type="button" data-time-period="twilight" aria-pressed="false"><em data-decrypt>18:00–19:59</em> <span>11</span></button>
-        <button type="button" data-time-period="night" aria-pressed="false"><em data-decrypt>20:00–22:59</em> <span>8</span></button>
-        <button type="button" data-time-period="late" aria-pressed="false"><em data-decrypt>23:00–</em> <span>12</span></button>
+        <button type="button" data-time-period="all" aria-pressed="true"><em>ALL</em> <span>31</span></button>
+        <button type="button" data-time-period="twilight" aria-pressed="false"><em>18:00–19:59</em> <span>11</span></button>
+        <button type="button" data-time-period="night" aria-pressed="false"><em>20:00–22:59</em> <span>8</span></button>
+        <button type="button" data-time-period="late" aria-pressed="false"><em>23:00–</em> <span>12</span></button>
       </nav>
 
       <div id="map-hint" class="overview-ui map-hint">
@@ -83,11 +83,6 @@
               <input id="photo-opacity" type="range" min="0" max="100" value="58" aria-label="写真の重なり具合" />
               <span>PHOTO</span>
             </label>
-            <label hidden>
-              <span>PHOTO SIZE</span>
-              <input id="photo-scale" type="range" min="25" max="300" step="1" value="100" aria-label="写真の拡大縮小" disabled />
-              <output id="photo-scale-readout">100%</output>
-            </label>
           </div>
           <button id="photo-next" class="circle-button" type="button" aria-label="次の写真">→</button>
         </footer>
@@ -99,12 +94,15 @@
         <span>LOADING KASHIWA 3D MAP</span>
       </div>
       <div id="map-opening-status" class="map-opening-status" aria-live="polite">
-        <span id="map-opening-phase">POINT CLOUD</span>
-        <strong>GENERATING KASHIWA MAP</strong>
+        <div class="map-opening-status__lines">
+          <span id="map-opening-phase">GRID GENERATION</span>
+          <strong id="map-opening-title">GENERATING KASHIWA 3D MAP</strong>
+          <small id="map-opening-detail">LINKING PHOTO POINTS...</small>
+        </div>
         <i><b id="map-opening-progress"></b></i>
       </div>
     </main>
 
-    <script type="module" src="./viewFinder.js?v=20260726-35"></script>
+    <script type="module" src="./viewFinder.js?v=20260726-46"></script>
   </body>
 </html>

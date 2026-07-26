@@ -6,9 +6,13 @@ import {
   getPhotoViewData,
   hasPhotoViewData,
   PHOTO_VIEW_DEFAULTS,
-} from "./photoViewData.js?v=20260724-01";
+} from "./photoViewData.js?v=20260726-02";
 import { createMapOpening } from "./mapOpening.js?v=20260726-07";
-import { enableDecryptedText } from "./decryptedText.js?v=20260726-01";
+import { enableDecryptedText } from "./decryptedText.js?v=20260726-02";
+import {
+  createOpeningTypewriter,
+  playMultiLineTypewriter,
+} from "./openingTypewriter.js?v=20260726-02";
 
 const canvas = document.querySelector("#scene");
 const detailRevealCanvas = document.querySelector("#detail-reveal-scene");
@@ -56,10 +60,20 @@ const visiblePhotoCount = document.querySelector("#visible-photo-count");
 const photoListCount = document.querySelector("#photo-list-count");
 const mapOpeningStatus = document.querySelector("#map-opening-status");
 const mapOpeningPhase = document.querySelector("#map-opening-phase");
+const mapOpeningTitle = document.querySelector("#map-opening-title");
+const mapOpeningDetail = document.querySelector("#map-opening-detail");
 const mapOpeningProgress = document.querySelector("#map-opening-progress");
+const introHeadlineLines = [...document.querySelectorAll("[data-intro-typewriter]")];
 const CALIBRATION_DRAFT_KEY = "kashiwa-photo-calibration-draft-v1";
 const isPublicViewer = document.body.dataset.viewerMode === "public";
 if (isPublicViewer) enableDecryptedText(document);
+const openingTypewriter = isPublicViewer
+  ? createOpeningTypewriter({
+      phase: mapOpeningPhase,
+      title: mapOpeningTitle,
+      detail: mapOpeningDetail,
+    })
+  : null;
 
 const {
   renderer,
@@ -113,6 +127,7 @@ let routeTracks = [];
 let photoMode = false;
 let activePhotoIndex = -1;
 let cameraSnapshot = null;
+let lockedPublicPhotoPose = null;
 let pointerDown = null;
 let viewToken = 0;
 let calibrationMode = false;
@@ -265,6 +280,7 @@ loadModel(async (model) => {
       onProgress: updateMapOpeningStatus,
       onComplete: finishMapOpening,
     });
+    openingTypewriter?.start();
     mapOpening.start();
   }
   loading.classList.add("is-done");
@@ -272,9 +288,7 @@ loadModel(async (model) => {
 });
 
 function updateMapOpeningStatus({ progress, phase }) {
-  if (mapOpeningPhase && mapOpeningPhase.textContent !== phase) {
-    mapOpeningPhase.textContent = phase;
-  }
+  openingTypewriter?.setPhase(phase);
   if (mapOpeningProgress) {
     mapOpeningProgress.style.width = `${Math.round(progress * 100)}%`;
   }
@@ -282,6 +296,12 @@ function updateMapOpeningStatus({ progress, phase }) {
 
 function finishMapOpening() {
   mapOpening = null;
+  openingTypewriter?.stop();
+  playMultiLineTypewriter(introHeadlineLines, {
+    delays: [180, 520],
+    speeds: [82, 88],
+  });
+  document.body.classList.add("map-opening-complete");
   document.body.classList.remove("map-opening");
   mapOpeningStatus?.setAttribute("aria-hidden", "true");
 }
@@ -300,8 +320,8 @@ photoClose.addEventListener("click", () => {
 photoPrev.addEventListener("click", () => stepPhoto(-1));
 photoNext.addEventListener("click", () => stepPhoto(1));
 photoOpacity.addEventListener("input", updatePhotoOpacity);
-photoScale.addEventListener("input", updatePhotoScale);
-cameraFov?.addEventListener("input", updateCameraFov);
+photoScale?.addEventListener("input", () => updatePhotoScale());
+cameraFov?.addEventListener("input", () => updateCameraFov());
 calibrationConfirm?.addEventListener("click", confirmCalibrationPose);
 calibrationCancel?.addEventListener("click", cancelCalibration);
 calibrationReset?.addEventListener("click", resetCalibration);
@@ -413,31 +433,21 @@ function parseTrackSegments(doc, source) {
 }
 
 function placePhotos() {
-  const ringGeometry = new THREE.RingGeometry(2.7, 3.2, 28);
   const hitGeometry = new THREE.CircleGeometry(4.8, 24);
+  const starTexture = createStarPointTexture();
 
   PHOTOS.forEach((photo, index) => {
     const frame = getPhotoFrame(photo);
     photo.worldPosition = frame.position;
     photo.direction = getPhotoDirection(photo, frame.tangent);
     photo.timePeriod = getPhotoTimePeriod(photo.capturedAt);
+    if (!isPhotoAvailable(photo)) return;
 
     const marker = new THREE.Group();
     marker.position.copy(photo.worldPosition);
     marker.position.y = 7;
 
-    const ring = new THREE.Mesh(
-      ringGeometry,
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.92,
-        depthTest: false,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      }),
-    );
-    ring.renderOrder = 80;
+    const point = createPhotoPoint(starTexture);
 
     const hit = new THREE.Mesh(
       hitGeometry,
@@ -451,26 +461,45 @@ function placePhotos() {
     hit.userData.photoIndex = index;
     hit.renderOrder = 81;
 
-    const stem = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, -7, 0),
-        new THREE.Vector3(0, -3.2, 0),
-      ]),
-      new THREE.LineBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.42,
-        depthTest: false,
-        toneMapped: false,
-      }),
-    );
-    stem.renderOrder = 80;
-
-    marker.add(ring, hit, stem);
+    marker.add(point, hit);
     photo.marker = marker;
     photoHitTargets.push(hit);
     photoGroup.add(marker);
   });
+}
+
+function createPhotoPoint(starTexture) {
+  const point = new THREE.Points(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]),
+    new THREE.PointsMaterial({
+      color: 0xffffff,
+      map: starTexture,
+      transparent: true,
+      opacity: 0.96,
+      alphaTest: 0.48,
+      size: 8,
+      sizeAttenuation: false,
+      depthTest: false,
+      toneMapped: false,
+    }),
+  );
+  point.renderOrder = 82;
+  return point;
+}
+
+function createStarPointTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, 64, 64);
+  context.beginPath();
+  context.arc(32, 32, 23, 0, Math.PI * 2);
+  context.fillStyle = "#ffffff";
+  context.fill();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
 function getPhotoFrame(photo) {
@@ -533,6 +562,8 @@ function getPhotoDirection(photo, routeDirection) {
 
 function renderPhotoGrid() {
   const cards = PHOTOS.map((photo, index) => {
+    if (!isPhotoAvailable(photo)) return null;
+
     const button = document.createElement("button");
     button.className = "photo-card";
     button.type = "button";
@@ -545,7 +576,6 @@ function renderPhotoGrid() {
 
     const label = document.createElement("span");
     label.textContent = `${String(index + 1).padStart(2, "0")} · ${photo.author.toUpperCase()} · ${formatPhotoTime(photo.capturedAt)}`;
-    if (isPublicViewer) label.dataset.decrypt = "";
     button.append(image, label);
     if (!isPublicViewer) {
       const status = document.createElement("em");
@@ -560,14 +590,14 @@ function renderPhotoGrid() {
     });
     photo.card = button;
     return button;
-  });
+  }).filter(Boolean);
   photoGrid.replaceChildren(...cards);
 }
 
 async function openPhoto(index) {
   const normalizedIndex = (index + PHOTOS.length) % PHOTOS.length;
   const photo = PHOTOS[normalizedIndex];
-  if (!photo.worldPosition) return;
+  if (!photo.worldPosition || !isPhotoAvailable(photo)) return;
 
   if (!photoMode) {
     cameraSnapshot = {
@@ -595,7 +625,11 @@ async function openPhoto(index) {
   photoOverlay.src = photo.url;
   photoOverlay.alt = `${photo.author}が${formatPhotoTime(photo.capturedAt)}に撮影した写真`;
   photoTitle.textContent = `${photo.author.toUpperCase()} · ${formatPhotoTime(photo.capturedAt)}`;
-  photoPosition.textContent = `${normalizedIndex + 1} / ${PHOTOS.length}`;
+  const browsableIndices = getBrowsablePhotoIndices();
+  const browsablePosition = browsableIndices.indexOf(normalizedIndex);
+  photoPosition.textContent = isPublicViewer
+    ? `${browsablePosition + 1} / ${browsableIndices.length}`
+    : `${normalizedIndex + 1} / ${PHOTOS.length}`;
   if (calibrationMode) {
     updateCalibrationProgress(normalizedIndex);
   }
@@ -605,18 +639,25 @@ async function openPhoto(index) {
   const savedCalibration = calibrationMode
     ? (draftView ?? registeredView)
     : registeredView;
+  lockedPublicPhotoPose = isPublicViewer
+    ? createLockedPublicPhotoPose(savedCalibration)
+    : null;
+  const resolvedPhotoScale = (
+    savedCalibration?.photoScale ?? PHOTO_VIEW_DEFAULTS.photoScale
+  );
+  const resolvedFov = savedCalibration?.fov ?? PHOTO_VIEW_DEFAULTS.fov;
   photoOpacity.value = String(Math.round(
     (savedCalibration?.photoOpacity ?? PHOTO_VIEW_DEFAULTS.photoOpacity) * 100,
   ));
-  photoScale.value = String(Math.round(
-    (savedCalibration?.photoScale ?? PHOTO_VIEW_DEFAULTS.photoScale) * 100,
-  ));
+  if (photoScale) {
+    photoScale.value = String(Math.round(resolvedPhotoScale * 100));
+  }
   if (cameraFov) {
-    cameraFov.value = String(savedCalibration?.fov ?? PHOTO_VIEW_DEFAULTS.fov);
+    cameraFov.value = String(resolvedFov);
   }
   updatePhotoOpacity();
-  updatePhotoScale();
-  updateCameraFov();
+  updatePhotoScale(resolvedPhotoScale);
+  updateCameraFov(resolvedFov);
 
   controls.enabled = !isPublicViewer;
   controls.enableDamping = !isPublicViewer;
@@ -633,12 +674,17 @@ async function openPhoto(index) {
   const target = position.clone().addScaledVector(photo.direction, 28);
   target.y = 7;
   perspectiveCamera.position.copy(position);
-  perspectiveCamera.fov = Number(cameraFov?.value ?? PHOTO_VIEW_DEFAULTS.fov);
+  perspectiveCamera.fov = Number(resolvedFov);
   perspectiveCamera.near = 0.1;
   perspectiveCamera.far = Math.max(cameraSnapshot?.far || 3000, 3000);
   perspectiveCamera.updateProjectionMatrix();
   controls.target.copy(target);
   controls.update();
+  if (lockedPublicPhotoPose) {
+    applyLockedPublicPhotoPose();
+  } else if (savedCalibration) {
+    restoreCalibrationPose(savedCalibration);
+  }
 
   try {
     setDetailLighting(photo.timePeriod ?? getPhotoTimePeriod(photo.capturedAt));
@@ -648,7 +694,9 @@ async function openPhoto(index) {
       return;
     }
     const surfaceY = getDetailSurfaceHeight(photo.worldPosition);
-    if (savedCalibration) {
+    if (lockedPublicPhotoPose) {
+      applyLockedPublicPhotoPose();
+    } else if (savedCalibration) {
       restoreCalibrationPose(savedCalibration);
     } else if (Number.isFinite(surfaceY)) {
       position.y = surfaceY + PHOTO_VIEW_DEFAULTS.cameraHeight;
@@ -670,6 +718,7 @@ async function openPhoto(index) {
 function closePhoto() {
   if (!photoMode) return;
   photoMode = false;
+  lockedPublicPhotoPose = null;
   activePhotoIndex = -1;
   viewToken += 1;
   document.body.classList.remove("photo-mode");
@@ -698,9 +747,7 @@ function closePhoto() {
 
 function stepPhoto(offset) {
   if (!photoMode || calibrationMode) return;
-  const availableIndices = PHOTOS
-    .map((photo, index) => (matchesTimePeriod(photo) ? index : -1))
-    .filter((index) => index >= 0);
+  const availableIndices = getBrowsablePhotoIndices();
   if (!availableIndices.length) return;
   const currentPosition = availableIndices.indexOf(activePhotoIndex);
   const nextPosition = (
@@ -717,7 +764,7 @@ function applyTimePeriod(period) {
 
   let visibleCount = 0;
   for (const photo of PHOTOS) {
-    const visible = matchesTimePeriod(photo);
+    const visible = isPhotoAvailable(photo) && matchesTimePeriod(photo);
     if (photo.marker) photo.marker.visible = visible;
     if (photo.card) photo.card.hidden = !visible;
     if (visible) visibleCount += 1;
@@ -727,8 +774,11 @@ function applyTimePeriod(period) {
     const selected = button.dataset.timePeriod === period;
     button.setAttribute("aria-pressed", String(selected));
     const count = PHOTOS.filter((photo) => (
-      button.dataset.timePeriod === "all"
-      || photo.timePeriod === button.dataset.timePeriod
+      isPhotoAvailable(photo)
+      && (
+        button.dataset.timePeriod === "all"
+        || photo.timePeriod === button.dataset.timePeriod
+      )
     )).length;
     const countLabel = button.querySelector("span");
     if (countLabel) countLabel.textContent = String(count);
@@ -742,14 +792,30 @@ function matchesTimePeriod(photo) {
   return activeTimePeriod === "all" || photo.timePeriod === activeTimePeriod;
 }
 
+function isPhotoAvailable(photo) {
+  return !isPublicViewer || hasPhotoViewData(photo.id);
+}
+
+function getBrowsablePhotoIndices() {
+  return PHOTOS
+    .map((photo, index) => (
+      isPhotoAvailable(photo) && matchesTimePeriod(photo) ? index : -1
+    ))
+    .filter((index) => index >= 0);
+}
+
 function updatePhotoOpacity() {
   photoViewer.style.setProperty("--photo-opacity", String(Number(photoOpacity.value) / 100));
 }
 
-function updatePhotoScale() {
-  const scale = Number(photoScale.value) / 100;
+function updatePhotoScale(scaleOverride) {
+  const scale = Number.isFinite(scaleOverride)
+    ? scaleOverride
+    : Number(photoScale?.value ?? PHOTO_VIEW_DEFAULTS.photoScale * 100) / 100;
   photoViewer.style.setProperty("--photo-scale", String(scale));
-  photoScaleReadout.textContent = `${photoScale.value}%`;
+  if (photoScaleReadout) {
+    photoScaleReadout.textContent = `${Math.round(scale * 100)}%`;
+  }
 }
 
 function updateOverviewReveal(event) {
@@ -843,19 +909,34 @@ function updateLiquidOverviewReveal(now) {
 function setPhotoMarkerAppearance(color, fluorescent = false) {
   for (const photo of PHOTOS) {
     if (!photo.marker) continue;
-    const [ring, , stem] = photo.marker.children;
-    for (const part of [ring, stem]) {
-      if (!part?.material) continue;
-      part.material.color.setHex(color);
-      part.material.blending = fluorescent
-        ? THREE.AdditiveBlending
-        : THREE.NormalBlending;
+    const [point] = photo.marker.children;
+    if (!point?.material) continue;
+    point.material.color.setHex(color);
+    if (point.material.userData.photoMarkerDefaultBlending === undefined) {
+      point.material.userData.photoMarkerDefaultBlending = point.material.blending;
+      point.material.userData.photoMarkerDefaultSize = point.material.size;
+      point.material.userData.photoMarkerDefaultOpacity = point.material.opacity;
+    }
+    point.material.size = fluorescent
+      ? 13
+      : point.material.userData.photoMarkerDefaultSize;
+    point.material.opacity = fluorescent
+      ? 1
+      : point.material.userData.photoMarkerDefaultOpacity;
+    const nextBlending = fluorescent
+      ? THREE.AdditiveBlending
+      : point.material.userData.photoMarkerDefaultBlending;
+    if (point.material.blending !== nextBlending) {
+      point.material.blending = nextBlending;
+      point.material.needsUpdate = true;
     }
   }
 }
 
-function updateCameraFov() {
-  const fov = Number(cameraFov?.value ?? PHOTO_VIEW_DEFAULTS.fov);
+function updateCameraFov(fovOverride) {
+  const fov = Number.isFinite(fovOverride)
+    ? fovOverride
+    : Number(cameraFov?.value ?? PHOTO_VIEW_DEFAULTS.fov);
   if (!Number.isFinite(fov)) return;
   perspectiveCamera.fov = fov;
   perspectiveCamera.updateProjectionMatrix();
@@ -973,12 +1054,53 @@ function restoreCalibrationPose(record) {
 
   perspectiveCamera.position.set(position.x, position.y, position.z);
   perspectiveCamera.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w).normalize();
+  if (Number.isFinite(record.fov)) {
+    perspectiveCamera.fov = record.fov;
+    perspectiveCamera.updateProjectionMatrix();
+  }
   perspectiveCamera.updateMatrixWorld(true);
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(perspectiveCamera.quaternion);
   const up = new THREE.Vector3(0, 1, 0).applyQuaternion(perspectiveCamera.quaternion);
   perspectiveCamera.up.copy(up);
   controls.target.copy(perspectiveCamera.position).addScaledVector(forward, 28);
   controls.update();
+}
+
+function createLockedPublicPhotoPose(record) {
+  const position = record?.position;
+  const quaternion = record?.quaternion;
+  if (
+    !position
+    || !quaternion
+    || ![position.x, position.y, position.z, quaternion.x, quaternion.y, quaternion.z, quaternion.w]
+      .every(Number.isFinite)
+  ) return null;
+
+  return {
+    position: new THREE.Vector3(position.x, position.y, position.z),
+    quaternion: new THREE.Quaternion(
+      quaternion.x,
+      quaternion.y,
+      quaternion.z,
+      quaternion.w,
+    ).normalize(),
+    fov: Number.isFinite(record.fov) ? record.fov : PHOTO_VIEW_DEFAULTS.fov,
+  };
+}
+
+function applyLockedPublicPhotoPose() {
+  if (!lockedPublicPhotoPose) return;
+
+  perspectiveCamera.position.copy(lockedPublicPhotoPose.position);
+  perspectiveCamera.quaternion.copy(lockedPublicPhotoPose.quaternion);
+  perspectiveCamera.up.set(0, 1, 0);
+  perspectiveCamera.fov = lockedPublicPhotoPose.fov;
+  perspectiveCamera.updateProjectionMatrix();
+  perspectiveCamera.updateMatrixWorld(true);
+
+  const forward = new THREE.Vector3(0, 0, -1)
+    .applyQuaternion(lockedPublicPhotoPose.quaternion);
+  controls.target.copy(lockedPublicPhotoPose.position).addScaledVector(forward, 28);
 }
 
 function updateCalibrationProgress(index = activePhotoIndex) {
@@ -1268,17 +1390,19 @@ function resize() {
 function animate() {
   const now = performance.now();
   mapOpening?.update(now);
-  controls.update();
+  if (photoMode && isPublicViewer && lockedPublicPhotoPose) {
+    applyLockedPublicPhotoPose();
+  } else {
+    controls.update();
+  }
   updatePoseFields();
   if (!photoMode) {
     for (const photo of PHOTOS) {
       if (!photo.marker) continue;
-      const [ring, hit] = photo.marker.children;
-      ring.quaternion.copy(perspectiveCamera.quaternion);
+      const [, hit] = photo.marker.children;
       hit.quaternion.copy(perspectiveCamera.quaternion);
       const distance = perspectiveCamera.position.distanceTo(photo.marker.position);
       const scale = THREE.MathUtils.clamp(distance / 180, 1, 4);
-      ring.scale.setScalar(scale);
       hit.scale.setScalar(scale);
     }
   }
@@ -1290,7 +1414,7 @@ function animate() {
     && !photoMode
     && document.body.classList.contains("overview-reveal-active")
   ) {
-    setPhotoMarkerAppearance(0x008cff, true);
+    setPhotoMarkerAppearance(0x00b8ff, true);
     try {
       if (revealPostEffect && overviewRevealCenter) {
         renderDetailLayer(
