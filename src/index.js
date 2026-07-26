@@ -17,13 +17,17 @@ import {
 import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260725-21";
 import { createLegendFilter } from "../r4U_js/filters.js?v=20260725-40";
 import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260724-12";
-import { create2DMapController } from "../r4U_js/map2d.js?v=20260722-25";
+import { create2DMapController } from "../r4U_js/map2d.js?v=20260726-30";
+import { createMemoTopDownView } from "../r4U_js/memoTopDownView.js?v=20260726-04";
+import { createCoordinateConnector } from "../r4U_js/coordinateConnector.js?v=20260726-02";
+import { createTimelineKeyboard } from "../r4U_js/timelineKeyboard.js?v=20260726-01";
 import { createViewToggle } from "../r4U_js/viewToggle.js";
 import { formatTime } from "./formatters.js";
+import { getTimeRange, loadGpxDataset } from "./gpxData.js?v=20260726-01";
 import { createMapDisplay } from "./main.js?v=20260725-10";
-import { makeAxisLabel, makeCoordinateLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260725-27";
-import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260725-41";
-import { getMemoProfile } from "../r4U_js/profiles.js?v=20260725-2";
+import { TIME_PERIODS } from "./timePeriods.js?v=20260726-01";
+import { makeAxisLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260726-30";
+import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260726-43";
 
 const canvas = document.querySelector("#scene");
 const view3dButton = document.querySelector("#view-3d");
@@ -61,6 +65,8 @@ const {
   bounds,
   modelCenter,
   modelSize,
+  raycaster,
+  pointer,
   loadModel,
   geoToWorld,
 } = mapDisplay;
@@ -93,15 +99,22 @@ let timelineEnd = 0;
 let playbackScale = 1;
 let playbackRate = 1;
 let lastFrameMs = performance.now();
+let iconPointerDown = null;
+let activeTimeSpacePeriodIndex = -2;
+let timeAxisLevels = [];
 const followTarget = new THREE.Vector3();
 const followDirection = new THREE.Vector3(1, 0, 0);
 const map2d = create2DMapController({
   canvas,
   camera: orthographicCamera,
   controls,
-  timeBaseY: TIME_BASE_Y,
   timeAxisHeight: TIME_AXIS_HEIGHT,
 });
+const memoTopDownView = createMemoTopDownView({
+  camera: perspectiveCamera,
+  controls,
+});
+const coordinateConnector = createCoordinateConnector();
 const viewToggle = createViewToggle({
   view3dButton,
   view2dButton,
@@ -128,9 +141,24 @@ timelinePanel.addEventListener("pointerup", endTimelineDrag);
 timelinePanel.addEventListener("pointercancel", endTimelineDrag);
 speedSlider.addEventListener("input", () => setPlaybackRate(Number(speedSlider.value)));
 timeSlider.addEventListener("input", () => {
-  stopPlayback();
-  updateTimeline(Number(timeSlider.value));
+  const seconds = Number(timeSlider.value);
+  stopPlayback({ ended: seconds >= Number(timeSlider.max) });
+  updateTimeline(seconds);
 });
+createTimelineKeyboard({
+  getCurrentSeconds: () => Number(timeSlider.value),
+  getMaxSeconds: () => Number(timeSlider.max),
+  onTogglePlayback: togglePlayback,
+  onSeek: (seconds, options) => {
+    stopPlayback(options);
+    updateTimeline(seconds);
+  },
+});
+canvas.addEventListener("pointerdown", startIconSelection);
+canvas.addEventListener("pointerup", finishIconSelection);
+canvas.addEventListener("pointercancel", cancelIconSelection);
+canvas.addEventListener("pointermove", updateIconCursor);
+canvas.addEventListener("pointerleave", cancelIconSelection);
 window.addEventListener("resize", resize);
 
 resize();
@@ -166,6 +194,7 @@ function fitCameraToModel() {
 function setViewMode(nextMode) {
   if (!cameraState) return;
 
+  memoTopDownView.deactivate();
   viewMode = nextMode;
   viewToggle.setActive(viewMode);
 
@@ -236,7 +265,7 @@ function syncMemoMarkerScale(memo) {
   const baseScale = stamp?.userData.baseScale;
   if (!stamp || !baseScale) return;
   const cameraScale = CAMERA_MODES[cameraMode].stampScale ?? 1;
-  const selectedScale = memo === activeMemo ? 1.35 : memo === hoveredMemo ? 1.16 : 1;
+  const selectedScale = memo === activeMemo ? 1.35 : memo === hoveredMemo ? 1.24 : 1;
   stamp.scale.copy(baseScale).multiplyScalar(cameraScale * selectedScale);
 }
 
@@ -268,30 +297,11 @@ function positionDefaultPerspectiveCamera(distance, focus) {
 }
 
 async function loadGpx() {
-  const results = await Promise.allSettled(
-    GPX_FILES.map(async (source) => {
-      const response = await fetch(source.url);
-      if (!response.ok) throw new Error(`Failed to load GPX: ${source.url}`);
-      const gpxText = await response.text();
-      const doc = new DOMParser().parseFromString(gpxText, "application/xml");
-      if (doc.querySelector("parsererror")) throw new Error(`Invalid GPX: ${source.url}`);
-      return {
-        tracks: parseTrackSegments(doc, source),
-        memos: parseMemoPoints(doc, source),
-      };
-    }),
-  );
-
-  const loaded = results
-    .filter((result) => result.status === "fulfilled")
-    .map((result) => result.value);
-  results
-    .filter((result) => result.status === "rejected")
-    .forEach((result) => console.error(result.reason));
-
-  routeTracks = loaded.flatMap((result) => result.tracks);
+  const dataset = await loadGpxDataset(GPX_FILES);
+  dataset.errors.forEach((error) => console.error(error));
+  routeTracks = dataset.tracks;
   trackPoints = routeTracks.flatMap((track) => track.points).sort((a, b) => a.time - b.time);
-  memoPoints = loaded.flatMap((result) => result.memos).sort((a, b) => a.time - b.time);
+  memoPoints = dataset.memos;
   memosBySource = new Map(
     GPX_FILES.map((source) => [source.id, memoPoints.filter((memo) => memo.sourceId === source.id)]),
   );
@@ -338,48 +348,6 @@ async function loadGpx() {
   updateCameraVisualDensity();
   focusCameraOnRoute();
   updateTimeline(0);
-}
-
-function parseTrackSegments(doc, source) {
-  let segments = [...doc.getElementsByTagNameNS("*", "trkseg")];
-  if (!segments.length) segments = [doc];
-
-  return segments
-    .map((segment, index) => ({
-      id: `${source.id}-track-${index}`,
-      sourceId: source.id,
-      sourceLabel: source.label,
-      points: [...segment.getElementsByTagNameNS("*", "trkpt")]
-        .map((point) => ({
-          lat: Number(point.getAttribute("lat")),
-          lon: Number(point.getAttribute("lon")),
-          time: parseTime(getChildText(point, "time")),
-        }))
-        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon) && Number.isFinite(point.time))
-        .sort((a, b) => a.time - b.time),
-    }))
-    .filter((track) => track.points.length > 1);
-}
-
-function parseMemoPoints(doc, source) {
-  return [...doc.getElementsByTagNameNS("*", "wpt")]
-    .map((point, index) => {
-      const rawName = getChildText(point, "name");
-      const rawDesc = getChildText(point, "desc");
-      return {
-        lat: Number(point.getAttribute("lat")),
-        lon: Number(point.getAttribute("lon")),
-        time: parseTime(getChildText(point, "time")),
-        name: rawName || rawDesc || `Memo ${index + 1}`,
-        desc: rawName ? rawDesc : "",
-        sourceId: source.id,
-        sourceLabel: source.label,
-        ...getMemoProfile(`${rawName} ${rawDesc}`),
-        marker: null,
-      };
-    })
-    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon) && Number.isFinite(point.time))
-    .sort((a, b) => a.time - b.time);
 }
 
 function addRouteLines() {
@@ -604,6 +572,8 @@ function setCurtainColor(attribute, index, color) {
 }
 
 function addTimeAxis() {
+  activeTimeSpacePeriodIndex = -2;
+  timeAxisLevels = [];
   const routeBounds = new THREE.Box3();
   for (const point of [...trackPoints, ...memoPoints]) {
     routeBounds.expandByPoint(geoToWorld(point));
@@ -622,9 +592,6 @@ function addTimeAxis() {
     opacity: 0.22,
     depthWrite: false,
   });
-  const axisMaterial = frameMaterial.clone();
-  axisMaterial.opacity = 0.48;
-
   const corners = [
     [minX, minZ],
     [maxX, minZ],
@@ -646,6 +613,7 @@ function addTimeAxis() {
   for (let hour = TIME_START_HOUR; hour <= TIME_END_HOUR; hour += 1) {
     const ratio = (hour - TIME_START_HOUR) / (TIME_END_HOUR - TIME_START_HOUR);
     const y = TIME_BASE_Y + ratio * TIME_AXIS_HEIGHT;
+    const levelMaterial = frameMaterial.clone();
     const frame = new THREE.LineLoop(
       new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(minX, y, minZ),
@@ -653,13 +621,30 @@ function addTimeAxis() {
         new THREE.Vector3(maxX, y, maxZ),
         new THREE.Vector3(minX, y, maxZ),
       ]),
-      hour === TIME_START_HOUR || hour === TIME_END_HOUR ? axisMaterial : frameMaterial,
+      levelMaterial,
     );
     frame.renderOrder = 12;
     gpxGroup.add(frame);
 
     const label = makeAxisLabel(hour === 24 ? "24:00" : `${String(hour).padStart(2, "0")}:00`);
     label.position.set(minX - padding * 0.65, y, minZ);
+    label.userData.baseScale = label.scale.clone();
+    timeAxisLevels.push({ hour, frame, label });
+    gpxGroup.add(label);
+  }
+
+  for (const period of TIME_PERIODS) {
+    const midpointHour = (period.startHour + period.endHour) / 2;
+    const ratio = (midpointHour - TIME_START_HOUR) / (TIME_END_HOUR - TIME_START_HOUR);
+    const label = makeAxisLabel(period.label);
+    label.position.set(
+      minX - padding * 2.1,
+      TIME_BASE_Y + ratio * TIME_AXIS_HEIGHT,
+      minZ,
+    );
+    label.userData.setEmphasized?.(true);
+    label.scale.multiplyScalar(1.16);
+    label.renderOrder = 37;
     gpxGroup.add(label);
   }
 
@@ -747,16 +732,70 @@ function createMemoMarker(memo, offsetSlot) {
   stamp.position.y = 2.2;
   stamp.userData.baseScale = stamp.scale.clone();
   const selectionHalo = makeSelectionHalo(categoryColor, stamp);
-  const coordinateLabel = makeCoordinateLabel(memo);
-  coordinateLabel.position.y = stamp.scale.y * 0.55 + 7;
   group.userData.stamp = stamp;
   group.userData.head = head;
   group.userData.leader = leader;
   group.userData.selectionHalo = selectionHalo;
-  group.userData.coordinateLabel = coordinateLabel;
+  stamp.userData.memo = memo;
 
-  group.add(leader, head, selectionHalo, stamp, coordinateLabel);
+  group.add(leader, head, selectionHalo, stamp);
   return group;
+}
+
+function startIconSelection(event) {
+  if (event.button !== 0) return;
+  iconPointerDown = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+  };
+}
+
+function finishIconSelection(event) {
+  const start = iconPointerDown;
+  iconPointerDown = null;
+  if (!start || start.pointerId !== event.pointerId) return;
+  if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
+
+  const memo = getMemoIconAtPointer(event);
+  if (memo) selectMemo(memo);
+}
+
+function cancelIconSelection() {
+  iconPointerDown = null;
+  canvas.style.cursor = "";
+  setHoveredMemo(null);
+}
+
+function updateIconCursor(event) {
+  if (event.buttons !== 0) {
+    canvas.style.cursor = "";
+    setHoveredMemo(null);
+    return;
+  }
+  const memo = getMemoIconAtPointer(event);
+  canvas.style.cursor = memo ? "pointer" : "";
+  if (memo && hoverSuppressedMemo === memo) hoverSuppressedMemo = null;
+  setHoveredMemo(memo);
+}
+
+function getMemoIconAtPointer(event) {
+  const clickableStamps = memoPoints
+    .filter((memo) => (
+      memo.marker?.visible
+      && memo.marker.userData.stamp?.visible
+      && memoMatchesFilters(memo)
+    ))
+    .map((memo) => memo.marker.userData.stamp);
+  if (!clickableStamps.length) return null;
+
+  const rect = canvas.getBoundingClientRect();
+  pointer.set(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  raycaster.setFromCamera(pointer, activeCamera);
+  return raycaster.intersectObjects(clickableStamps, false)[0]?.object.userData.memo ?? null;
 }
 
 function makeSelectionHalo(color, stamp) {
@@ -796,6 +835,7 @@ function makeSelectionHalo(color, stamp) {
 
 function updateTimeline(seconds) {
   const currentTime = timelineStart + seconds * 1000;
+  syncActiveTimeSpacePeriod(seconds);
   timelineInstruments.updateTime(currentTime);
   timeSlider.value = String(seconds);
   timeReadout.textContent = formatTime(currentTime);
@@ -813,8 +853,10 @@ function updateTimeline(seconds) {
     const routeCount = countPointsUntil(points, currentTime);
     const routeIsActive = currentTime >= points[0].time
       && currentTime <= points[points.length - 1].time;
-    fullRouteLine.visible = sourceVisible;
-    line.visible = sourceVisible;
+    const routeHasStarted = routeCount > 1;
+    fullRouteLine.visible = sourceVisible && routeHasStarted;
+    fullRouteLine.geometry.setDrawRange(0, routeCount);
+    line.visible = sourceVisible && routeHasStarted;
     line.geometry.setDrawRange(0, routeCount);
     head.visible = sourceVisible && routeIsActive;
     if (head.visible) {
@@ -845,13 +887,16 @@ function updateTimeline(seconds) {
     const matches = visibleMemoSet.has(memo);
     const hasOccurred = memo.time <= currentTime;
     memo.marker.visible = sourceIsVisible(memo.sourceId);
-    memo.marker.userData.leader.visible = true;
+    memo.marker.userData.leader.visible = hasOccurred;
     const isHovered = memo === hoveredMemo;
     const isEmphasized = memo === activeMemo || isHovered;
     memo.marker.userData.stamp.visible = matches && (hasOccurred || isHovered);
-    memo.marker.userData.head.visible = matches && (hasOccurred || isHovered);
+    memo.marker.userData.head.visible = (
+      matches
+      && memo !== activeMemo
+      && (hasOccurred || isHovered)
+    );
     memo.marker.userData.selectionHalo.visible = matches && isEmphasized && (hasOccurred || isHovered);
-    memo.marker.userData.coordinateLabel.visible = matches && memo === activeMemo;
     syncMemoMarkerScale(memo);
     syncMemoMarkerOpacity(memo, recentMemos.has(memo));
   }
@@ -867,6 +912,30 @@ function updateTimeline(seconds) {
     onHover: setHoveredMemo,
     onHoverSuppressionEnd: clearHoverSuppression,
   });
+}
+
+function syncActiveTimeSpacePeriod(seconds) {
+  const periodCount = 3;
+  const maxSeconds = Number(timeSlider.max);
+  const periodIndex = seconds <= 0
+    ? -1
+    : Math.min(Math.floor(seconds / (maxSeconds / periodCount)), periodCount - 1);
+  if (periodIndex === activeTimeSpacePeriodIndex) return;
+  activeTimeSpacePeriodIndex = periodIndex;
+
+  const periodHours = (TIME_END_HOUR - TIME_START_HOUR) / periodCount;
+  const periodStart = TIME_START_HOUR + periodIndex * periodHours;
+  const periodEnd = periodStart + periodHours;
+  for (const level of timeAxisLevels) {
+    const highlighted = periodIndex >= 0
+      && (level.hour === periodStart || level.hour === periodEnd);
+    level.frame.material.color.setHex(highlighted ? 0x7dd3fc : MAP_BLUE_COLOR);
+    level.frame.material.opacity = highlighted ? 0.78 : 0.22;
+    level.label.userData.setEmphasized?.(highlighted);
+    level.label.scale.copy(level.label.userData.baseScale).multiplyScalar(
+      highlighted ? 1.18 : 1,
+    );
+  }
 }
 
 function syncMemoMarkerOpacity(memo, isRecent) {
@@ -940,36 +1009,53 @@ function selectMemo(memo) {
     return;
   }
 
-  if (activeMemo?.marker?.userData.coordinateLabel) {
-    activeMemo.marker.userData.coordinateLabel.visible = false;
-  }
   hoverSuppressedMemo = null;
   activeMemo = memo;
   returnToDefaultViewOnPlay = true;
-  if (memo.marker?.userData.coordinateLabel) {
-    memo.marker.userData.coordinateLabel.visible = true;
-  }
   stopPlayback();
   const seconds = Math.round((memo.time - timelineStart) / 1000);
   updateTimeline(THREE.MathUtils.clamp(seconds, 0, Number(timeSlider.max)));
+  revealSelectedMemoCard();
   focusCameraOnMemo(memo);
 }
 
+function revealSelectedMemoCard() {
+  window.requestAnimationFrame(() => {
+    const card = memoList.querySelector(".memo-item.is-current");
+    const viewport = memoList.closest(".memo-scroll-viewport");
+    if (!card || !viewport) return;
+
+    const cardTop = card.offsetTop;
+    const cardBottom = cardTop + Math.min(Math.max(card.scrollHeight, 132), 300);
+    if (cardTop < viewport.scrollTop + 10) {
+      viewport.scrollTo({ top: Math.max(cardTop - 10, 0), behavior: "smooth" });
+    } else if (cardBottom > viewport.scrollTop + viewport.clientHeight - 10) {
+      viewport.scrollTo({
+        top: cardBottom - viewport.clientHeight + 10,
+        behavior: "smooth",
+      });
+    }
+  });
+}
+
 function deselectMemo(memo) {
-  if (memo.marker?.userData.coordinateLabel) {
-    memo.marker.userData.coordinateLabel.visible = false;
-  }
+  coordinateConnector.hide();
   activeMemo = null;
   hoveredMemo = null;
   hoverSuppressedMemo = memo;
   returnToDefaultViewOnPlay = false;
   stopPlayback();
   updateTimeline(Number(timeSlider.value));
-  setCameraMode("free");
+  if (viewMode === "3d") {
+    memoTopDownView.deactivate();
+    cameraMode = "free";
+    syncCameraModeUi();
+    setPerspectiveView();
+  }
 }
 
 function setHoveredMemo(memo) {
-  if (hoveredMemo === memo || hoverSuppressedMemo === memo) return;
+  if (hoveredMemo === memo || (memo && hoverSuppressedMemo === memo)) return;
   hoveredMemo = memo;
   updateTimeline(Number(timeSlider.value));
 }
@@ -982,22 +1068,16 @@ function clearHoverSuppression(memo) {
 function focusCameraOnMemo(memo) {
   if (!memo.marker || !cameraState) return;
 
-  if (viewMode !== "3d") {
-    setViewMode("3d");
-  }
   cameraMode = "free";
   syncCameraModeUi();
-  controls.enabled = true;
 
+  if (viewMode !== "3d") return;
   const focus = memo.marker.position.clone();
-  const distance = Math.max(cameraState.distance * 0.18, 42);
-  perspectiveCamera.position.set(focus.x + distance * 0.52, focus.y + distance * 0.45, focus.z + distance * 0.68);
-  perspectiveCamera.near = 0.1;
-  perspectiveCamera.far = Math.max(cameraState.distance * 8, 2000);
-  perspectiveCamera.updateProjectionMatrix();
-  controls.object = perspectiveCamera;
-  controls.target.copy(focus);
-  controls.update();
+  focus.y = TIME_BASE_Y;
+  activeCamera = memoTopDownView.activate({
+    mapFocus: focus,
+    maxSize: cameraState.maxSize,
+  });
 }
 
 function togglePlayback() {
@@ -1011,9 +1091,7 @@ function togglePlayback() {
     playbackEnded = false;
   }
   if (returnToDefaultViewOnPlay) {
-    if (activeMemo?.marker?.userData.coordinateLabel) {
-      activeMemo.marker.userData.coordinateLabel.visible = false;
-    }
+    coordinateConnector.hide();
     activeMemo = null;
     setCameraMode("free");
     returnToDefaultViewOnPlay = false;
@@ -1327,30 +1405,6 @@ function getTrackPositionAtTime(points, time) {
   return position;
 }
 
-function getChildText(element, name) {
-  return element.getElementsByTagNameNS("*", name)[0]?.textContent?.trim() || "";
-}
-
-function parseTime(value) {
-  return Date.parse(value);
-}
-
-function getTimeRange(referenceTime) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: "Asia/Tokyo",
-  }).formatToParts(referenceTime);
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-  const date = `${values.year}-${values.month}-${values.day}`;
-  const start = Date.parse(`${date}T${String(TIME_START_HOUR).padStart(2, "0")}:00:00+09:00`);
-  return {
-    start,
-    end: start + (TIME_END_HOUR - TIME_START_HOUR) * 60 * 60 * 1000,
-  };
-}
-
 function timeToHeight(time) {
   const ratio = THREE.MathUtils.clamp((time - timelineStart) / (timelineEnd - timelineStart), 0, 1);
   return TIME_BASE_Y + ratio * TIME_AXIS_HEIGHT;
@@ -1446,6 +1500,7 @@ function resize() {
   perspectiveCamera.aspect = width / height;
   perspectiveCamera.updateProjectionMatrix();
   map2d.resize(width, height);
+  memoTopDownView.resize(width, height);
   renderer.setSize(width, height, false);
 }
 
@@ -1479,9 +1534,14 @@ function animate() {
     halo.scale.copy(halo.userData.baseScale).multiplyScalar(pulse);
     halo.material.opacity = memo === activeMemo
       ? 0.82 + pulseWave * 0.12
-      : 0.4 + pulseWave * 0.08;
+      : 0.58 + pulseWave * 0.12;
   }
   timelineInstruments.updateCompass(activeCamera);
+  if (activeMemo) {
+    coordinateConnector.update(activeMemo, activeCamera);
+  } else {
+    coordinateConnector.hide();
+  }
   renderer.render(scene, activeCamera);
   requestAnimationFrame(animate);
 }

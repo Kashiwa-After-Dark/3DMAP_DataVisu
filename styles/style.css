@@ -713,6 +713,17 @@ body.photo-mode #scene:active {
   transform: translateY(3px);
 }
 
+.legend-filter__option[data-shape="u"]:focus-within {
+  outline: 0;
+}
+
+.legend-filter__option[data-shape="u"]:focus-within::before {
+  color: var(--map-blue);
+  text-shadow:
+    0 0 1px var(--map-blue),
+    0 0 4px var(--map-blue);
+}
+
 .legend-filter__option input {
   position: absolute;
   opacity: 0;
@@ -1814,6 +1825,7 @@ body.photo-mode #scene:active {
   border: 0;
   background: transparent;
   box-shadow: none;
+  outline: 0;
 }
 
 .play-toggle__icon {
@@ -1934,8 +1946,15 @@ body.photo-mode #scene:active {
 .time-hour-labels span {
   position: absolute;
   transform: translateX(-50%);
-  color: #64748b;
-  font: 700 8px/1 var(--ui-font);
+  color: #94a3b8;
+  font: 700 9px/1 var(--ui-font);
+  font-weight: 700 !important;
+}
+
+.time-hour-labels span:nth-child(odd) {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800 !important;
 }
 
 .time-hour-labels span:first-child {

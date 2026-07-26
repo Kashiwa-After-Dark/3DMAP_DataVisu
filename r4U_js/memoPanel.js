@@ -76,12 +76,12 @@ function makeMemoItem({
   item.tabIndex = 0;
   item.role = "button";
   item.style.setProperty("--deck-index", String(index));
-  item.style.setProperty("--deck-offset", `${Math.min(index, 5) * 2}px`);
-  item.style.setProperty("--deck-tilt", `${((index % 3) - 1) * 0.35}deg`);
+  item.style.setProperty("--deck-offset", "0px");
+  item.style.setProperty("--deck-tilt", "0deg");
   item.style.setProperty("--deck-layer", String(Math.max(1, 30 - Math.min(index, 29))));
   item.setAttribute("aria-label", `${formatTime(memo.time)}の観察データへ移動`);
   item.setAttribute("aria-pressed", String(isCurrent));
-  item.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown Enter Space");
+  item.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown Enter");
   if (isCurrent) item.setAttribute("aria-current", "true");
   item.style.setProperty("--memo-color", category.color);
   item.style.setProperty("--memo-soft", category.soft);
@@ -127,7 +127,7 @@ function makeMemoItem({
       focusAdjacentMemoItem(item, event.key === "ArrowDown" ? 1 : -1);
       return;
     }
-    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.key !== "Enter") return;
     event.preventDefault();
     if (event.repeat) return;
     onSelect(memo);
@@ -175,7 +175,7 @@ function enableGlobalKeyboardNavigation(list) {
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented) return;
     const isNavigationKey = event.key === "ArrowUp" || event.key === "ArrowDown";
-    const isActivationKey = event.key === "Enter" || event.key === " ";
+    const isActivationKey = event.key === "Enter";
     if (!isNavigationKey && !isActivationKey) return;
     if (event.target.closest("input, textarea, select, button, [contenteditable='true']")) return;
 
