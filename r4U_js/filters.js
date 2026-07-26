@@ -45,41 +45,30 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     makeCountRangeControl(),
     makeSearchControl(),
   );
-  const selectedStack = makeSelectedStack();
-  const workspace = document.createElement("div");
-  workspace.className = "legend-filter__workspace";
-  workspace.append(codeSelector, selectedStack);
-  content.append(workspace, makeDescription());
+  content.append(codeSelector, makeDescription());
   let viewLevel = 1;
 
   const handleChange = (changedInput) => {
     syncCountRangeUi(root, changedInput);
     syncStateFromUi(state, root);
-    syncSelectedStack(root, selectedStack, categories);
     onChange?.();
   };
   const header = makeHeader({
     countReadout,
     onReset: () => {
       resetState(state, root, allSourceIds);
-      syncSelectedStack(root, selectedStack, categories);
       onSourcesReset?.();
       onChange?.();
     },
     onToggle: (button) => {
-      viewLevel = viewLevel === 2 ? 0 : viewLevel + 1;
+      viewLevel = viewLevel === 0 ? 1 : 0;
       root.classList.toggle("is-collapsed", viewLevel === 0);
-      root.classList.toggle("is-filter-only", viewLevel === 1);
       root.dataset.viewLevel = String(viewLevel);
 
       if (viewLevel === 0) {
         button.textContent = "+";
         button.title = "フィルターを表示";
         button.setAttribute("aria-label", "フィルターを表示");
-      } else if (viewLevel === 1) {
-        button.textContent = "+";
-        button.title = "選択コードも表示";
-        button.setAttribute("aria-label", "選択コードも表示");
       } else {
         button.textContent = "−";
         button.title = "フィルターを最小化";
@@ -90,31 +79,10 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
   });
 
   root.classList.remove("is-collapsed");
-  root.classList.add("is-filter-only");
   root.dataset.viewLevel = String(viewLevel);
   root.replaceChildren(header, content);
   syncCountRangeUi(root);
-  syncSelectedStack(root, selectedStack, categories);
   root.addEventListener("click", (event) => {
-    const selectedCode = event.target.closest(".legend-filter__selected-code");
-    if (selectedCode && root.contains(selectedCode)) {
-      const input = root.querySelector(
-        `input[name="${selectedCode.dataset.name}"][value="${selectedCode.dataset.value}"]`,
-      );
-      const checked = [...root.querySelectorAll(`input[name="${selectedCode.dataset.name}"]:checked`)];
-      if (input && checked.length === 1) {
-        for (const peer of root.querySelectorAll(`input[name="${input.name}"]`)) {
-          peer.checked = true;
-          if (peer !== input) peer.dataset.animateNext = "true";
-        }
-        handleChange();
-      } else if (input && checked.length > 1) {
-        input.checked = false;
-        handleChange();
-      }
-      return;
-    }
-
     const option = event.target.closest(".legend-filter__option");
     if (!option || !root.contains(option)) return;
     event.preventDefault();
@@ -124,17 +92,12 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
 
     if (checked.length === peers.length) {
       for (const peer of peers) peer.checked = peer === input;
-      input.dataset.animateNext = "true";
     } else if (!input.checked) {
       input.checked = true;
-      input.dataset.animateNext = "true";
     } else if (checked.length > 1) {
       input.checked = false;
     } else {
-      for (const peer of peers) {
-        peer.checked = true;
-        if (peer !== input) peer.dataset.animateNext = "true";
-      }
+      for (const peer of peers) peer.checked = true;
     }
     handleChange();
   });
@@ -165,61 +128,6 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
   };
 }
 
-function makeSelectedStack() {
-  const stack = document.createElement("section");
-  stack.className = "legend-filter__selected-stack";
-  stack.setAttribute("aria-label", "表示中のコード");
-
-  const heading = document.createElement("b");
-  heading.textContent = "表示中";
-  const pile = document.createElement("div");
-  pile.className = "legend-filter__selected-pile";
-  stack.append(heading, pile);
-  return stack;
-}
-
-function syncSelectedStack(root, stack, categories) {
-  const selected = [...root.querySelectorAll('.legend-filter__option input[type="checkbox"]:checked')];
-  const pile = stack.querySelector(".legend-filter__selected-pile");
-  const existingItems = new Map(
-    [...pile.children].map((item) => [`${item.dataset.name}:${item.dataset.value}`, item]),
-  );
-  const pileOffsets = [0, 2, 1, 3];
-  const items = selected.map((input, index) => {
-    const option = input.closest(".legend-filter__option");
-    const key = `${input.name}:${input.value}`;
-    const existingItem = existingItems.get(key);
-    const item = existingItem || document.createElement("button");
-    if (!existingItem) {
-      item.type = "button";
-      item.className = "legend-filter__selected-code";
-      item.append(document.createElement("span"));
-    }
-    item.dataset.name = input.name;
-    item.dataset.value = input.value;
-    item.dataset.kind = input.name;
-    if (option.dataset.shape) item.dataset.shape = option.dataset.shape;
-    item.style.setProperty("--legend-color", categories[input.value]?.color || "var(--map-blue)");
-    item.style.setProperty("--pile-shift", `${pileOffsets[index % pileOffsets.length]}px`);
-    item.style.setProperty("--drop-delay", `${Math.min(index * 28, 280)}ms`);
-    item.style.setProperty("--drop-rotate", `${((index % 5) - 2) * 5}deg`);
-    item.style.setProperty("--shape-rotate", option.dataset.shape === "x" ? "45deg" : "0deg");
-    item.querySelector("span").textContent = option.querySelector(":scope > span")?.textContent || input.value;
-    item.title = `${input.value}を非表示`;
-    if (!existingItem || input.dataset.animateNext === "true") playCodeDrop(item);
-    delete input.dataset.animateNext;
-    return item;
-  });
-  pile.replaceChildren(...items);
-}
-
-function playCodeDrop(item) {
-  item.classList.remove("is-dropping");
-  void item.offsetWidth;
-  item.classList.add("is-dropping");
-  item.addEventListener("animationend", () => item.classList.remove("is-dropping"), { once: true });
-}
-
 function makeHeader({ countReadout, onReset, onToggle }) {
   const header = document.createElement("header");
   header.className = "legend-filter__header";
@@ -239,9 +147,9 @@ function makeHeader({ countReadout, onReset, onToggle }) {
   const toggle = document.createElement("button");
   toggle.type = "button";
   toggle.className = "legend-filter__toggle";
-  toggle.textContent = "+";
-  toggle.title = "選択コードも表示";
-  toggle.setAttribute("aria-label", "選択コードも表示");
+  toggle.textContent = "−";
+  toggle.title = "フィルターを最小化";
+  toggle.setAttribute("aria-label", "フィルターを最小化");
   toggle.setAttribute("aria-expanded", "true");
   toggle.addEventListener("click", () => onToggle(toggle));
 
