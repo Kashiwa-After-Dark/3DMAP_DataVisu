@@ -418,7 +418,7 @@ body.photo-mode #scene:active {
 }
 
 .age-legend.is-collapsed {
-  width: 70px;
+  width: 84px;
 }
 
 .age-legend.is-filter-only {
@@ -434,16 +434,18 @@ body.photo-mode #scene:active {
 }
 
 .age-legend.is-collapsed .legend-filter__header {
-  display: block;
+  display: grid;
+  grid-template-columns: 22px auto;
 }
 
-.age-legend.is-collapsed .legend-filter__header > :not(.legend-filter__toggle) {
+.age-legend.is-collapsed .legend-filter__header > span,
+.age-legend.is-collapsed .legend-filter__header > strong {
   display: none;
 }
 
 .age-legend.is-collapsed .legend-filter__header .legend-filter__toggle {
-  width: 58px;
-  font-size: 9px;
+  width: 22px;
+  font-size: 14px;
 }
 
 .age-legend.is-filter-only .legend-filter__workspace {
@@ -709,6 +711,17 @@ body.photo-mode #scene:active {
   position: relative;
   z-index: 1;
   transform: translateY(3px);
+}
+
+.legend-filter__option[data-shape="u"]:focus-within {
+  outline: 0;
+}
+
+.legend-filter__option[data-shape="u"]:focus-within::before {
+  color: var(--map-blue);
+  text-shadow:
+    0 0 1px var(--map-blue),
+    0 0 4px var(--map-blue);
 }
 
 .legend-filter__option input {
@@ -1238,12 +1251,15 @@ body.photo-mode #scene:active {
   align-content: start;
   justify-items: stretch;
   padding: 2px 0 0;
+  contain: layout style;
 }
 
 .memo-item {
   --memo-color: #94a3b8;
   --memo-soft: #e2e8f0;
   --memo-rgb: 148, 163, 184;
+  --dock-lift: 0px;
+  --dock-scale: 1;
   border: 1px solid rgba(var(--memo-rgb), 0.66);
   border-left-width: 4px;
   border-right: 0;
@@ -1252,23 +1268,18 @@ body.photo-mode #scene:active {
   color: #f8fafc;
   background: linear-gradient(115deg, rgba(var(--memo-rgb), 0.2), rgba(2, 6, 17, 0.9) 52%);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(12px);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
   cursor: pointer;
   transform-origin: right center;
   transition:
-    width 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
-    min-height 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
-    max-height 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
-    margin 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
-    padding 320ms cubic-bezier(0.2, 0.75, 0.2, 1),
-    opacity 180ms ease,
+    opacity 220ms ease,
     border-color 160ms ease,
     box-shadow 220ms ease,
-    transform 320ms cubic-bezier(0.2, 0.75, 0.2, 1);
+    transform 260ms cubic-bezier(0.2, 0.75, 0.2, 1);
 }
 
-.memo-item:hover,
-.memo-item:focus-visible {
+.memo-item.is-dock-focus {
   border-color: var(--memo-soft);
   outline: 0;
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 12px 30px rgba(0, 0, 0, 0.22);
@@ -1293,11 +1304,26 @@ body.photo-mode #scene:active {
 .memo-panel:is(:hover, :focus-within) .memo-item.is-stacked,
 .memo-panel:where(:has(.memo-item.is-current)) .memo-item.is-stacked {
   transform:
-    translateX(calc(100% - 108px + var(--deck-offset)))
+    translateX(calc(100% - 108px + var(--deck-offset) - var(--dock-lift)))
+    scale(var(--dock-scale))
     rotate(var(--deck-tilt));
 }
 
-.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed) {
+.memo-panel:is(:hover, :focus-within) .memo-item.is-dock-near-1 {
+  --dock-lift: 28px;
+  --dock-scale: 1.055;
+  z-index: 38;
+  opacity: 0.82;
+}
+
+.memo-panel:is(:hover, :focus-within) .memo-item.is-dock-near-2 {
+  --dock-lift: 12px;
+  --dock-scale: 1.025;
+  z-index: 37;
+  opacity: 0.68;
+}
+
+.memo-item.is-stacked:is(.is-dock-focus, .is-current):not(.is-hover-suppressed) {
   z-index: 40;
   min-height: 132px;
   max-height: 300px;
@@ -1310,6 +1336,11 @@ body.photo-mode #scene:active {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42), 0 0 22px rgba(var(--memo-rgb), 0.46);
 }
 
+.memo-item.is-dock-focus {
+  content-visibility: visible;
+  will-change: transform;
+}
+
 .memo-item.is-stacked .memo-meta {
   margin-bottom: 3px;
 }
@@ -1320,21 +1351,21 @@ body.photo-mode #scene:active {
   display: none;
 }
 
-.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed)
+.memo-item.is-stacked:is(.is-dock-focus, .is-current):not(.is-hover-suppressed)
   .memo-category {
   display: inline-block;
   padding: 4px 9px;
   font-size: 11px;
 }
 
-.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed)
+.memo-item.is-stacked:is(.is-dock-focus, .is-current):not(.is-hover-suppressed)
   .memo-source {
   display: block;
   margin-top: 5px;
   font-size: 11px;
 }
 
-.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed) p {
+.memo-item.is-stacked:is(.is-dock-focus, .is-current):not(.is-hover-suppressed) p {
   display: block;
   margin-top: 8px;
   font-size: 14px;
@@ -1349,7 +1380,7 @@ body.photo-mode #scene:active {
   white-space: nowrap;
 }
 
-.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed) strong {
+.memo-item.is-stacked:is(.is-dock-focus, .is-current):not(.is-hover-suppressed) strong {
   font-size: 18px;
   line-height: 1.4;
   white-space: normal;
@@ -1359,11 +1390,11 @@ body.photo-mode #scene:active {
   font-size: 10px;
 }
 
-.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed) time {
+.memo-item.is-stacked:is(.is-dock-focus, .is-current):not(.is-hover-suppressed) time {
   font-size: 14px;
 }
 
-.memo-item.is-stacked:is(:hover, :focus-visible, .is-current):not(.is-hover-suppressed)
+.memo-item.is-stacked:is(.is-dock-focus, .is-current):not(.is-hover-suppressed)
   .memo-meta {
   margin-bottom: 9px;
 }
@@ -1794,6 +1825,7 @@ body.photo-mode #scene:active {
   border: 0;
   background: transparent;
   box-shadow: none;
+  outline: 0;
 }
 
 .play-toggle__icon {
@@ -1914,8 +1946,15 @@ body.photo-mode #scene:active {
 .time-hour-labels span {
   position: absolute;
   transform: translateX(-50%);
-  color: #64748b;
-  font: 700 8px/1 var(--ui-font);
+  color: #94a3b8;
+  font: 700 9px/1 var(--ui-font);
+  font-weight: 700 !important;
+}
+
+.time-hour-labels span:nth-child(odd) {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800 !important;
 }
 
 .time-hour-labels span:first-child {

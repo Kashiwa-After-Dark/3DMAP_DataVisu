@@ -4,7 +4,6 @@ export function create2DMapController({
   canvas,
   camera,
   controls,
-  timeBaseY,
   timeAxisHeight,
 }) {
   const focus = new THREE.Vector3();
@@ -12,6 +11,10 @@ export function create2DMapController({
   let viewDistance = 500;
   let azimuth = Math.PI / 2;
   let interactionMode = null;
+  let interactionMoved = false;
+  let allowClickSelection = false;
+  let pointerStartX = 0;
+  let pointerStartY = 0;
   let previousPointerX = 0;
   let previousPointerY = 0;
   let graphWidth = 1;
@@ -32,11 +35,7 @@ export function create2DMapController({
     zoom = 1.46;
     graphWidth = Math.max(maxSize * 0.78, 120);
     graphHeight = Math.max(timeAxisHeight * 1.24, 120);
-    focus.set(
-      mapFocus.x + graphWidth * 0.22,
-      timeBaseY + timeAxisHeight * 0.46,
-      mapFocus.z,
-    );
+    focus.copy(mapFocus);
 
     viewDistance = Math.max(maxSize * 2.2, timeAxisHeight * 3, 500);
     camera.near = 0.1;
@@ -58,25 +57,41 @@ export function create2DMapController({
     if (!active) return;
     const aspect = Math.max(width / height, 0.01);
     viewHeight = Math.max(graphHeight, graphWidth / aspect) * zoom;
-    camera.left = (-viewHeight * aspect) / 2;
-    camera.right = (viewHeight * aspect) / 2;
-    camera.top = viewHeight / 2;
-    camera.bottom = -viewHeight / 2;
+    const viewWidth = viewHeight * aspect;
+    const horizontalFramingOffset = -viewWidth * 0.075;
+    const verticalFramingOffset = -viewHeight * 0.04;
+    camera.left = -viewWidth / 2 + horizontalFramingOffset;
+    camera.right = viewWidth / 2 + horizontalFramingOffset;
+    camera.top = viewHeight / 2 + verticalFramingOffset;
+    camera.bottom = -viewHeight / 2 + verticalFramingOffset;
     camera.updateProjectionMatrix();
   }
 
   function startInteraction(event) {
     if (!active || (event.button !== 0 && event.button !== 1 && event.button !== 2)) return;
     interactionMode = event.button === 0 && !event.shiftKey ? "orbit" : "pan";
+    interactionMoved = false;
+    allowClickSelection = event.button === 0 && !event.shiftKey;
+    pointerStartX = event.clientX;
+    pointerStartY = event.clientY;
     previousPointerX = event.clientX;
     previousPointerY = event.clientY;
     canvas.setPointerCapture(event.pointerId);
+    if (allowClickSelection) return;
     event.preventDefault();
     event.stopImmediatePropagation();
   }
 
   function moveView(event) {
     if (!active || !interactionMode) return;
+    if (
+      allowClickSelection
+      && !interactionMoved
+      && Math.hypot(event.clientX - pointerStartX, event.clientY - pointerStartY) <= 6
+    ) {
+      return;
+    }
+    interactionMoved = true;
     const deltaX = event.clientX - previousPointerX;
     const deltaY = event.clientY - previousPointerY;
     previousPointerX = event.clientX;
@@ -93,8 +108,11 @@ export function create2DMapController({
 
   function stopInteraction(event) {
     if (!active || !interactionMode) return;
+    const wasClick = allowClickSelection && !interactionMoved && event.type !== "pointercancel";
     interactionMode = null;
+    allowClickSelection = false;
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    if (wasClick || event.type === "pointercancel") return;
     event.preventDefault();
     event.stopImmediatePropagation();
   }

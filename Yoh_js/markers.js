@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { hexToRgbChannels, roundedRect } from "../src/formatters.js";
+import { hexToRgbChannels } from "../src/formatters.js";
 
 export function getMarkerSize(memo) {
   if (!memo.isPeople) return 9;
@@ -42,14 +42,18 @@ export function makeAxisLabel(text, isTitle = false) {
   canvas.width = isTitle ? 300 : 150;
   canvas.height = 54;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "rgba(2, 6, 17, 0.72)";
-  roundedRect(ctx, 1, 1, canvas.width - 2, canvas.height - 2, 10);
-  ctx.fill();
-  ctx.fillStyle = isTitle ? "#bfdbfe" : "#94a3b8";
-  ctx.font = `${isTitle ? 700 : 600} ${isTitle ? 22 : 24}px Ubuntu, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
+  const draw = (highlighted = false) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = highlighted ? "#ffffff" : isTitle ? "#bfdbfe" : "#94a3b8";
+    ctx.shadowColor = highlighted ? "rgba(0, 167, 255, 0.9)" : "rgba(2, 6, 17, 0.9)";
+    ctx.shadowBlur = highlighted ? 8 : 3;
+    ctx.font = `${isTitle || highlighted ? 800 : 700} ${isTitle ? 22 : highlighted ? 27 : 25}px Ubuntu, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
+    ctx.shadowBlur = 0;
+  };
+  draw();
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -61,6 +65,14 @@ export function makeAxisLabel(text, isTitle = false) {
   }));
   sprite.scale.set(canvas.width * 0.14, canvas.height * 0.14, 1);
   sprite.renderOrder = 14;
+  let isHighlighted = false;
+  sprite.userData.setEmphasized = (highlighted) => {
+    if (isTitle || highlighted === isHighlighted) return;
+    isHighlighted = highlighted;
+    draw(highlighted);
+    texture.needsUpdate = true;
+    sprite.material.opacity = highlighted ? 1 : 0.72;
+  };
   return sprite;
 }
 

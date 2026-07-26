@@ -73,7 +73,7 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       root.dataset.viewLevel = String(viewLevel);
 
       if (viewLevel === 0) {
-        button.textContent = "全表示";
+        button.textContent = "+";
         button.title = "フィルターを表示";
         button.setAttribute("aria-label", "フィルターを表示");
       } else if (viewLevel === 1) {

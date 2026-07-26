@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./viewFinder.css?v=20260725-19" />
+    <link rel="stylesheet" href="./viewFinder.css?v=20260726-22" />
     <script type="importmap">
       {
         "imports": {
@@ -19,45 +19,45 @@
       }
     </script>
   </head>
-  <body data-viewer-mode="public">
+  <body class="map-opening" data-viewer-mode="public">
     <main id="viewfinder-app">
       <canvas id="scene" aria-label="柏駅周辺の写真地点と3Dマップ"></canvas>
       <canvas id="detail-reveal-scene" aria-hidden="true"></canvas>
 
       <header class="overview-ui site-header">
-        <a class="back-link" href="../" aria-label="メインの3Dマップへ戻る">← 3D MAP</a>
+        <a class="back-link" href="../" aria-label="メインの3Dマップへ戻る" data-decrypt>← 3D MAP</a>
         <div class="site-header__title">
-          <span>KASHIWA AFTER DARK</span>
-          <h1>PHOTO VIEWFINDER</h1>
+          <span data-decrypt>KASHIWA AFTER DARK</span>
+          <h1 data-decrypt>PHOTO VIEWFINDER</h1>
         </div>
         <div id="model-badge" class="model-badge"><i></i>3DMAP · OVERVIEW</div>
       </header>
 
       <section class="overview-ui intro-panel">
-        <span>01 / SELECT A POINT</span>
-        <h2>夜の柏駅を<br />地図で辿る</h2>
+        <span data-decrypt>01 / SELECT A POINT</span>
+        <h2><span data-decrypt>夜の柏駅を</span><br /><span data-decrypt>地図で辿る</span></h2>
         <p>白いリングを選ぶと、撮影地点から見た写真とBlosmモデルを重ねて表示します。</p>
         <div class="intro-panel__actions">
-          <button id="open-photo-list" type="button">写真一覧を見る <b id="visible-photo-count">31</b></button>
+          <button id="open-photo-list" type="button"><span data-decrypt>写真一覧を見る</span> <b id="visible-photo-count">31</b></button>
         </div>
       </section>
 
       <nav id="time-filter" class="overview-ui time-filter" aria-label="写真の時間帯">
-        <span class="time-filter__label">TIME PERIOD</span>
-        <button type="button" data-time-period="all" aria-pressed="true">ALL <span>31</span></button>
-        <button type="button" data-time-period="twilight" aria-pressed="false">18:00–19:59 <span>11</span></button>
-        <button type="button" data-time-period="night" aria-pressed="false">20:00–22:59 <span>8</span></button>
-        <button type="button" data-time-period="late" aria-pressed="false">23:00– <span>12</span></button>
+        <span class="time-filter__label" data-decrypt>TIME PERIOD</span>
+        <button type="button" data-time-period="all" aria-pressed="true"><em data-decrypt>ALL</em> <span>31</span></button>
+        <button type="button" data-time-period="twilight" aria-pressed="false"><em data-decrypt>18:00–19:59</em> <span>11</span></button>
+        <button type="button" data-time-period="night" aria-pressed="false"><em data-decrypt>20:00–22:59</em> <span>8</span></button>
+        <button type="button" data-time-period="late" aria-pressed="false"><em data-decrypt>23:00–</em> <span>12</span></button>
       </nav>
 
       <div id="map-hint" class="overview-ui map-hint">
         <i></i>
-        <span>PHOTO POINTを選択</span>
+        <span data-decrypt>PHOTO POINTを選択</span>
       </div>
 
       <aside id="photo-list" class="photo-list" aria-label="写真一覧" hidden>
         <header>
-          <div><span>PHOTO ARCHIVE</span><strong id="photo-list-count">31 VIEWS</strong></div>
+          <div><span data-decrypt>PHOTO ARCHIVE</span><strong id="photo-list-count">31 VIEWS</strong></div>
           <button id="close-photo-list" type="button" aria-label="写真一覧を閉じる">×</button>
         </header>
         <div id="photo-grid" class="photo-grid"></div>
@@ -69,7 +69,7 @@
         <header class="photo-viewer__header">
           <button id="photo-close" class="circle-button" type="button" aria-label="全体地図に戻る">×</button>
           <div>
-            <span>BLENDED VIEW · BLOSM</span>
+            <span data-decrypt>BLENDED VIEW · BLOSM</span>
             <strong id="photo-title">PHOTO</strong>
           </div>
           <output id="photo-position">1 / 31</output>
@@ -91,15 +91,20 @@
           </div>
           <button id="photo-next" class="circle-button" type="button" aria-label="次の写真">→</button>
         </footer>
-        <div class="photo-viewer__hint">スライダーで写真と3Dモデルの重なりを比較</div>
+        <div class="photo-viewer__hint" data-decrypt>スライダーで写真と3Dモデルの重なりを比較</div>
       </section>
 
       <div id="loading" class="loading">
         <i></i>
         <span>LOADING KASHIWA 3D MAP</span>
       </div>
+      <div id="map-opening-status" class="map-opening-status" aria-live="polite">
+        <span id="map-opening-phase">POINT CLOUD</span>
+        <strong>GENERATING KASHIWA MAP</strong>
+        <i><b id="map-opening-progress"></b></i>
+      </div>
     </main>
 
-    <script type="module" src="./viewFinder.js?v=20260725-26"></script>
+    <script type="module" src="./viewFinder.js?v=20260726-35"></script>
   </body>
 </html>

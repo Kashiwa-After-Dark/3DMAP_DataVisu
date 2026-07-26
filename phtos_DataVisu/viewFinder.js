@@ -7,6 +7,8 @@ import {
   hasPhotoViewData,
   PHOTO_VIEW_DEFAULTS,
 } from "./photoViewData.js?v=20260724-01";
+import { createMapOpening } from "./mapOpening.js?v=20260726-07";
+import { enableDecryptedText } from "./decryptedText.js?v=20260726-01";
 
 const canvas = document.querySelector("#scene");
 const detailRevealCanvas = document.querySelector("#detail-reveal-scene");
@@ -52,8 +54,12 @@ const calibrationSummaryTitle = document.querySelector("#calibration-summary-tit
 const timeFilterButtons = [...document.querySelectorAll("[data-time-period]")];
 const visiblePhotoCount = document.querySelector("#visible-photo-count");
 const photoListCount = document.querySelector("#photo-list-count");
+const mapOpeningStatus = document.querySelector("#map-opening-status");
+const mapOpeningPhase = document.querySelector("#map-opening-phase");
+const mapOpeningProgress = document.querySelector("#map-opening-progress");
 const CALIBRATION_DRAFT_KEY = "kashiwa-photo-calibration-draft-v1";
 const isPublicViewer = document.body.dataset.viewerMode === "public";
+if (isPublicViewer) enableDecryptedText(document);
 
 const {
   renderer,
@@ -120,6 +126,7 @@ let overviewRevealLastFrameAt = performance.now();
 let overviewRevealRadius = 100;
 let overviewRevealShape = { direction: 0, strength: 0, phase: 0 };
 let activeTimePeriod = "all";
+let mapOpening = null;
 
 function createRevealPostEffect(layerRenderer) {
   const target = new THREE.WebGLRenderTarget(1, 1, {
@@ -232,24 +239,52 @@ function createRevealPostEffect(layerRenderer) {
 }
 
 
-loadModel(async () => {
+loadModel(async (model) => {
   fitOverviewCamera();
+  if (detailRevealRenderer) {
+    loadDetailModel()
+        .then((detailModel) => {
+          detailRevealReady = true;
+          return detailModel;
+        })
+        .catch((error) => {
+          console.warn("Blosm overview reveal could not be prepared.", error);
+          return null;
+        });
+  }
   routeTracks = await loadRouteTracks();
   placePhotos();
   renderPhotoGrid();
   applyTimePeriod("all");
-  if (detailRevealRenderer) {
-    loadDetailModel()
-      .then(() => {
-        detailRevealReady = true;
-      })
-      .catch((error) => {
-        console.warn("Blosm overview reveal could not be prepared.", error);
-      });
+  if (isPublicViewer) {
+    mapOpening = createMapOpening({
+      targetModel: model,
+      groundGrid,
+      photoGroup,
+      controls,
+      onProgress: updateMapOpeningStatus,
+      onComplete: finishMapOpening,
+    });
+    mapOpening.start();
   }
   loading.classList.add("is-done");
   window.setTimeout(() => loading.remove(), 450);
 });
+
+function updateMapOpeningStatus({ progress, phase }) {
+  if (mapOpeningPhase && mapOpeningPhase.textContent !== phase) {
+    mapOpeningPhase.textContent = phase;
+  }
+  if (mapOpeningProgress) {
+    mapOpeningProgress.style.width = `${Math.round(progress * 100)}%`;
+  }
+}
+
+function finishMapOpening() {
+  mapOpening = null;
+  document.body.classList.remove("map-opening");
+  mapOpeningStatus?.setAttribute("aria-hidden", "true");
+}
 
 openPhotoListButton.addEventListener("click", () => {
   photoList.hidden = false;
@@ -510,6 +545,7 @@ function renderPhotoGrid() {
 
     const label = document.createElement("span");
     label.textContent = `${String(index + 1).padStart(2, "0")} · ${photo.author.toUpperCase()} · ${formatPhotoTime(photo.capturedAt)}`;
+    if (isPublicViewer) label.dataset.decrypt = "";
     button.append(image, label);
     if (!isPublicViewer) {
       const status = document.createElement("em");
@@ -1231,6 +1267,7 @@ function resize() {
 
 function animate() {
   const now = performance.now();
+  mapOpening?.update(now);
   controls.update();
   updatePoseFields();
   if (!photoMode) {
