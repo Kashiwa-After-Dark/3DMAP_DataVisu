@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { hexToRgbChannels } from "../src/formatters.js";
+import { hexToRgbChannels } from "../formatters.js";
 
 export function getMarkerSize(memo) {
   if (!memo.isPeople) return 9;

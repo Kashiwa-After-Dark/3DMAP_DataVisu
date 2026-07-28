@@ -1,4 +1,4 @@
-const PHOTO_ROOT = "../assets/photos/selected/re_photos01/";
+const PHOTO_ROOT = "../../assets/photos/selected/re_photos01/";
 
 const photoRows = [
   ["Aoi", "IMG_8891.jpg", "2026-07-07T18:13:21+09:00"],

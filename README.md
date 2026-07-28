@@ -25,13 +25,14 @@
 
 本サイトは、柏駅周辺で収集した移動軌跡、観察メモ、夜間写真を3D都市モデル上で横断的に確認するためのWebアプリケーションである。18:00から24:00までの調査データを時間軸に沿って再生し、地点・時刻・担当者・観察対象の関係を可視化する。
 
-ビルドツールを使用しない静的Webアプリとして実装している。`index.html` からES Modulesを直接読み込み、Three.jsはimport map経由でCDNから取得する構成である。
+ビルドツールを使用しない静的Webアプリとして実装している。各サイトの `index.html` からES Modulesを直接読み込み、Three.jsはimport map経由でCDNから取得する構成である。
 
 ## 公開ページ
 
 - [メイン3Dマップ](https://kashiwa-after-dark.github.io/3DMAP_DataVisu/)
-- [写真ViewFinder](https://kashiwa-after-dark.github.io/3DMAP_DataVisu/phtos_DataVisu/)
-- [写真視点調整用ページ](https://kashiwa-after-dark.github.io/3DMAP_DataVisu/phtos_DataVisu/dev/)
+- [ルートヒストリー可視化サイト](https://kashiwa-after-dark.github.io/3DMAP_DataVisu/route-history/)
+- [写真ViewFinder](https://kashiwa-after-dark.github.io/3DMAP_DataVisu/photo-visualization/)
+- [写真視点調整用ページ](https://kashiwa-after-dark.github.io/3DMAP_DataVisu/photo-visualization/dev/)
 
 ## 機能紹介
 
@@ -41,7 +42,7 @@
 
 `assets/models/Kashiwa_3Dmap.glb` を読み込み、柏駅周辺の都市モデルを表示する。Three.jsの `PerspectiveCamera` と `OrbitControls` により、地図の回転、ズーム、パンが可能である。
 
-`assets/data/gpx/RH01_0707/` にあるGPXファイルを読み込み、各担当者の移動軌跡を3D空間上に描画する。GPX内の `trkpt` を移動ルート、`wpt` を観察メモとして扱う。読み込むファイル、担当者名、初期表示、タイムライン上のレーン分類は `src/config.js` の `GPX_FILES` で管理する。
+`assets/data/gpx/RH01_0707/` にあるGPXファイルを読み込み、各担当者の移動軌跡を3D空間上に描画する。GPX内の `trkpt` を移動ルート、`wpt` を観察メモとして扱う。読み込むファイル、担当者名、初期表示、タイムライン上のレーン分類は `shared/js/config.js` の `GPX_FILES` で管理する。
 
 通常表示では黒と青を基調にしたモデルを使用する。写真表示では `kashiwa_Blosm.glb` または `kashiwa_Blosm.fbx` に切り替え、写真と詳細な都市モデルを比較する。
 
@@ -88,7 +89,7 @@ GPXのウェイポイントから観察メモを抽出し、3D空間と画面右
 
 ![写真ViewFinder画面](./docs/images/photo-viewfinder.png)
 
-`phtos_DataVisu/` は、撮影写真と3Dモデルを重ねて比較するページである。地図上の白いリングまたは写真一覧から写真を選択し、撮影地点から見た夜間写真とBlosmモデルを表示する。
+`photo-visualization/` は、撮影写真と3Dモデルを重ねて比較するサイトである。地図上の白いリングまたは写真一覧から写真を選択し、撮影地点から見た夜間写真とBlosmモデルを表示する。
 
 - 31枚の選定済み写真を表示
 - 写真撮影時刻とGPX軌跡から撮影地点を推定
@@ -102,7 +103,7 @@ GPXのウェイポイントから観察メモを抽出し、3D空間と画面右
 
 ### 写真視点調整
 
-`phtos_DataVisu/dev/` は開発用の視点調整ページである。写真と3Dモデルの重なりを確認しながら、各写真のカメラ位置、回転、画角を調整する。
+`photo-visualization/dev/` は開発用の視点調整ページである。写真と3Dモデルの重なりを確認しながら、各写真のカメラ位置、回転、画角を調整する。
 
 - `視点調整を開始` から31枚を順番に調整
 - 左ドラッグによる角度調整
@@ -118,14 +119,20 @@ GPXのウェイポイントから観察メモを抽出し、3D空間と画面右
 
 ```text
 .
-├── index.html                 # メイン可視化ページ
+├── index.html                 # ルートヒストリーサイトへの転送ページ
 ├── README.md                  # プロジェクト説明
-├── src/                       # 3D表示、データ、設定の中核処理
-├── r4U_js/                    # UI、フィルター、2D表示の機能群
-├── Yoh_js/                    # 観察マーカーの描画処理
-├── phtos_DataVisu/            # 写真ViewFinder
+├── route-history/             # ルートヒストリー可視化サイト
+│   ├── index.html
+│   ├── css/
+│   └── js/
+│       └── features/
+├── photo-visualization/       # 写真可視化サイト
+│   ├── index.html
+│   ├── css/
+│   ├── js/
 │   └── dev/                   # 写真視点調整用ページ
-├── styles/                    # メイン画面のスタイル
+├── shared/                    # 両サイトで共有する処理と設定
+│   └── js/
 ├── docs/
 │   └── images/                # README掲載画像
 └── assets/
@@ -136,11 +143,10 @@ GPXのウェイポイントから観察メモを抽出し、3D空間と画面右
 
 | ディレクトリ | 説明 |
 | --- | --- |
-| `src/` | アプリ全体の制御、Three.jsの初期化、設定、写真データ、表示整形を管理する。 |
-| `r4U_js/` | フィルター、担当者選択、メモパネル、タイムライン計器、2D表示など、画面機能を役割別に管理する。 |
-| `Yoh_js/` | 観察地点のマーカー生成と描画を管理する。 |
-| `phtos_DataVisu/` | 写真地点の一覧、写真と3Dモデルの重ね合わせ、視点調整機能を管理する。 |
-| `styles/` | メイン3Dマップ画面のレイアウトと外観を管理する。 |
+| `route-history/` | ルートヒストリー可視化サイトのHTML、CSS、JavaScriptをまとめて管理する。 |
+| `route-history/js/features/` | フィルター、担当者選択、メモパネル、タイムライン計器、2D表示、観察マーカーなどの機能を管理する。 |
+| `photo-visualization/` | 写真地点の一覧、写真と3Dモデルの重ね合わせ、写真視点調整をまとめて管理する。 |
+| `shared/js/` | 両サイトが利用するThree.jsのマップ初期化、座標変換、共通設定を管理する。 |
 | `assets/models/` | 通常表示用と写真比較用の3D都市モデルを格納する。 |
 | `assets/data/gpx/` | 担当者ごとの移動軌跡と観察メモを含むGPXファイルを格納する。 |
 | `assets/photos/selected/` | ViewFinderで使用する公開対象の写真を格納する。 |
@@ -150,19 +156,21 @@ GPXのウェイポイントから観察メモを抽出し、3D空間と画面右
 
 | ファイル | 役割 |
 | --- | --- |
-| `index.html` | 3D/2D切り替え、タイムライン、フィルター、メモ一覧、写真ページへの導線を配置する。 |
-| `src/index.js` | GPX読み込み、タイムライン再生、軌跡描画、フィルター連携、カメラ制御を統括する。 |
-| `src/main.js` | レンダラー、シーン、カメラ、ライト、3Dモデル読み込み、座標変換を提供する。 |
-| `src/config.js` | 座標原点、表示色、時刻範囲、GPXファイル一覧、カメラモード、カテゴリ色を管理する。 |
-| `src/photos.js` | 写真ViewFinderで使用する31枚の写真データを管理する。 |
-| `src/formatters.js` | 時刻やラベルなどの表示形式を整える。 |
-| `r4U_js/filters.js` | 観察属性による絞り込みを管理する。 |
-| `r4U_js/map2d.js` | 2D表示への切り替えと操作を管理する。 |
-| `r4U_js/memoPanel.js` | 観察メモの一覧表示と選択処理を管理する。 |
-| `r4U_js/instruments.js` | 時計、コンパス、スピードメーターを管理する。 |
-| `Yoh_js/markers.js` | 3D空間上の観察マーカーを描画する。 |
-| `phtos_DataVisu/viewFinder.js` | 写真地点、写真の重ね合わせ、モデル切り替え、視点調整を管理する。 |
-| `phtos_DataVisu/viewFinder.css` | 写真ViewFinderと視点調整画面のスタイルを管理する。 |
+| `index.html` | 公開トップから `route-history/` へ転送する。 |
+| `route-history/index.html` | 3D/2D切り替え、タイムライン、フィルター、メモ一覧、写真サイトへの導線を配置する。 |
+| `route-history/js/index.js` | GPX読み込み、タイムライン再生、軌跡描画、フィルター連携、カメラ制御を統括する。 |
+| `route-history/js/gpxData.js` | GPXを解析し、移動軌跡と観察メモへ変換する。 |
+| `route-history/js/formatters.js` | 時刻やラベルなどの表示形式を整える。 |
+| `route-history/js/features/filters.js` | 観察属性による絞り込みを管理する。 |
+| `route-history/js/features/map2d.js` | 2D表示への切り替えと操作を管理する。 |
+| `route-history/js/features/memoPanel.js` | 観察メモの一覧表示と選択処理を管理する。 |
+| `route-history/js/features/instruments.js` | 時計、コンパス、スピードメーターを管理する。 |
+| `route-history/js/features/markers.js` | 3D空間上の観察マーカーを描画する。 |
+| `photo-visualization/js/viewFinder.js` | 写真地点、写真の重ね合わせ、モデル切り替え、視点調整を管理する。 |
+| `photo-visualization/js/photos.js` | 写真ViewFinderで使用する31枚の写真データを管理する。 |
+| `photo-visualization/css/viewFinder.css` | 写真ViewFinderと視点調整画面のスタイルを管理する。 |
+| `shared/js/mapDisplay.js` | レンダラー、シーン、カメラ、ライト、3Dモデル読み込み、座標変換を提供する。 |
+| `shared/js/config.js` | 座標原点、表示色、時刻範囲、GPXファイル一覧、カメラモード、カテゴリ色を管理する。 |
 
 ## 使用技術
 
@@ -199,7 +207,7 @@ GPXのウェイポイントから観察メモを抽出し、3D空間と画面右
 
 ## ローカル表示
 
-ES Modules、CDN import map、3Dモデル、GPX、写真を読み込むため、`index.html` を直接開かず、ローカルWebサーバー経由で表示する。
+ES Modules、CDN import map、3Dモデル、GPX、写真を読み込むため、各HTMLファイルを直接開かず、ローカルWebサーバー経由で表示する。
 
 ```bash
 python -m http.server 8000
@@ -208,15 +216,16 @@ python -m http.server 8000
 起動後、次のURLを開く。
 
 - メインページ: `http://localhost:8000/`
-- 写真ViewFinder: `http://localhost:8000/phtos_DataVisu/`
-- 写真視点調整ページ: `http://localhost:8000/phtos_DataVisu/dev/`
+- ルートヒストリー可視化サイト: `http://localhost:8000/route-history/`
+- 写真ViewFinder: `http://localhost:8000/photo-visualization/`
+- 写真視点調整ページ: `http://localhost:8000/photo-visualization/dev/`
 
 ## 開発メモ
 
 - npmパッケージとビルド設定は使用しない構成である。
-- Three.jsのバージョンは `index.html` と `phtos_DataVisu/index.html` のimport mapで指定する。
+- Three.jsのバージョンは `route-history/index.html` と `photo-visualization/index.html` のimport mapで指定する。
 - ファイル名末尾の `?v=...` は、GitHub Pagesとブラウザのキャッシュ対策である。
-- GPXファイルを追加または削除する場合は、`src/config.js` の `GPX_FILES` も更新する。
-- 写真を追加または削除する場合は、`src/photos.js` の `photoRows` と `assets/photos/selected/` の実ファイルを一致させる。
-- メインページと写真ページは `src/main.js` の3D表示セットアップを共有する。
+- GPXファイルを追加または削除する場合は、`shared/js/config.js` の `GPX_FILES` も更新する。
+- 写真を追加または削除する場合は、`photo-visualization/js/photos.js` の `photoRows` と `assets/photos/selected/` の実ファイルを一致させる。
+- ルートヒストリーサイトと写真サイトは `shared/js/mapDisplay.js` の3D表示セットアップを共有する。
 - 公開用写真ページと開発用写真ページは同じ `viewFinder.js` を使用し、`body` の `data-viewer-mode` で動作を切り替える。

@@ -1,4 +1,4 @@
-import { getMemoProfile } from "../r4U_js/profiles.js?v=20260725-2";
+import { getMemoProfile } from "./features/profiles.js?v=20260725-2";
 
 export async function loadGpxDataset(sources) {
   const results = await Promise.allSettled(

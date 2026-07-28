@@ -13,20 +13,20 @@ import {
   TIME_BASE_Y,
   TIME_END_HOUR,
   TIME_START_HOUR,
-} from "./config.js?v=20260724-17";
-import { createAssigneeFilter } from "../r4U_js/assigneeFilter.js?v=20260725-21";
-import { createLegendFilter } from "../r4U_js/filters.js?v=20260726-41";
-import { createTimelineInstruments } from "../r4U_js/instruments.js?v=20260724-12";
-import { create2DMapController } from "../r4U_js/map2d.js?v=20260726-30";
-import { createMemoTopDownView } from "../r4U_js/memoTopDownView.js?v=20260726-04";
-import { createCoordinateConnector } from "../r4U_js/coordinateConnector.js?v=20260726-02";
-import { createTimelineKeyboard } from "../r4U_js/timelineKeyboard.js?v=20260726-01";
-import { createViewToggle } from "../r4U_js/viewToggle.js";
+} from "../../shared/js/config.js?v=20260728-01";
+import { createAssigneeFilter } from "./features/assigneeFilter.js?v=20260725-21";
+import { createLegendFilter } from "./features/filters.js?v=20260726-41";
+import { createTimelineInstruments } from "./features/instruments.js?v=20260724-12";
+import { create2DMapController } from "./features/map2d.js?v=20260726-30";
+import { createMemoTopDownView } from "./features/memoTopDownView.js?v=20260726-04";
+import { createCoordinateConnector } from "./features/coordinateConnector.js?v=20260726-02";
+import { createTimelineKeyboard } from "./features/timelineKeyboard.js?v=20260726-01";
+import { createViewToggle } from "./features/viewToggle.js";
 import { formatTime } from "./formatters.js";
 import { getTimeRange, loadGpxDataset } from "./gpxData.js?v=20260726-01";
-import { createMapDisplay } from "./main.js?v=20260725-10";
-import { makeAxisLabel, makeGraffitiStamp } from "../Yoh_js/markers.js?v=20260726-30";
-import { renderMemoPanel } from "../r4U_js/memoPanel.js?v=20260726-43";
+import { createMapDisplay } from "../../shared/js/mapDisplay.js?v=20260728-01";
+import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20260726-30";
+import { renderMemoPanel } from "./features/memoPanel.js?v=20260726-43";
 
 const canvas = document.querySelector("#scene");
 const view3dButton = document.querySelector("#view-3d");

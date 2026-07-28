@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { GPX_FILES, INITIAL_CENTER_GEO } from "../src/config.js?v=20260724-17";
-import { createMapDisplay } from "../src/main.js?v=20260725-10";
-import { PHOTOS } from "../src/photos.js";
+import { GPX_FILES, INITIAL_CENTER_GEO } from "../../shared/js/config.js?v=20260728-01";
+import { createMapDisplay } from "../../shared/js/mapDisplay.js?v=20260728-01";
+import { PHOTOS } from "./photos.js";
 import {
   getPhotoViewData,
   hasPhotoViewData,

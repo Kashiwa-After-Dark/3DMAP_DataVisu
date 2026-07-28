@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY } from "../src/config.js";
+import { DEFAULT_CATEGORY } from "../../../shared/js/config.js";
 
 export function getMemoProfile(text) {
   const normalized = text

@@ -97,7 +97,7 @@ export function createMapDisplay(canvas) {
 
   function loadModel(onLoaded) {
     new GLTFLoader().load(
-      new URL("../assets/models/Kashiwa_3Dmap.glb", import.meta.url).href,
+      new URL("../../assets/models/Kashiwa_3Dmap.glb", import.meta.url).href,
       (gltf) => {
         const model = gltf.scene;
         model.traverse((child) => {
@@ -139,7 +139,7 @@ export function createMapDisplay(canvas) {
       };
       const loadFbxFallback = () => {
         new FBXLoader().load(
-          new URL("../assets/models/kashiwa_Blosm.fbx", import.meta.url).href,
+          new URL("../../assets/models/kashiwa_Blosm.fbx", import.meta.url).href,
           finish,
           undefined,
           reject,
@@ -147,7 +147,7 @@ export function createMapDisplay(canvas) {
       };
 
       new GLTFLoader().load(
-        new URL("../assets/models/kashiwa_Blosm.glb", import.meta.url).href,
+        new URL("../../assets/models/kashiwa_Blosm.glb", import.meta.url).href,
         (gltf) => finish(gltf.scene),
         undefined,
         (error) => {
