@@ -3,151 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kashiwa 3D Map</title>
-    <link rel="icon" href="data:," />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles/style.css?v=20260726-53" />
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.166.1/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.166.1/examples/jsm/"
-        }
-      }
+    <meta http-equiv="refresh" content="0; url=./route-history/" />
+    <title>3DMAP Data Visualization</title>
+    <script>
+      const destination = new URL("./route-history/", window.location.href);
+      destination.search = window.location.search;
+      destination.hash = window.location.hash;
+      window.location.replace(destination);
     </script>
   </head>
   <body>
-    <main id="app">
-      <canvas id="scene" aria-label="柏駅3Dマップ"></canvas>
-      <div class="view-toggle" aria-label="表示切り替え">
-        <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
-        <button id="view-2d" type="button" aria-pressed="false">2D</button>
-      </div>
-      <a id="photo-entry" class="photo-entry" href="./phtos_DataVisu/">
-        <span class="photo-entry__icon" aria-hidden="true"></span>
-        <span><b>PHOTO VIEW</b><small>写真可視化ページへ</small></span>
-        <output>31</output>
-      </a>
-      <aside id="legend-filter" class="age-legend" aria-label="データ説明と絞り込み"></aside>
-      <aside id="memo-panel" class="memo-panel" aria-label="メモ">
-        <div id="memo-scroll-viewport" class="memo-scroll-viewport">
-          <div id="memo-list" class="memo-list"></div>
-        </div>
-      </aside>
-      <aside class="timeline-instruments" aria-label="時刻と方角と再生速度">
-        <div class="instrument">
-          <div id="analog-clock" class="clock-dial" role="img" aria-label="タイムライン時刻">
-            <i class="clock-mark clock-mark--12">Ⅻ</i>
-            <i class="clock-mark clock-mark--3">Ⅲ</i>
-            <i class="clock-mark clock-mark--6">Ⅵ</i>
-            <i class="clock-mark clock-mark--9">Ⅸ</i>
-            <i class="clock-hand clock-hand--hour" data-clock-hour></i>
-            <i class="clock-hand clock-hand--minute" data-clock-minute></i>
-          </div>
-        </div>
-        <div class="instrument">
-          <div class="compass-dial" role="img" aria-label="カメラの方角">
-            <div id="compass-card" class="compass-card">
-              <div class="compass-north">
-                <i class="compass-north-arrow"></i>
-              </div>
-              <b class="compass-direction compass-direction--n">N</b>
-              <b class="compass-direction compass-direction--e">E</b>
-              <b class="compass-direction compass-direction--s">S</b>
-              <b class="compass-direction compass-direction--w">W</b>
-            </div>
-          </div>
-        </div>
-        <div class="instrument">
-          <div id="speed-engine" class="speed-engine" role="img" aria-label="再生速度 1倍">
-            <i class="speed-engine__needle" data-speed-engine-needle></i>
-            <output class="speed-engine__readout" data-speed-engine-readout>1×</output>
-          </div>
-        </div>
-      </aside>
-      <section class="timeline" aria-label="時間操作">
-        <button
-          id="timeline-minimize"
-          class="timeline-minimize"
-          type="button"
-          aria-label="タイムラインを最小化"
-          aria-expanded="true"
-          title="最小化"
-        >
-          <span aria-hidden="true"></span>
-        </button>
-        <header class="timeline__header">
-          <div>
-            <span>TIMELINE</span>
-            <strong>18:00—24:00 · JST</strong>
-          </div>
-        </header>
-        <div class="timeline__controls">
-          <div class="playback-column">
-            <button id="play-toggle" type="button" aria-label="再生" aria-pressed="false" title="再生">
-              <span class="play-toggle__icon" aria-hidden="true"></span>
-            </button>
-            <label class="speed-control" for="speed-slider">
-              <span>SPEED</span>
-              <input id="speed-slider" type="range" min="0.25" max="2" step="0.25" value="1" list="speed-marks" />
-              <output id="speed-readout" for="speed-slider">1×</output>
-            </label>
-          </div>
-          <div class="time-track-shell">
-            <div class="time-hour-labels" aria-hidden="true">
-              <span style="left: 0%">18</span>
-              <span style="left: 16.6667%">19</span>
-              <span style="left: 33.3333%">20</span>
-              <span style="left: 50%">21</span>
-              <span style="left: 66.6667%">22</span>
-              <span style="left: 83.3333%">23</span>
-              <span style="left: 100%">24</span>
-            </div>
-            <div class="time-lanes">
-              <div class="time-lane time-lane--upper" data-time-lane="reysol">
-                <span class="time-lane__label">レイソル</span>
-                <div class="time-gauge-segments" aria-hidden="true">
-                  <i><b data-time-gauge-fill></b></i>
-                  <i><b data-time-gauge-fill></b></i>
-                  <i><b data-time-gauge-fill></b></i>
-                </div>
-                <div class="time-event-markers" data-time-event-markers="reysol" aria-label="レイソル担当の観察データ時刻"></div>
-              </div>
-              <div class="time-lane time-lane--lower" data-time-lane="terrace">
-                <span class="time-lane__label">テラス</span>
-                <div class="time-gauge-segments" aria-hidden="true">
-                  <i><b data-time-gauge-fill></b></i>
-                  <i><b data-time-gauge-fill></b></i>
-                  <i><b data-time-gauge-fill></b></i>
-                </div>
-                <div class="time-event-markers" data-time-event-markers="terrace" aria-label="テラス担当の観察データ時刻"></div>
-              </div>
-            </div>
-            <input id="time-slider" type="range" min="0" max="0" step="1" value="0" aria-label="表示時刻" />
-          </div>
-          <output id="time-readout">--:--:--</output>
-        </div>
-        <datalist id="speed-marks">
-          <option value="0.25"></option>
-          <option value="0.5"></option>
-          <option value="1"></option>
-          <option value="1.5"></option>
-          <option value="2"></option>
-        </datalist>
-      </section>
-      <section class="data-code-guide" aria-label="データコード説明">
-        <div class="data-code-guide__group"><b>AGE</b> H 高校生 / U 大学生 / Y 若い社会人 / A 中高年 / S 高齢者</div>
-        <div class="data-code-guide__group"><b>GROUP</b> CP カップル / FM 家族 / MX 年齢・属性混合 / UN 不明</div>
-        <div class="data-code-guide__group"><b>GEN</b> M 男性 / F 女性 / X 男女混合 / U 不明</div>
-        <div class="data-code-guide__group data-code-guide__group--assignees">
-          <b>担当者</b>
-          <div id="assignee-list" class="assignee-list" aria-label="担当者で絞り込み"></div>
-        </div>
-      </section>
-    </main>
-
-    <script type="module" src="./src/index.js?v=20260726-81"></script>
+    <p><a href="./route-history/">ルートヒストリー可視化サイトを開く</a></p>
   </body>
 </html>
