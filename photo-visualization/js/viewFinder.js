@@ -2,11 +2,14 @@ import * as THREE from "three";
 import { GPX_FILES, INITIAL_CENTER_GEO } from "../../shared/js/config.js?v=20260728-01";
 import { createMapDisplay } from "../../shared/js/mapDisplay.js?v=20260728-01";
 import { PHOTOS } from "./photos.js";
-import {
+const photoViewDataUrl = new URL("./photoViewData.js", import.meta.url);
+photoViewDataUrl.searchParams.set("fresh", Date.now().toString());
+const {
+  PHOTO_VIEW_DATA,
   getPhotoViewData,
   hasPhotoViewData,
   PHOTO_VIEW_DEFAULTS,
-} from "./photoViewData.js?v=20260726-02";
+} = await import(photoViewDataUrl.href);
 import { createMapOpening } from "./mapOpening.js?v=20260726-07";
 import { enableDecryptedText } from "./decryptedText.js?v=20260726-02";
 import {
@@ -52,6 +55,7 @@ const calibrationResultList = document.querySelector("#calibration-result-list")
 const calibrationOutput = document.querySelector("#calibration-output");
 const copyCalibrationButton = document.querySelector("#copy-calibration");
 const restartCalibrationButton = document.querySelector("#restart-calibration");
+const editCurrentPhotoButton = document.querySelector("#edit-current-photo");
 const closeCalibrationSummaryButton = document.querySelector("#close-calibration-summary");
 const calibrationSummaryLabel = document.querySelector("#calibration-summary-label");
 const calibrationSummaryTitle = document.querySelector("#calibration-summary-title");
@@ -65,6 +69,7 @@ const mapOpeningDetail = document.querySelector("#map-opening-detail");
 const mapOpeningProgress = document.querySelector("#map-opening-progress");
 const introHeadlineLines = [...document.querySelectorAll("[data-intro-typewriter]")];
 const CALIBRATION_DRAFT_KEY = "kashiwa-photo-calibration-draft-v1";
+const CALIBRATION_CONFIRM_LABEL = "この写真を確定して次へ";
 const isPublicViewer = document.body.dataset.viewerMode === "public";
 if (isPublicViewer) enableDecryptedText(document);
 const openingTypewriter = isPublicViewer
@@ -132,6 +137,7 @@ let pointerDown = null;
 let viewToken = 0;
 let calibrationMode = false;
 let calibrationResults = [];
+let singlePhotoCorrectionMode = false;
 let detailRevealReady = false;
 let overviewRevealTarget = null;
 let overviewRevealCenter = null;
@@ -331,6 +337,7 @@ calibrationPhotoSelect?.addEventListener("change", () => {
 calibrationBack?.addEventListener("click", () => navigateCalibration(-1));
 calibrationSkip?.addEventListener("click", skipCalibrationPhoto);
 calibrationPartial?.addEventListener("click", () => showCalibrationSummary(true));
+editCurrentPhotoButton?.addEventListener("click", editCurrentPhoto);
 timeFilterButtons.forEach((button) => {
   button.addEventListener("click", () => applyTimePeriod(button.dataset.timePeriod));
 });
@@ -617,6 +624,7 @@ async function openPhoto(index) {
   const token = ++viewToken;
   photoMode = true;
   activePhotoIndex = normalizedIndex;
+  if (editCurrentPhotoButton) editCurrentPhotoButton.hidden = calibrationMode;
   document.body.classList.add("photo-mode");
   photoViewer.hidden = false;
   hideOverviewReveal();
@@ -646,8 +654,11 @@ async function openPhoto(index) {
     savedCalibration?.photoScale ?? PHOTO_VIEW_DEFAULTS.photoScale
   );
   const resolvedFov = savedCalibration?.fov ?? PHOTO_VIEW_DEFAULTS.fov;
+  const resolvedPhotoOpacity = isPublicViewer
+    ? 0.7
+    : (savedCalibration?.photoOpacity ?? PHOTO_VIEW_DEFAULTS.photoOpacity);
   photoOpacity.value = String(Math.round(
-    (savedCalibration?.photoOpacity ?? PHOTO_VIEW_DEFAULTS.photoOpacity) * 100,
+    resolvedPhotoOpacity * 100,
   ));
   if (photoScale) {
     photoScale.value = String(Math.round(resolvedPhotoScale * 100));
@@ -945,6 +956,8 @@ function updateCameraFov(fovOverride) {
 
 async function startCalibration() {
   if (!PHOTOS[0]?.worldPosition) return;
+  singlePhotoCorrectionMode = false;
+  calibrationConfirm.textContent = CALIBRATION_CONFIRM_LABEL;
   calibrationResults = loadCalibrationDraft();
   updateCalibrationPhotoSelect();
   const resumeIndex = getResumeIndex();
@@ -956,7 +969,24 @@ async function startCalibration() {
   await openPhoto(resumeIndex);
 }
 
+async function editCurrentPhoto() {
+  if (activePhotoIndex < 0 || calibrationMode) return;
+  const selectedIndex = activePhotoIndex;
+  singlePhotoCorrectionMode = true;
+  calibrationConfirm.textContent = "この写真の修正を確定";
+  calibrationResults = loadCalibrationDraft();
+  updateCalibrationPhotoSelect(selectedIndex);
+  calibrationMode = true;
+  calibrationSummary.hidden = true;
+  calibrationPanel.hidden = false;
+  calibrationConfirm.disabled = true;
+  document.body.classList.add("calibration-mode");
+  await openPhoto(selectedIndex);
+}
+
 function cancelCalibration() {
+  singlePhotoCorrectionMode = false;
+  calibrationConfirm.textContent = CALIBRATION_CONFIRM_LABEL;
   calibrationMode = false;
   calibrationPanel.hidden = true;
   calibrationConfirm.disabled = false;
@@ -965,6 +995,8 @@ function cancelCalibration() {
 }
 
 async function resetCalibration() {
+  singlePhotoCorrectionMode = false;
+  calibrationConfirm.textContent = CALIBRATION_CONFIRM_LABEL;
   clearCalibrationDraft();
   calibrationResults = [];
   updateCalibrationPhotoSelect();
@@ -979,6 +1011,13 @@ async function confirmCalibrationPose() {
     activePhotoIndex,
   );
   saveCalibrationDraft();
+
+  if (singlePhotoCorrectionMode) {
+    singlePhotoCorrectionMode = false;
+    calibrationConfirm.textContent = CALIBRATION_CONFIRM_LABEL;
+    finishCalibration();
+    return;
+  }
 
   if (activePhotoIndex >= PHOTOS.length - 1) {
     finishCalibration();
@@ -1299,6 +1338,12 @@ function showCalibrationSummary(partial = false) {
     return row;
   }));
   calibrationSummary.hidden = false;
+  window.dispatchEvent(new CustomEvent("photo-calibration-summary", {
+    detail: {
+      payload,
+      existingPhotoViewData: PHOTO_VIEW_DATA,
+    },
+  }));
 }
 
 async function copyCalibrationOutput() {

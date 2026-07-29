@@ -34,6 +34,8 @@
 - [写真ViewFinder](https://kashiwa-after-dark.github.io/3DMAP_DataVisu/photo-visualization/)
 - [写真視点調整用ページ](https://kashiwa-after-dark.github.io/3DMAP_DataVisu/photo-visualization/dev/)
 
+旧URLの `phtos_DataVisu/` と `phtos_DataVisu/dev/` は、それぞれ上記の新しいページへ自動転送する。
+
 ## 機能紹介
 
 ### 3Dマップと移動軌跡
@@ -99,7 +101,7 @@ GPXのウェイポイントから観察メモを抽出し、3D空間と画面右
 - 左右ボタンまたは左右矢印キーによる写真移動
 - `Esc` キーによる全体地図への復帰
 
-公開版では写真サイズとFOVの調整機能を非表示にしている。
+公開版では写真サイズとFOVの調整機能を非表示にし、写真の不透明度は70%から自由に変更できる。
 
 ### 写真視点調整
 
@@ -114,6 +116,10 @@ GPXのウェイポイントから観察メモを抽出し、3D空間と画面右
 - `PHOTO SIZE` と `PERSPECTIVE / FOV` の調整
 - `localStorage` への調整内容の一時保存
 - カメラ座標、回転角、クォータニオン、FOV、写真倍率のJSON出力
+- devの写真一覧で写真を開き、「修正する」からその写真の視点調整へ移行
+- 調整結果をGitHubへ直接保存し、公開サイトの更新を開始
+
+GitHubへの直接保存では、初回のみ対象リポジトリの `Contents: Read and write` 権限を持つfine-grained personal access tokenを入力する。トークンはそのブラウザタブのセッション内だけに保持され、ソースコードには保存されない。
 
 ## ディレクトリ構成
 
