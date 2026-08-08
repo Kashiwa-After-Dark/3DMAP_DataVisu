@@ -174,6 +174,7 @@ function enableGlobalKeyboardNavigation(list) {
 
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented) return;
+    if (list.closest(".memo-panel.is-stored")) return;
     const isNavigationKey = event.key === "ArrowUp" || event.key === "ArrowDown";
     const isActivationKey = event.key === "Enter";
     if (!isNavigationKey && !isActivationKey) return;
@@ -233,6 +234,10 @@ function scrollMemoItemVertically(item) {
 function setDockFocus(item) {
   const list = item.parentElement;
   if (!list) return;
+  if (item.classList.contains("is-current")) {
+    clearDockFocus(list);
+    return;
+  }
   if (list.querySelector(".is-dock-focus") === item) return;
 
   animateDockLayout(list, () => {

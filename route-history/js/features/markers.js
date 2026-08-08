@@ -16,7 +16,7 @@ export function makeGraffitiStamp(memo, category) {
 
   ctx.fillStyle = `rgba(${rgb}, 0.22)`;
   ctx.strokeStyle = category.color;
-  ctx.lineWidth = 13;
+  ctx.lineWidth = 8;
   ctx.lineJoin = "round";
   drawGenderShape(ctx, memo.gender);
   ctx.fill();

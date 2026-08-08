@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./css/style.css?v=20260728-01" />
+    <link rel="stylesheet" href="./css/style.css?v=20260801-49" />
     <script type="importmap">
       {
         "imports": {
@@ -21,21 +21,49 @@
   <body>
     <main id="app">
       <canvas id="scene" aria-label="柏駅3Dマップ"></canvas>
-      <div class="view-toggle" aria-label="表示切り替え">
-        <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
-        <button id="view-2d" type="button" aria-pressed="false">2D</button>
-      </div>
-      <a id="photo-entry" class="photo-entry" href="../photo-visualization/">
-        <span class="photo-entry__icon" aria-hidden="true"></span>
-        <span><b>PHOTO VIEW</b><small>写真可視化ページへ</small></span>
-        <output>31</output>
-      </a>
+      <nav class="top-taskbar" aria-label="表示モード">
+        <button
+          id="hint-mode"
+          class="hint-mode-toggle"
+          type="button"
+          aria-label="ヒントを表示"
+          aria-pressed="false"
+          title="ヒントを表示"
+        >?</button>
+        <button
+          id="statistics-mode"
+          class="statistics-mode-toggle"
+          type="button"
+          aria-label="統計モード"
+          aria-pressed="false"
+          title="統計モード"
+        >Σ</button>
+        <a id="photo-entry" class="photo-entry" href="../photo-visualization/">
+          <span class="photo-entry__icon" aria-hidden="true"></span>
+          <span><b>PHOTO VIEW</b><small>写真可視化ページへ</small></span>
+          <output>31</output>
+        </a>
+        <div class="view-toggle" aria-label="表示切り替え">
+          <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
+          <button id="view-2d" type="button" aria-pressed="false">2D</button>
+        </div>
+      </nav>
       <aside id="legend-filter" class="age-legend" aria-label="データ説明と絞り込み"></aside>
+      <aside id="statistics-dashboard" class="statistics-dashboard" aria-label="再生同期統計"></aside>
+      <aside id="route-summary" class="route-summary" aria-live="polite" hidden></aside>
       <aside id="memo-panel" class="memo-panel" aria-label="メモ">
         <div id="memo-scroll-viewport" class="memo-scroll-viewport">
           <div id="memo-list" class="memo-list"></div>
         </div>
       </aside>
+      <button
+        id="memo-panel-storage"
+        class="memo-panel-storage"
+        type="button"
+        aria-label="カードデックを収納"
+        aria-expanded="true"
+        title="カードデックを収納"
+      ><span aria-hidden="true"></span></button>
       <aside class="timeline-instruments" aria-label="時刻と方角と再生速度">
         <div class="instrument">
           <div id="analog-clock" class="clock-dial" role="img" aria-label="タイムライン時刻">
@@ -107,7 +135,7 @@
             </div>
             <div class="time-lanes">
               <div class="time-lane time-lane--upper" data-time-lane="reysol">
-                <span class="time-lane__label">レイソル</span>
+                <button class="time-lane__label is-active" type="button" data-place-select="reysol" aria-pressed="true">レイソル</button>
                 <div class="time-gauge-segments" aria-hidden="true">
                   <i><b data-time-gauge-fill></b></i>
                   <i><b data-time-gauge-fill></b></i>
@@ -116,7 +144,7 @@
                 <div class="time-event-markers" data-time-event-markers="reysol" aria-label="レイソル担当の観察データ時刻"></div>
               </div>
               <div class="time-lane time-lane--lower" data-time-lane="terrace">
-                <span class="time-lane__label">テラス</span>
+                <button class="time-lane__label is-active" type="button" data-place-select="terrace" aria-pressed="true">テラス</button>
                 <div class="time-gauge-segments" aria-hidden="true">
                   <i><b data-time-gauge-fill></b></i>
                   <i><b data-time-gauge-fill></b></i>
@@ -125,7 +153,18 @@
                 <div class="time-event-markers" data-time-event-markers="terrace" aria-label="テラス担当の観察データ時刻"></div>
               </div>
             </div>
+            <i class="time-range-selection" aria-hidden="true"></i>
             <input id="time-slider" type="range" min="0" max="0" step="1" value="0" aria-label="表示時刻" />
+            <input
+              id="time-range-start"
+              type="range"
+              min="0"
+              max="0"
+              step="1"
+              value="0"
+              aria-label="範囲開始時刻"
+              hidden
+            />
           </div>
           <output id="time-readout">--:--:--</output>
         </div>
@@ -148,6 +187,6 @@
       </section>
     </main>
 
-    <script type="module" src="./js/index.js?v=20260728-01"></script>
+    <script type="module" src="./js/index.js?v=20260808-37"></script>
   </body>
 </html>

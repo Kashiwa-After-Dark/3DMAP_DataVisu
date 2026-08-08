@@ -4,7 +4,7 @@ export function createMemoTopDownView({ camera, controls }) {
   const focus = new THREE.Vector3();
   let active = false;
 
-  function activate({ mapFocus, maxSize }) {
+  function activate({ mapFocus, maxSize, viewportWidth, viewportHeight }) {
     active = true;
     focus.copy(mapFocus);
     const cameraHeight = THREE.MathUtils.clamp(maxSize * 1.05, 340, 620);
@@ -12,7 +12,7 @@ export function createMemoTopDownView({ camera, controls }) {
     camera.position.set(focus.x, focus.y + cameraHeight, focus.z);
     camera.up.set(0, 0, -1);
     camera.fov = 38;
-    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.aspect = Math.max(viewportWidth / viewportHeight, 0.01);
     camera.near = 0.1;
     camera.far = Math.max(cameraHeight * 8, 2000);
     camera.updateProjectionMatrix();
