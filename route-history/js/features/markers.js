@@ -14,13 +14,22 @@ export function makeGraffitiStamp(memo, category) {
   const ctx = canvas.getContext("2d");
   const rgb = hexToRgbChannels(category.color);
 
-  ctx.fillStyle = `rgba(${rgb}, 0.22)`;
+  ctx.fillStyle = `rgba(${rgb}, 0.12)`;
   ctx.strokeStyle = category.color;
-  ctx.lineWidth = 8;
+  ctx.lineWidth = 3.5;
   ctx.lineJoin = "round";
   drawGenderShape(ctx, memo.gender);
   ctx.fill();
   ctx.stroke();
+
+  ctx.save();
+  ctx.translate(128, 128);
+  ctx.scale(0.87, 0.87);
+  ctx.translate(-128, -128);
+  ctx.lineWidth = 2.5;
+  drawGenderShape(ctx, memo.gender);
+  ctx.stroke();
+  ctx.restore();
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

@@ -8,7 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./css/style.css?v=20260801-49" />
+    <link rel="stylesheet" href="./css/style.css?v=20260810-01" />
+    <link rel="stylesheet" href="./css/smart-city-trial.css?v=20260811-01" />
     <script type="importmap">
       {
         "imports": {
@@ -18,34 +19,60 @@
       }
     </script>
   </head>
-  <body>
+  <body class="smart-city-trial">
     <main id="app">
       <canvas id="scene" aria-label="柏駅3Dマップ"></canvas>
       <nav class="top-taskbar" aria-label="表示モード">
-        <button
-          id="hint-mode"
-          class="hint-mode-toggle"
-          type="button"
-          aria-label="ヒントを表示"
-          aria-pressed="false"
-          title="ヒントを表示"
-        >?</button>
-        <button
-          id="statistics-mode"
-          class="statistics-mode-toggle"
-          type="button"
-          aria-label="統計モード"
-          aria-pressed="false"
-          title="統計モード"
-        >Σ</button>
-        <a id="photo-entry" class="photo-entry" href="../photo-visualization/">
-          <span class="photo-entry__icon" aria-hidden="true"></span>
-          <span><b>PHOTO VIEW</b><small>写真可視化ページへ</small></span>
-          <output>31</output>
-        </a>
-        <div class="view-toggle" aria-label="表示切り替え">
-          <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
-          <button id="view-2d" type="button" aria-pressed="false">2D</button>
+        <div class="system-identity" aria-label="Kashiwa After Dark データ可視化システム">
+          <strong>KASHIWA AFTER DARK</strong>
+          <span>PHOTO DATA VISUALIZATION SYSTEM / LIVE OVERVIEW</span>
+        </div>
+        <div class="toolbar-menu toolbar-menu--mode" data-toolbar-menu="mode">
+          <button class="toolbar-menu__toggle" type="button" data-toolbar-menu-toggle aria-expanded="false">
+            <span class="toolbar-menu__icon toolbar-menu__icon--mode" aria-hidden="true"></span>
+            <b>MODE</b>
+          </button>
+          <div class="toolbar-menu__panel toolbar-menu__panel--mode" data-toolbar-menu-panel>
+            <a id="photo-entry" class="photo-entry" href="../photo-visualization/">
+              <span class="photo-entry__icon" aria-hidden="true"></span>
+              <span><b>PHOTO VIEW</b><small>写真可視化ページへ</small></span>
+              <output>31</output>
+            </a>
+            <div class="toolbar-menu__row">
+              <span>MAP VIEW</span>
+              <div class="view-toggle" aria-label="表示切り替え">
+                <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
+                <button id="view-2d" type="button" aria-pressed="false">2D</button>
+              </div>
+            </div>
+            <button
+              id="statistics-mode"
+              class="statistics-mode-toggle toolbar-menu__command"
+              type="button"
+              aria-label="統計モード"
+              aria-pressed="false"
+              title="統計モード"
+            ><span aria-hidden="true">Σ</span><b>STATISTICS</b></button>
+          </div>
+        </div>
+        <div class="toolbar-menu toolbar-menu--settings" data-toolbar-menu="settings">
+          <button class="toolbar-menu__toggle" type="button" data-toolbar-menu-toggle aria-expanded="false">
+            <span class="toolbar-menu__icon toolbar-menu__icon--settings" aria-hidden="true"></span>
+            <b>SETTINGS</b>
+          </button>
+          <div class="toolbar-menu__panel toolbar-menu__panel--settings" data-toolbar-menu-panel>
+            <div class="toolbar-menu__row">
+              <span>GUIDE</span>
+              <button
+                id="hint-mode"
+                class="hint-mode-toggle"
+                type="button"
+                aria-label="ヒントを表示"
+                aria-pressed="false"
+                title="ヒントを表示"
+              >?</button>
+            </div>
+          </div>
         </div>
       </nav>
       <aside id="legend-filter" class="age-legend" aria-label="データ説明と絞り込み"></aside>
@@ -187,6 +214,6 @@
       </section>
     </main>
 
-    <script type="module" src="./js/index.js?v=20260808-37"></script>
+    <script type="module" src="./js/index.js?v=20260811-04"></script>
   </body>
 </html>

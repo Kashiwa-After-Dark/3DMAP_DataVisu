@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { applyTopDownCameraConstraints } from "./cameraConstraints.js?v=20260809-02";
 
 export function createMemoTopDownView({ camera, controls }) {
   const focus = new THREE.Vector3();
@@ -24,8 +25,7 @@ export function createMemoTopDownView({ camera, controls }) {
     controls.enablePan = true;
     controls.enableZoom = true;
     controls.screenSpacePanning = true;
-    controls.minDistance = Math.max(cameraHeight * 0.25, 36);
-    controls.maxDistance = cameraHeight * 3;
+    applyTopDownCameraConstraints(controls, cameraHeight);
     controls.update();
     return camera;
   }

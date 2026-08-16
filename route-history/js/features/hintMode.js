@@ -3,9 +3,9 @@ const usage = (operation, place, description) => ({ operation, place, descriptio
 const HINTS = [
   { target: "#legend-filter", title: "絞り込み", description: "条件に一致する観察データだけを地図・カード・タイムラインへ反映します。", usage: [usage("クリック", "フィルター上段", "AGE・GROUP・GENのコードを選択します。選択中の一つを再クリックすると同じ分類を全表示します。"), usage("ドラッグ", "COUNT", "左右のつまみで表示する人数範囲を指定します。"), usage("文字入力", "SEARCH", "コード・担当者・説明文などをキーワード検索します。"), usage("クリック", "ヘッダー右側「全表示」", "絞り込み条件と担当者表示を初期状態へ戻します。"), usage("クリック", "ヘッダー左側「− / ＋」", "フィルター内容を最小化・最大化します。"), usage("クリック", "右中央の三角形", "フィルター全体を画面外へ収納・再表示します。")], placement: "right" },
   { target: "#scene", title: "タイムスペースマップ", description: "地図上の位置と、時間＝高さで観察データを確認する中心画面です。", usage: [usage("ドラッグ", "マップ上", "視点を回転します。"), usage("右ドラッグ", "マップ上", "視点を平行移動します。"), usage("ホイール", "マップ上", "地図を拡大・縮小します。"), usage("カーソル / クリック", "データアイコン", "対象を強調し、選択するとカードと座標を表示します。"), usage("カーソル / クリック", "ルート線", "対象を強調し、選択すると担当者・件数・データ割合を表示します。")], placement: "center", highlight: false },
-  { target: "#statistics-mode", title: "統計モード", description: "再生時刻と連動した集計・比較グラフへ切り替えます。", usage: [usage("クリック", "上部バー「Σ」", "統計モードを開始します。もう一度押すと写真可視化モードへ戻ります。"), usage("再生", "タイムライン", "再生時刻に統計グラフを連動させます。"), usage("右クリック", "上部バー", "常時表示と自動収納を切り替えます。")], placement: "bottom", offsetX: -105 },
-  { target: "#photo-entry", title: "写真可視化", description: "観察写真を中心に確認する専用ページへ移動します。", usage: [usage("クリック", "上部バー「PHOTO VIEW」", "写真可視化ページを開きます。"), usage("確認", "PHOTO VIEW右側の数字", "登録されている写真データ数を確認します。"), usage("右クリック", "上部バー", "常時表示と自動収納を切り替えます。")], placement: "bottom", offsetY: 58 },
-  { target: ".view-toggle", title: "マップ表示切替", description: "立体的な3D表示と、上方から確認する2D表示を切り替えます。", usage: [usage("クリック", "上部バー「3D」", "立体マップと時間＝高さの表示へ切り替えます。"), usage("クリック", "上部バー「2D」", "上方から場所を確認しやすい表示へ切り替えます。"), usage("右クリック", "上部バー", "常時表示と自動収納を切り替えます。")], placement: "bottom", offsetY: 58, detailOffsetX: -26 },
+  { target: "#statistics-mode", title: "統計モード", description: "再生時刻と連動した集計・比較グラフへ切り替えます。", usage: [usage("クリック", "MODE → STATISTICS", "統計モードを開始します。もう一度押すと写真可視化モードへ戻ります。"), usage("再生", "タイムライン", "再生時刻に統計グラフを連動させます。"), usage("右クリック", "上部バー", "常時表示と自動収納を切り替えます。")], placement: "bottom", offsetX: -105 },
+  { target: "#photo-entry", title: "写真可視化", description: "観察写真を中心に確認する専用ページへ移動します。", usage: [usage("クリック", "MODE → PHOTO VIEW", "写真可視化ページを開きます。"), usage("確認", "PHOTO VIEW右側の数字", "登録されている写真データ数を確認します。"), usage("右クリック", "上部バー", "常時表示と自動収納を切り替えます。")], placement: "bottom", offsetY: 58 },
+  { target: ".view-toggle", title: "マップ表示切替", description: "立体的な3D表示と、上方から確認する2D表示を切り替えます。", usage: [usage("クリック", "MODE → MAP VIEW → 3D", "立体マップと時間＝高さの表示へ切り替えます。"), usage("クリック", "MODE → MAP VIEW → 2D", "上方から場所を確認しやすい表示へ切り替えます。"), usage("右クリック", "上部バー", "常時表示と自動収納を切り替えます。")], placement: "bottom", offsetY: 58, detailOffsetX: -26 },
   { target: "#memo-panel", title: "カードデック", description: "観察データを新しい順に並べ、写真データの内容を表示します。", usage: [usage("カーソル", "カード", "対象カードと近くのカードを拡大します。"), usage("クリック", "カード", "データを選択して該当位置へ移動します。再クリックで選択解除します。"), usage("↑ / ↓", "キーボード", "前後のカードへフォーカスを移動します。"), usage("Enter", "キーボード", "フォーカス中のカードを選択・解除します。"), usage("クリック", "マップ上のデータアイコン", "対応するカードを選択します。")], placement: "left", offsetY: 155 },
   { target: "#memo-panel-storage", title: "カード収納", description: "カードデックを画面外へ収納し、地図の表示範囲を広げます。", usage: [usage("クリック", "バー先端の三角形", "カードデックとバーを画面外へ収納します。"), usage("クリック", "収納後の三角形", "カードデックとバーを再表示します。"), usage("収納中", "カードデック", "マウス・キーボードによるカード操作を停止します。")], placement: "left", offsetY: -64 },
   { target: "#play-toggle", title: "再生ボタン", description: "タイムラインの再生・一時停止・リピートを操作します。", usage: [usage("クリック / Space", "再生・一時停止ボタン / キーボード", "再生と一時停止を切り替えます。"), usage("クリック / Space", "再生終了後のリピートボタン / キーボード", "時刻を先頭へ戻して再生します。"), usage("← / →", "キーボード", "18–20、20–22、22–24の区分単位で巻き戻し・スキップします。")], placement: "top", offsetX: 80 },
@@ -181,9 +181,10 @@ export function createHintMode({ button, app }) {
 
   const setInactiveUi = (inactive) => {
     const topTaskbar = app.querySelector(".top-taskbar");
+    const buttonMenu = button.closest("[data-toolbar-menu]");
     const targets = [
       ...[...app.children].filter((element) => element !== topTaskbar),
-      ...[...topTaskbar.children].filter((element) => element !== button),
+      ...[...topTaskbar.children].filter((element) => element !== buttonMenu),
     ];
     for (const element of targets) {
       if (inactive) {

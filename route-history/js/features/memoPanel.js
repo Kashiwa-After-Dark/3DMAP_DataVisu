@@ -16,6 +16,8 @@ export function renderMemoPanel({
   onSelect,
   onHover,
   onHoverSuppressionEnd,
+  language = "ja",
+  translateText = (value) => value,
 }) {
   enableGlobalKeyboardNavigation(list);
   const chronologicalMemos = [...memos].sort((a, b) => b.time - a.time);
@@ -26,6 +28,7 @@ export function renderMemoPanel({
     && previous.activeMemo === activeMemo
     && previous.featuredMemo === featuredMemo
     && previous.suppressedMemo === suppressedMemo
+    && previous.language === language
     && previous.memos.length === chronologicalMemos.length
     && previous.memos.every((memo, index) => memo === chronologicalMemos[index]);
   if (unchanged) return false;
@@ -42,6 +45,8 @@ export function renderMemoPanel({
       onSelect,
       onHover,
       onHoverSuppressionEnd,
+      language,
+      translateText,
     })),
   );
   renderStates.set(list, {
@@ -49,6 +54,7 @@ export function renderMemoPanel({
     activeMemo,
     featuredMemo,
     suppressedMemo,
+    language,
   });
   return true;
 }
@@ -64,6 +70,8 @@ function makeMemoItem({
   onSelect,
   onHover,
   onHoverSuppressionEnd,
+  language,
+  translateText,
 }) {
   const item = document.createElement("article");
   item.className = [
@@ -79,7 +87,7 @@ function makeMemoItem({
   item.style.setProperty("--deck-offset", "0px");
   item.style.setProperty("--deck-tilt", "0deg");
   item.style.setProperty("--deck-layer", String(Math.max(1, 30 - Math.min(index, 29))));
-  item.setAttribute("aria-label", `${formatTime(memo.time)}の観察データへ移動`);
+  item.setAttribute("aria-label", language === "en" ? `Open observation at ${formatTime(memo.time)}` : `${formatTime(memo.time)}の観察データへ移動`);
   item.setAttribute("aria-pressed", String(isCurrent));
   item.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown Enter");
   if (isCurrent) item.setAttribute("aria-current", "true");
@@ -144,7 +152,7 @@ function makeMemoItem({
   badge.textContent = formatProfileBadge(memo, category);
 
   const title = document.createElement("strong");
-  title.textContent = memo.name;
+  title.textContent = translateText(memo.name, language);
 
   const source = document.createElement("small");
   source.className = "memo-source";
@@ -154,7 +162,7 @@ function makeMemoItem({
   item.append(meta, title, source);
   if (memo.desc) {
     const body = document.createElement("p");
-    body.textContent = memo.desc;
+    body.textContent = translateText(memo.desc, language);
     item.append(body);
   }
 

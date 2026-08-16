@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { clamp2DZoom } from "./cameraConstraints.js?v=20260809-01";
 
 export function create2DMapController({
   canvas,
@@ -119,7 +120,7 @@ export function create2DMapController({
 
   function zoomGraph(event) {
     if (!active) return;
-    zoom = THREE.MathUtils.clamp(zoom * Math.exp(event.deltaY * 0.001), 0.35, 3.5);
+    zoom = clamp2DZoom(zoom * Math.exp(event.deltaY * 0.001));
     resize(window.innerWidth, window.innerHeight);
     event.preventDefault();
     event.stopImmediatePropagation();

@@ -1,6 +1,19 @@
+import { createStatisticsWordCloud } from "./statisticsWordCloud.js?v=20260811-02";
+import { createStatisticsActivityChart } from "./statisticsActivityChart.js?v=20260809-01";
+
 const AGE_KEYS = ["H", "U", "Y", "A", "S"];
 const GROUP_KEYS = ["CP", "FM", "MX", "UN"];
 const GENDER_KEYS = ["M", "F", "X", "U"];
+const TIME_SEGMENTS = [
+  { label: "18–20", start: 18, end: 20 },
+  { label: "20–22", start: 20, end: 22 },
+  { label: "22–24", start: 22, end: 24 },
+];
+const LABELS = {
+  age: { H: "高校生", U: "大学生", Y: "若い社会人", A: "中高年", S: "高齢者" },
+  group: { CP: "カップル", FM: "家族", MX: "混合", UN: "不明" },
+  gender: { M: "男性", F: "女性", X: "男女混合", U: "不明" },
+};
 const COLORS = {
   H: "#22d3ee",
   U: "#397d9f",
@@ -16,11 +29,11 @@ const COLORS = {
   X: "#a78bfa",
 };
 
-export function createStatisticsDashboard({ root, getLane }) {
+export function createStatisticsDashboard({ root, getLane, onActivityFilterChange }) {
   let active = false;
   let latestState = null;
   let renderTimer = null;
-  let compositionMode = "age";
+  let compositionMode = "group";
 
   root.innerHTML = `
     <section class="statistics-kpis" aria-label="主要統計">
@@ -29,37 +42,58 @@ export function createStatisticsDashboard({ root, getLane }) {
       ${makeKpi("PACE / 15MIN", "statistics-pace", "0")}
       ${makeKpi("UNKNOWN", "statistics-unknown", "0")}
     </section>
-    <section class="statistics-time-panel">
-      <header><b>TIME PROFILE</b><span>10 MIN BINS</span></header>
-      <svg class="statistics-time-chart" viewBox="0 0 900 180" role="img" aria-label="時間別のデータ件数と延べ観測人数"></svg>
-    </section>
     <div class="statistics-side">
+      <section class="statistics-activity-panel">
+        ${makeHudFrame()}
+        <div class="statistics-activity-content"></div>
+      </section>
       <section class="statistics-lane-panel">
-        <header><b>ROUTE COMPARISON</b><span>DATA / PEOPLE</span></header>
+        ${makeHudFrame()}
+        <header><b>ROUTE COMPARISON</b><span>DATA / AGE</span></header>
+        <div class="statistics-age-legend" aria-label="年齢コードの色">
+          ${[...AGE_KEYS, "UN"].map((key) => `<span style="--stat-color:${COLORS[key]}"><i></i>${key}</span>`).join("")}
+        </div>
         <div class="statistics-lanes"></div>
       </section>
       <section class="statistics-composition-panel">
+        ${makeHudFrame()}
         <header>
-          <b>COMPOSITION</b>
+          <div class="statistics-composition-heading"><b>COMPOSITION</b><span></span></div>
           <div class="statistics-composition-tabs" role="tablist" aria-label="構成項目">
-            <button type="button" data-composition="age" class="is-active" role="tab">AGE</button>
-            <button type="button" data-composition="group" role="tab">GROUP</button>
+            <button type="button" data-composition="age" role="tab" aria-selected="false">AGE</button>
+            <button type="button" data-composition="group" class="is-active" role="tab" aria-selected="true">GROUP</button>
             <button type="button" data-composition="gender" role="tab">GEN</button>
           </div>
         </header>
-        <div class="statistics-composition"></div>
+        <div class="statistics-composition-stage">
+          <div class="statistics-composition"></div>
+          <div class="statistics-composition-history" aria-label="完了した時間帯の構成"></div>
+        </div>
+      </section>
+      <section class="statistics-word-panel">
+        ${makeHudFrame()}
+        <div class="statistics-word-content"></div>
       </section>
     </div>
   `;
+
+  const wordCloud = createStatisticsWordCloud({
+    root: root.querySelector(".statistics-word-content"),
+  });
+  const activityChart = createStatisticsActivityChart({
+    root: root.querySelector(".statistics-activity-content"),
+    onSelect: onActivityFilterChange,
+  });
 
   const elements = {
     data: root.querySelector("#statistics-data-count"),
     people: root.querySelector("#statistics-people-count"),
     pace: root.querySelector("#statistics-pace"),
     unknown: root.querySelector("#statistics-unknown"),
-    chart: root.querySelector(".statistics-time-chart"),
     lanes: root.querySelector(".statistics-lanes"),
     composition: root.querySelector(".statistics-composition"),
+    compositionPeriod: root.querySelector(".statistics-composition-heading span"),
+    compositionHistory: root.querySelector(".statistics-composition-history"),
   };
 
   root.addEventListener("click", (event) => {
@@ -71,20 +105,35 @@ export function createStatisticsDashboard({ root, getLane }) {
       tab.classList.toggle("is-active", selected);
       tab.setAttribute("aria-selected", String(selected));
     }
-    if (latestState) renderComposition(latestState.activeMemos);
+    if (latestState) {
+      renderComposition(latestState.activeMemos, latestState.periodIndex);
+      renderCompositionHistory(latestState);
+    }
   });
 
   function setActive(nextActive) {
     active = nextActive;
     root.classList.toggle("is-active", active);
+    if (!active) activityChart.reset();
     if (active && latestState) render(latestState);
   }
 
+  function setLanguage(language) {
+    wordCloud.setLanguage(language);
+  }
+
   function update(state) {
+    const periodIndex = getPeriodIndex(state);
+    const periodStartTime = getPeriodStartTime(state, periodIndex);
     latestState = {
       ...state,
-      activeMemos: state.memos.filter(
+      periodIndex,
+      periodStartTime,
+      cumulativeMemos: state.memos.filter(
         (memo) => memo.time >= state.rangeStartTime && memo.time <= state.currentTime,
+      ),
+      activeMemos: state.memos.filter(
+        (memo) => memo.time >= periodStartTime && memo.time <= state.currentTime,
       ),
     };
     if (!active || renderTimer) return;
@@ -97,7 +146,7 @@ export function createStatisticsDashboard({ root, getLane }) {
   function render(state) {
     const { activeMemos } = state;
     const people = sumPeople(activeMemos);
-    const durationMinutes = Math.max((state.currentTime - state.rangeStartTime) / 60_000, 1);
+    const durationMinutes = Math.max((state.currentTime - state.periodStartTime) / 60_000, 1);
     const unknown = activeMemos.filter(
       (memo) => !memo.isPeople || memo.category === "UN",
     ).length;
@@ -106,63 +155,17 @@ export function createStatisticsDashboard({ root, getLane }) {
     elements.people.textContent = String(people);
     elements.pace.textContent = formatNumber((activeMemos.length / durationMinutes) * 15);
     elements.unknown.textContent = String(unknown);
-    renderTimeChart(state);
-    renderLanes(activeMemos);
-    renderComposition(activeMemos);
-  }
-
-  function renderTimeChart(state) {
-    const binCount = 36;
-    const duration = state.timelineEnd - state.timelineStart;
-    const bins = Array.from({ length: binCount }, () => ({ data: 0, people: 0 }));
-    for (const memo of state.memos) {
-      const ratio = (memo.time - state.timelineStart) / duration;
-      const index = Math.max(0, Math.min(binCount - 1, Math.floor(ratio * binCount)));
-      bins[index].data += 1;
-      bins[index].people += memo.isPeople ? memo.count || 0 : 0;
-    }
-
-    const left = 46;
-    const right = 12;
-    const chartWidth = 900 - left - right;
-    const binWidth = chartWidth / binCount;
-    const dataBase = 76;
-    const peopleBase = 148;
-    const bandHeight = 48;
-    const maxData = Math.max(1, ...bins.map((bin) => bin.data));
-    const maxPeople = Math.max(1, ...bins.map((bin) => bin.people));
-    const rangeStartRatio = clampRatio(
-      (state.rangeStartTime - state.timelineStart) / duration,
-    );
-    const currentRatio = clampRatio(
-      (state.currentTime - state.timelineStart) / duration,
-    );
-    const parts = [
-      `<rect x="${left + chartWidth * rangeStartRatio}" y="14" width="${chartWidth * Math.max(0, currentRatio - rangeStartRatio)}" height="140" fill="#00a7ff" opacity="0.055"/>`,
-      `<text x="2" y="49" class="statistics-svg-label">DATA</text>`,
-      `<text x="2" y="121" class="statistics-svg-label">PEOPLE</text>`,
-    ];
-
-    for (let hour = 18; hour <= 24; hour += 1) {
-      const x = left + chartWidth * ((hour - 18) / 6);
-      parts.push(`<line x1="${x}" y1="14" x2="${x}" y2="154" class="statistics-grid-line"/>`);
-      parts.push(`<text x="${x}" y="174" text-anchor="${hour === 18 ? "start" : hour === 24 ? "end" : "middle"}" class="statistics-hour-label">${hour === 24 ? "24" : hour}</text>`);
-    }
-
-    bins.forEach((bin, index) => {
-      const centerRatio = (index + 0.5) / binCount;
-      const isActive = centerRatio >= rangeStartRatio && centerRatio <= currentRatio;
-      const x = left + index * binWidth + 1;
-      const width = Math.max(binWidth - 2, 1);
-      const dataHeight = (bin.data / maxData) * bandHeight;
-      const peopleHeight = (bin.people / maxPeople) * bandHeight;
-      parts.push(`<rect x="${x}" y="${dataBase - dataHeight}" width="${width}" height="${dataHeight}" fill="#00a7ff" opacity="${isActive ? 0.9 : 0.16}"/>`);
-      parts.push(`<rect x="${x}" y="${peopleBase - peopleHeight}" width="${width}" height="${peopleHeight}" fill="#f59e0b" opacity="${isActive ? 0.84 : 0.13}"/>`);
+    renderLanes(state.cumulativeMemos);
+    renderComposition(activeMemos, state.periodIndex);
+    renderCompositionHistory(state);
+    activityChart.update(state.cumulativeMemos);
+    wordCloud.update({
+      periodMemos: state.cumulativeMemos,
+      allMemos: state.memos.filter(
+        (memo) => memo.time >= state.rangeStartTime && memo.time <= state.timelineEnd,
+      ),
+      periodLabel: `18–${TIME_SEGMENTS[state.periodIndex]?.end || 20} / LIVE`,
     });
-
-    const cursorX = left + chartWidth * currentRatio;
-    parts.push(`<line x1="${cursorX}" y1="12" x2="${cursorX}" y2="156" class="statistics-playhead"/>`);
-    elements.chart.innerHTML = parts.join("");
   }
 
   function renderLanes(memos) {
@@ -172,61 +175,210 @@ export function createStatisticsDashboard({ root, getLane }) {
         id: lane,
         label: lane === "reysol" ? "レイソル" : "テラス",
         data: laneMemos.length,
-        people: sumPeople(laneMemos),
+        segments: TIME_SEGMENTS.map((segment) => {
+          const segmentMemos = laneMemos.filter((memo) => {
+            const date = new Date(memo.time);
+            const hour = date.getHours() + date.getMinutes() / 60;
+            return hour >= segment.start && hour < segment.end;
+          });
+          const ageCounts = new Map([...AGE_KEYS, "UN"].map((key) => [key, 0]));
+          for (const memo of segmentMemos) {
+            const key = AGE_KEYS.includes(memo.category) ? memo.category : "UN";
+            ageCounts.set(key, ageCounts.get(key) + 1);
+          }
+          return { ...segment, data: segmentMemos.length, ageCounts };
+        }),
       };
     });
-    const maxData = Math.max(1, ...rows.map((row) => row.data));
-    const maxPeople = Math.max(1, ...rows.map((row) => row.people));
     elements.lanes.innerHTML = rows.map((row) => `
       <div class="statistics-lane">
-        <b>${row.label}</b>
-        ${makeLaneMetric("DATA", row.data, row.data / maxData, "data")}
-        ${makeLaneMetric("PEOPLE", row.people, row.people / maxPeople, "people")}
+        <div class="statistics-lane__header"><b>${row.label}</b><output>${row.data}<small> DATA</small></output></div>
+        <div class="statistics-lane-time-rows">
+          ${row.segments.map((segment) => `
+            <div class="statistics-lane-time-row">
+              <span>${segment.label}</span>
+              <div class="statistics-lane-stack" aria-label="${row.label} ${segment.label}の年齢構成">
+                ${[...AGE_KEYS, "UN"].map((key) => {
+                  const count = segment.ageCounts.get(key);
+                  const ratio = segment.data ? count / segment.data : 0;
+                  return `<i style="width:${ratio * 100}%;--stat-color:${COLORS[key]}" title="${key}: ${count}"></i>`;
+                }).join("")}
+              </div>
+              <output>${segment.data}</output>
+            </div>
+          `).join("")}
+        </div>
       </div>
     `).join("");
   }
 
-  function renderComposition(memos) {
+  function renderComposition(memos, periodIndex) {
+    const { entries, total } = getCompositionEntries(memos, compositionMode);
+    elements.compositionPeriod.textContent = TIME_SEGMENTS[periodIndex]?.label || TIME_SEGMENTS[0].label;
+    elements.composition.innerHTML = buildDonutSvg(entries, total, compositionMode);
+  }
+
+  function renderCompositionHistory(state) {
+    const periodDuration = 2 * 60 * 60 * 1000;
+    elements.compositionHistory.innerHTML = TIME_SEGMENTS
+      .slice(0, state.periodIndex)
+      .map((segment, index) => {
+        const start = state.timelineStart + index * periodDuration;
+        const end = start + periodDuration;
+        const periodMemos = state.memos.filter(
+          (memo) => memo.time >= Math.max(start, state.rangeStartTime) && memo.time < end,
+        );
+        const { entries, total } = getCompositionEntries(periodMemos, compositionMode);
+        return `
+          <div class="statistics-composition-mini" aria-label="${segment.label} ${compositionMode}構成 ${total}件">
+            <span>${segment.label}</span>
+            ${buildMiniDonutSvg(entries, total)}
+          </div>
+        `;
+      }).join("");
+  }
+
+  function getCompositionEntries(memos, mode) {
     const config = {
       age: { keys: AGE_KEYS, getValue: (memo) => memo.category },
       group: { keys: GROUP_KEYS, getValue: (memo) => memo.category },
       gender: { keys: GENDER_KEYS, getValue: (memo) => memo.gender },
-    }[compositionMode];
+    }[mode];
     const counts = new Map(config.keys.map((key) => [key, 0]));
     for (const memo of memos) {
       const value = config.getValue(memo);
       if (counts.has(value)) counts.set(value, counts.get(value) + 1);
     }
     const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
-    elements.composition.innerHTML = config.keys.map((key) => {
+    const entries = config.keys.map((key) => {
       const count = counts.get(key);
-      const ratio = total ? count / total : 0;
-      return `
-        <div class="statistics-composition-row">
-          <b style="--stat-color:${COLORS[key] || "#94a3b8"}">${key}</b>
-          <i><span style="width:${ratio * 100}%;--stat-color:${COLORS[key] || "#94a3b8"}"></span></i>
-          <output>${count}</output>
-          <small>${Math.round(ratio * 100)}%</small>
-        </div>
-      `;
-    }).join("");
+      return { key, count, ratio: total ? count / total : 0, color: COLORS[key] || "#94a3b8" };
+    });
+    return { entries, total };
   }
 
-  return { setActive, update };
+  return { setActive, setLanguage, update };
+}
+
+function getPeriodIndex(state) {
+  const periodDuration = 2 * 60 * 60 * 1000;
+  const elapsed = Math.max(0, state.currentTime - state.timelineStart);
+  return Math.min(TIME_SEGMENTS.length - 1, Math.floor(elapsed / periodDuration));
+}
+
+function getPeriodStartTime(state, periodIndex = getPeriodIndex(state)) {
+  const periodDuration = 2 * 60 * 60 * 1000;
+  const segmentStart = state.timelineStart + periodIndex * periodDuration;
+  return Math.max(state.rangeStartTime, segmentStart);
 }
 
 function makeKpi(label, id, value) {
-  return `<div class="statistics-kpi"><b>${label}</b><output id="${id}">${value}</output></div>`;
+  return `<div class="statistics-kpi">${makeHudFrame()}<b>${label}</b><output id="${id}">${value}</output></div>`;
 }
 
-function makeLaneMetric(label, value, ratio, kind) {
+function makeHudFrame() {
+  return `<i class="statistics-hud-frame" aria-hidden="true"><i></i></i>`;
+}
+
+function buildDonutSvg(entries, total, mode) {
+  const width = 330;
+  const height = 180;
+  const centerX = 215;
+  const centerY = 86;
+  const radius = 54;
+  const circumference = Math.PI * 2 * radius;
+  let cursor = 0;
+  const plotted = entries.map((entry) => {
+    const start = cursor;
+    cursor += entry.ratio;
+    const angle = -Math.PI / 2 + (start + entry.ratio / 2) * Math.PI * 2;
+    return { ...entry, start, angle };
+  });
+  const visibleEntries = plotted.filter((entry) => entry.count > 0);
+  const callouts = arrangeDonutCallouts(visibleEntries, centerX, centerY, radius);
+  const rings = total
+    ? plotted.map((entry) => {
+      const length = Math.max(entry.ratio * circumference - 1.5, 0);
+      return `<circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${entry.color}" stroke-width="6" stroke-dasharray="${length} ${circumference}" stroke-dashoffset="${-entry.start * circumference}" transform="rotate(-90 ${centerX} ${centerY})"/>`;
+    }).join("")
+    : "";
+  const labels = callouts.map((entry) => {
+    const outerX = centerX + Math.cos(entry.angle) * (radius + 4);
+    const outerY = centerY + Math.sin(entry.angle) * (radius + 4);
+    const elbowX = entry.side === "right" ? 275 : 129;
+    const labelX = entry.side === "right" ? 281 : 123;
+    const anchor = entry.side === "right" ? "start" : "end";
+    const name = LABELS[mode]?.[entry.key] || entry.key;
+    return `
+      <path d="M ${outerX.toFixed(1)} ${outerY.toFixed(1)} L ${elbowX} ${entry.y} L ${labelX} ${entry.y}" fill="none" stroke="${entry.color}" stroke-width="1"/>
+      <circle cx="${outerX.toFixed(1)}" cy="${outerY.toFixed(1)}" r="2" fill="${entry.color}"/>
+      <text x="${labelX}" y="${entry.y - 3}" text-anchor="${anchor}" class="statistics-donut-label">${entry.key} ${name}</text>
+      <text x="${labelX}" y="${entry.y + 8}" text-anchor="${anchor}" class="statistics-donut-value">${entry.count} DATA · ${Math.round(entry.ratio * 100)}%</text>
+    `;
+  }).join("");
   return `
-    <div class="statistics-lane-metric" data-kind="${kind}">
-      <span>${label}</span>
-      <i><b style="width:${clampRatio(ratio) * 100}%"></b></i>
-      <output>${value}</output>
-    </div>
+    <svg class="statistics-donut-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${mode}構成 ${total}件">
+      <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" class="statistics-donut-track"/>
+      ${rings}
+      ${labels}
+      <text x="${centerX}" y="${centerY - 1}" text-anchor="middle" class="statistics-donut-total">${total}</text>
+      <text x="${centerX}" y="${centerY + 13}" text-anchor="middle" class="statistics-donut-caption">DATA</text>
+    </svg>
   `;
+}
+
+function buildMiniDonutSvg(entries, total) {
+  const width = 112;
+  const height = 86;
+  const centerX = 56;
+  const centerY = 45;
+  const radius = 28;
+  const circumference = Math.PI * 2 * radius;
+  let cursor = 0;
+  const rings = total
+    ? entries.map((entry) => {
+      const start = cursor;
+      cursor += entry.ratio;
+      const length = Math.max(entry.ratio * circumference - 1, 0);
+      return `<circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${entry.color}" stroke-width="4" stroke-dasharray="${length} ${circumference}" stroke-dashoffset="${-start * circumference}" transform="rotate(-90 ${centerX} ${centerY})"/>`;
+    }).join("")
+    : "";
+  return `
+    <svg class="statistics-mini-donut" viewBox="0 0 ${width} ${height}" aria-hidden="true">
+      <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" class="statistics-donut-track statistics-mini-donut__track"/>
+      ${rings}
+      <text x="${centerX}" y="${centerY + 3}" text-anchor="middle" class="statistics-mini-donut__total">${total}</text>
+    </svg>
+  `;
+}
+
+function arrangeDonutCallouts(entries, centerX, centerY, radius) {
+  const sides = { left: [], right: [] };
+  for (const entry of entries) {
+    const side = Math.cos(entry.angle) >= 0 ? "right" : "left";
+    sides[side].push({
+      ...entry,
+      side,
+      targetY: centerY + Math.sin(entry.angle) * (radius + 18),
+    });
+  }
+  return [...spreadCallouts(sides.left), ...spreadCallouts(sides.right)];
+}
+
+function spreadCallouts(entries) {
+  const minY = 20;
+  const maxY = 158;
+  const gap = 25;
+  const arranged = [...entries].sort((a, b) => a.targetY - b.targetY);
+  for (let index = 0; index < arranged.length; index += 1) {
+    const previousY = index ? arranged[index - 1].y : minY - gap;
+    arranged[index].y = Math.max(minY, arranged[index].targetY, previousY + gap);
+  }
+  if (arranged.length && arranged.at(-1).y > maxY) {
+    const shift = arranged.at(-1).y - maxY;
+    for (const entry of arranged) entry.y -= shift;
+  }
+  return arranged;
 }
 
 function sumPeople(memos) {
@@ -238,8 +390,4 @@ function sumPeople(memos) {
 
 function formatNumber(value) {
   return value < 10 ? value.toFixed(1) : String(Math.round(value));
-}
-
-function clampRatio(value) {
-  return Math.max(0, Math.min(1, value));
 }
