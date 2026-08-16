@@ -100,7 +100,7 @@ export function createAssigneeFilter({ root, sources, onChange }) {
   }
 
   setSelection(defaultSourceIds, { notify: false });
-  return { selectAll, getSelection };
+  return { selectAll, getSelection, setSelection };
 }
 
 function makeButton(label, value) {

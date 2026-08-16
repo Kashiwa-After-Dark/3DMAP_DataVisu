@@ -14,19 +14,31 @@ import {
   TIME_END_HOUR,
   TIME_START_HOUR,
 } from "../../shared/js/config.js?v=20260728-01";
-import { createAssigneeFilter } from "./features/assigneeFilter.js?v=20260725-21";
-import { createLegendFilter } from "./features/filters.js?v=20260726-41";
+import { createAssigneeFilter } from "./features/assigneeFilter.js?v=20260801-22";
+import { createLegendFilter } from "./features/filters.js?v=20260801-43";
 import { createTimelineInstruments } from "./features/instruments.js?v=20260724-12";
-import { create2DMapController } from "./features/map2d.js?v=20260726-30";
-import { createMemoTopDownView } from "./features/memoTopDownView.js?v=20260726-04";
+import { create2DMapController } from "./features/map2d.js?v=20260809-31";
+import { createMemoTopDownView } from "./features/memoTopDownView.js?v=20260809-07";
+import { applyPerspectiveCameraConstraints } from "./features/cameraConstraints.js?v=20260809-02";
 import { createCoordinateConnector } from "./features/coordinateConnector.js?v=20260726-02";
 import { createTimelineKeyboard } from "./features/timelineKeyboard.js?v=20260726-01";
+import { createTimelineRange } from "./features/timelineRange.js?v=20260801-08";
+import { createStatisticsMode } from "./features/statisticsMode.js?v=20260729-02";
+import { createStatisticsDashboard } from "./features/statisticsDashboard.js?v=20260811-03";
+import { classifyActivity } from "./features/activityClassifier.js?v=20260809-01";
+import { createPlaceSelection } from "./features/placeSelection.js?v=20260801-01";
+import { createRouteSelection } from "./features/routeSelection.js?v=20260801-04";
+import { createPanelStorage } from "./features/panelStorage.js?v=20260801-02";
+import { createTaskbarVisibility } from "./features/taskbarVisibility.js?v=20260801-02";
+import { createHintMode } from "./features/hintMode.js?v=20260801-12";
+import { createToolbarMenus } from "./features/toolbarMenus.js?v=20260810-01";
 import { createViewToggle } from "./features/viewToggle.js";
 import { formatTime } from "./formatters.js";
 import { getTimeRange, loadGpxDataset } from "./gpxData.js?v=20260726-01";
 import { createMapDisplay } from "../../shared/js/mapDisplay.js?v=20260728-01";
-import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20260726-30";
-import { renderMemoPanel } from "./features/memoPanel.js?v=20260726-43";
+import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20260809-01";
+import { renderMemoPanel } from "./features/memoPanel.js?v=20260809-45";
+import { translateDataText } from "./features/languageMode.js?v=20260810-03";
 
 const canvas = document.querySelector("#scene");
 const view3dButton = document.querySelector("#view-3d");
@@ -35,6 +47,8 @@ const playToggle = document.querySelector("#play-toggle");
 const timelinePanel = document.querySelector(".timeline");
 const timelineMinimize = document.querySelector("#timeline-minimize");
 const timeSlider = document.querySelector("#time-slider");
+const timeRangeStart = document.querySelector("#time-range-start");
+const timeRangeSelection = document.querySelector(".time-range-selection");
 const timeReadout = document.querySelector("#time-readout");
 const speedSlider = document.querySelector("#speed-slider");
 const speedReadout = document.querySelector("#speed-readout");
@@ -44,11 +58,20 @@ const timeEventMarkerLanes = new Map(
     .map((element) => [element.dataset.timeEventMarkers, element]),
 );
 const memoList = document.querySelector("#memo-list");
+const memoPanel = document.querySelector("#memo-panel");
+const memoPanelStorage = document.querySelector("#memo-panel-storage");
+const memoScrollViewport = document.querySelector("#memo-scroll-viewport");
 const legendFilterRoot = document.querySelector("#legend-filter");
 const analogClock = document.querySelector("#analog-clock");
 const compassCard = document.querySelector("#compass-card");
 const speedEngine = document.querySelector("#speed-engine");
 const assigneeList = document.querySelector("#assignee-list");
+const statisticsModeButton = document.querySelector("#statistics-mode");
+const statisticsDashboardRoot = document.querySelector("#statistics-dashboard");
+const routeSummaryRoot = document.querySelector("#route-summary");
+const topTaskbar = document.querySelector(".top-taskbar");
+const bottomTaskbar = document.querySelector(".data-code-guide");
+const hintModeButton = document.querySelector("#hint-mode");
 const sourcesById = new Map(GPX_FILES.map((source) => [source.id, source]));
 
 const mapDisplay = createMapDisplay(canvas);
@@ -79,6 +102,8 @@ let memoPoints = [];
 let memosBySource = new Map();
 let activeMemo = null;
 let hoveredMemo = null;
+let hoveredRouteLine = null;
+let routeSelectionRestoreSourceIds = null;
 let hoverSuppressedMemo = null;
 let selectionHaloTexture = null;
 let legendFilter = null;
@@ -87,6 +112,7 @@ let elapsedRouteLines = [];
 let elapsedCurtains = [];
 let playStartMs = 0;
 let playStartOffset = 0;
+let playbackStopOffset = 0;
 let isPlaying = false;
 let playbackEnded = false;
 let returnToDefaultViewOnPlay = false;
@@ -100,6 +126,8 @@ let playbackRate = 1;
 let lastFrameMs = performance.now();
 let iconPointerDown = null;
 let activeTimeSpacePeriodIndex = -2;
+let activeActivityFilter = "all";
+let currentLanguage = "ja";
 let timeAxisLevels = [];
 const followTarget = new THREE.Vector3();
 const followDirection = new THREE.Vector3(1, 0, 0);
@@ -114,6 +142,42 @@ const memoTopDownView = createMemoTopDownView({
   controls,
 });
 const coordinateConnector = createCoordinateConnector();
+const statisticsDashboard = createStatisticsDashboard({
+  root: statisticsDashboardRoot,
+  getLane: (sourceId) => sourcesById.get(sourceId)?.lane || "reysol",
+  onActivityFilterChange: (activity) => {
+    activeActivityFilter = activity;
+    if (timelineEnd) updateTimeline(Number(timeSlider.value));
+  },
+});
+const placeSelection = createPlaceSelection({
+  lanes: timeLaneElements,
+  onChange: (lanes) => {
+    if (!assigneeFilter) return;
+    const sourceIds = GPX_FILES
+      .filter((source) => source.visibleByDefault !== false && lanes.has(source.lane))
+      .map((source) => source.id);
+    assigneeFilter.setSelection(sourceIds);
+  },
+});
+const routeSelection = createRouteSelection({
+  root: routeSummaryRoot,
+  sources: GPX_FILES,
+  categories: CATEGORY_STYLES,
+  getMemos: (sourceId) => memosBySource.get(sourceId) || [],
+  onSelect: (source, { isSwitching }) => {
+    if (!isSwitching) {
+      routeSelectionRestoreSourceIds = assigneeFilter?.getSelection().sourceIds ?? null;
+    }
+    assigneeFilter?.setSelection([source.id]);
+  },
+  onDeselect: () => {
+    if (routeSelectionRestoreSourceIds?.length) {
+      assigneeFilter?.setSelection(routeSelectionRestoreSourceIds);
+    }
+    routeSelectionRestoreSourceIds = null;
+  },
+});
 const viewToggle = createViewToggle({
   view3dButton,
   view2dButton,
@@ -124,6 +188,23 @@ const timelineInstruments = createTimelineInstruments({
   compassCard,
   speedEngine,
 });
+const timelineRange = createTimelineRange({
+  endSlider: timeSlider,
+  startSlider: timeRangeStart,
+  selection: timeRangeSelection,
+  onChange: ({ end }) => {
+    stopPlayback({ ended: end >= Number(timeSlider.max) });
+    updateTimeline(end);
+  },
+});
+createPanelStorage({
+  panel: memoPanel,
+  button: memoPanelStorage,
+  content: memoScrollViewport,
+});
+createTaskbarVisibility({ bars: [topTaskbar, bottomTaskbar] });
+createHintMode({ button: hintModeButton, app: document.querySelector("#app") });
+createToolbarMenus({ root: topTaskbar });
 timelineInstruments.updateSpeed(playbackRate);
 viewToggle.setActive(viewMode);
 
@@ -139,11 +220,6 @@ timelinePanel.addEventListener("pointermove", moveTimelineDrag);
 timelinePanel.addEventListener("pointerup", endTimelineDrag);
 timelinePanel.addEventListener("pointercancel", endTimelineDrag);
 speedSlider.addEventListener("input", () => setPlaybackRate(Number(speedSlider.value)));
-timeSlider.addEventListener("input", () => {
-  const seconds = Number(timeSlider.value);
-  stopPlayback({ ended: seconds >= Number(timeSlider.max) });
-  updateTimeline(seconds);
-});
 createTimelineKeyboard({
   getCurrentSeconds: () => Number(timeSlider.value),
   getMaxSeconds: () => Number(timeSlider.max),
@@ -151,6 +227,22 @@ createTimelineKeyboard({
   onSeek: (seconds, options) => {
     stopPlayback(options);
     updateTimeline(seconds);
+  },
+});
+createStatisticsMode({
+  button: statisticsModeButton,
+  timeline: timelinePanel,
+  minimizeTimeline: toggleTimelineMinimized,
+  setFilterCollapsed: (collapsed) => legendFilter?.setCollapsed(collapsed),
+  onEnter: () => {
+    coordinateConnector.hide();
+    activeMemo = null;
+    hoveredMemo = null;
+    updateTimeline(Number(timeSlider.value));
+  },
+  onChange: (active) => {
+    statisticsDashboard.setActive(active);
+    if (active) updateTimeline(Number(timeSlider.value));
   },
 });
 canvas.addEventListener("pointerdown", startIconSelection);
@@ -181,8 +273,7 @@ function fitCameraToModel() {
   perspectiveCamera.near = Math.max(distance / 2000, 0.1);
   perspectiveCamera.far = distance * 6;
   perspectiveCamera.updateProjectionMatrix();
-  controls.maxDistance = distance * 4;
-  controls.minDistance = distance * 0.18;
+  applyPerspectiveCameraConstraints(controls, distance);
 
   groundGrid.position.set(modelCenter.x, -0.04, modelCenter.z);
   groundGrid.scale.setScalar(Math.max(maxSize / 900, 1));
@@ -252,7 +343,7 @@ function updateCameraVisualDensity() {
     syncMemoMarkerScale(memo);
   }
   for (const { curtain } of elapsedCurtains) {
-    const opacity = (config.curtainOpacity ?? 0.32) * 0.18;
+    const opacity = THREE.MathUtils.clamp(config.curtainOpacity ?? 0.2, 0.1, 0.3);
     const materials = Array.isArray(curtain.material) ? curtain.material : [curtain.material];
     materials[0].opacity = opacity;
     if (materials[1]) materials[1].opacity = opacity * 0.22;
@@ -283,6 +374,7 @@ function setPerspectiveView() {
 
   controls.enableRotate = true;
   controls.enablePan = true;
+  applyPerspectiveCameraConstraints(controls, distance);
   controls.update();
 }
 
@@ -311,6 +403,7 @@ async function loadGpx() {
 
   ({ start: timelineStart, end: timelineEnd } = getTimeRange(trackPoints[0].time));
   timeSlider.max = String(Math.round((timelineEnd - timelineStart) / 1000));
+  timelineRange.setMax(Number(timeSlider.max));
   playbackScale = Number(timeSlider.max) / PLAYBACK_DURATION_SECONDS;
 
   addRouteLines();
@@ -322,6 +415,7 @@ async function loadGpx() {
     sources: GPX_FILES,
     onChange: applyFilters,
     onSourcesReset: () => {
+      placeSelection.selectAll({ notify: false });
       assigneeFilter?.selectAll({ notify: false });
       setHighlightedTimeSegments([0, 1, 2]);
     },
@@ -330,6 +424,10 @@ async function loadGpx() {
     root: assigneeList,
     sources: GPX_FILES,
     onChange: ({ sourceIds, segmentIndexes, laneSegmentIndexes }) => {
+      const selectedLanes = new Set(
+        GPX_FILES.filter((source) => sourceIds.includes(source.id)).map((source) => source.lane),
+      );
+      placeSelection.setSelection(selectedLanes, { notify: false });
       legendFilter.setSources(sourceIds);
       setHighlightedTimeSegments(segmentIndexes, laneSegmentIndexes);
       applyFilters();
@@ -376,6 +474,7 @@ function addRouteLines() {
       }),
     );
     fullRouteLine.renderOrder = 20;
+    fullRouteLine.userData.routeSourceId = track.sourceId;
     gpxGroup.add(fullRouteLine);
 
     const line = new THREE.Line(
@@ -388,9 +487,11 @@ function addRouteLines() {
       }),
     );
     line.renderOrder = 21;
+    line.userData.routeSourceId = track.sourceId;
     line.geometry.setDrawRange(0, 0);
     gpxGroup.add(line);
     const routeHead = createRouteHead();
+    routeHead.userData.connector.userData.routeSourceId = track.sourceId;
     gpxGroup.add(routeHead);
     elapsedRouteLines.push({
       fullRouteLine,
@@ -400,31 +501,44 @@ function addRouteLines() {
       sourceId: track.sourceId,
     });
 
+    const curtainGeometry = createCurtainGeometry(track.points, track.sourceId);
+    const curtainDepth = new THREE.Mesh(
+      curtainGeometry,
+      new THREE.MeshBasicMaterial({
+        colorWrite: false,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide,
+      }),
+    );
     const curtain = new THREE.Mesh(
-      createCurtainGeometry(track.points, track.sourceId),
+      curtainGeometry,
       [
         new THREE.MeshBasicMaterial({
           vertexColors: true,
           transparent: true,
-          opacity: 0.06,
+          opacity: 0.12,
           side: THREE.DoubleSide,
           depthWrite: false,
-          depthTest: false,
+          depthTest: true,
+          depthFunc: THREE.EqualDepth,
         }),
         new THREE.MeshBasicMaterial({
           vertexColors: true,
           transparent: true,
-          opacity: 0.014,
+          opacity: 0.025,
           side: THREE.DoubleSide,
           depthWrite: false,
-          depthTest: false,
+          depthTest: true,
+          depthFunc: THREE.EqualDepth,
         }),
       ],
     );
+    curtainDepth.renderOrder = 17;
     curtain.renderOrder = 18;
     curtain.geometry.setDrawRange(0, 0);
-    gpxGroup.add(curtain);
-    elapsedCurtains.push({ curtain, points: track.points, sourceId: track.sourceId });
+    gpxGroup.add(curtainDepth, curtain);
+    elapsedCurtains.push({ curtain, curtainDepth, points: track.points, sourceId: track.sourceId });
   }
 }
 
@@ -658,8 +772,7 @@ function focusCameraOnRoute() {
   perspectiveCamera.near = Math.max(distance / 2000, 0.1);
   perspectiveCamera.far = distance * 10;
   perspectiveCamera.updateProjectionMatrix();
-  controls.minDistance = distance * 0.14;
-  controls.maxDistance = distance * 5;
+  applyPerspectiveCameraConstraints(controls, distance);
   controls.update();
 }
 
@@ -689,40 +802,34 @@ function createMemoMarker(memo, offsetSlot) {
   const group = new THREE.Group();
   group.position.copy(frame.position).add(offset);
   group.position.y = timeToHeight(memo.time);
+  const mapAnchor = new THREE.Vector3(
+    -offset.x,
+    TIME_BASE_Y - group.position.y,
+    -offset.z,
+  );
 
   const leader = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), offset.clone().multiplyScalar(-1)]),
+    new THREE.BufferGeometry().setFromPoints([mapAnchor, new THREE.Vector3()]),
     new THREE.LineBasicMaterial({
       color: categoryColor,
       transparent: true,
-      opacity: lateralOffset ? 0.3 : 0.18,
+      opacity: 0.28,
       depthTest: false,
     }),
   );
   leader.renderOrder = 29;
-
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(1.15, 12, 8),
-    new THREE.MeshBasicMaterial({
-      color: categoryColor,
-      transparent: true,
-      opacity: 0.4,
-      depthTest: false,
-    }),
-  );
-  head.renderOrder = 31;
+  leader.userData.routeSourceId = memo.sourceId;
 
   const stamp = makeGraffitiStamp(memo, category);
   stamp.position.y = 2.2;
   stamp.userData.baseScale = stamp.scale.clone();
   const selectionHalo = makeSelectionHalo(categoryColor, stamp);
   group.userData.stamp = stamp;
-  group.userData.head = head;
   group.userData.leader = leader;
   group.userData.selectionHalo = selectionHalo;
   stamp.userData.memo = memo;
 
-  group.add(leader, head, selectionHalo, stamp);
+  group.add(leader, selectionHalo, stamp);
   return group;
 }
 
@@ -742,25 +849,79 @@ function finishIconSelection(event) {
   if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
 
   const memo = getMemoIconAtPointer(event);
-  if (memo) selectMemo(memo);
+  if (memo) {
+    selectMemo(memo);
+    return;
+  }
+  const routeHit = getRouteHitAtPointer(event);
+  if (routeHit) {
+    setHoveredRouteLine(null);
+    routeSelection.select(routeHit.sourceId, event);
+  }
 }
 
 function cancelIconSelection() {
   iconPointerDown = null;
   canvas.style.cursor = "";
   setHoveredMemo(null);
+  setHoveredRouteLine(null);
 }
 
 function updateIconCursor(event) {
   if (event.buttons !== 0) {
     canvas.style.cursor = "";
     setHoveredMemo(null);
+    setHoveredRouteLine(null);
     return;
   }
   const memo = getMemoIconAtPointer(event);
-  canvas.style.cursor = memo ? "pointer" : "";
+  const routeHit = memo ? null : getRouteHitAtPointer(event);
+  canvas.style.cursor = memo || routeHit ? "pointer" : "";
   if (memo && hoverSuppressedMemo === memo) hoverSuppressedMemo = null;
   setHoveredMemo(memo);
+  setHoveredRouteLine(routeHit?.object ?? null);
+}
+
+function getRouteHitAtPointer(event) {
+  const leaders = [
+    ...elapsedRouteLines
+      .filter(({ fullRouteLine }) => fullRouteLine.visible)
+      .flatMap(({ fullRouteLine, line }) => [fullRouteLine, line]),
+    ...elapsedRouteLines
+      .filter(({ head }) => head.visible)
+      .map(({ head }) => head.userData.connector),
+  ];
+  if (!leaders.length) return null;
+
+  const rect = canvas.getBoundingClientRect();
+  pointer.set(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  raycaster.setFromCamera(pointer, activeCamera);
+  const previousThreshold = raycaster.params.Line.threshold;
+  raycaster.params.Line.threshold = 4.5;
+  const hit = raycaster.intersectObjects(leaders, false)[0] ?? null;
+  raycaster.params.Line.threshold = previousThreshold;
+  return hit ? { sourceId: hit.object.userData.routeSourceId, object: hit.object } : null;
+}
+
+function setHoveredRouteLine(line) {
+  if (hoveredRouteLine === line) return;
+  if (hoveredRouteLine?.material) {
+    hoveredRouteLine.material.opacity = hoveredRouteLine.userData.hoverBaseOpacity;
+    hoveredRouteLine.material.color.setHex(hoveredRouteLine.userData.hoverBaseColor);
+    hoveredRouteLine.material.needsUpdate = true;
+  }
+  hoveredRouteLine = line;
+  if (!hoveredRouteLine?.material) return;
+  if (hoveredRouteLine.userData.hoverBaseOpacity === undefined) {
+    hoveredRouteLine.userData.hoverBaseOpacity = hoveredRouteLine.material.opacity;
+    hoveredRouteLine.userData.hoverBaseColor = hoveredRouteLine.material.color.getHex();
+  }
+  hoveredRouteLine.material.opacity = 1;
+  hoveredRouteLine.material.color.setHex(0xffffff);
+  hoveredRouteLine.material.needsUpdate = true;
 }
 
 function getMemoIconAtPointer(event) {
@@ -817,13 +978,19 @@ function makeSelectionHalo(color, stamp) {
   return halo;
 }
 
-function updateTimeline(seconds) {
-  const currentTime = timelineStart + seconds * 1000;
-  syncActiveTimeSpacePeriod(seconds);
+function updateTimeline(seconds, { playback = false } = {}) {
+  if (playback) timelineRange.setPlaybackPosition(seconds);
+  else timelineRange.setEnd(seconds);
+  const endSeconds = timelineRange.getEndSeconds();
+  const currentTime = timelineStart + endSeconds * 1000;
+  const rangeStartTime = timelineStart + timelineRange.getStartSeconds() * 1000;
+  syncActiveTimeSpacePeriod(endSeconds);
   timelineInstruments.updateTime(currentTime);
-  timeSlider.value = String(seconds);
-  timeReadout.textContent = formatTime(currentTime);
-  const progress = THREE.MathUtils.clamp(seconds / Number(timeSlider.max), 0, 1);
+  timeSlider.value = String(endSeconds);
+  timeReadout.textContent = timelineRange.isActive()
+    ? `${formatTime(rangeStartTime).slice(0, 5)}—${formatTime(currentTime).slice(0, 5)}`
+    : formatTime(currentTime);
+  const progress = THREE.MathUtils.clamp(endSeconds / Number(timeSlider.max), 0, 1);
   for (const lane of timeLaneElements) {
     const fills = [...lane.querySelectorAll("[data-time-gauge-fill]")];
     for (const [index, fill] of fills.entries()) {
@@ -834,14 +1001,18 @@ function updateTimeline(seconds) {
 
   for (const { fullRouteLine, line, head, points, sourceId } of elapsedRouteLines) {
     const sourceVisible = sourceIsVisible(sourceId);
+    const routeStart = timelineRange.isActive()
+      ? Math.max(0, countPointsUntil(points, rangeStartTime) - 1)
+      : 0;
     const routeCount = countPointsUntil(points, currentTime);
     const routeIsActive = currentTime >= points[0].time
       && currentTime <= points[points.length - 1].time;
-    const routeHasStarted = routeCount > 1;
+    const visibleRouteCount = Math.max(0, routeCount - routeStart);
+    const routeHasStarted = visibleRouteCount > 1;
     fullRouteLine.visible = sourceVisible && routeHasStarted;
-    fullRouteLine.geometry.setDrawRange(0, routeCount);
+    fullRouteLine.geometry.setDrawRange(routeStart, visibleRouteCount);
     line.visible = sourceVisible && routeHasStarted;
-    line.geometry.setDrawRange(0, routeCount);
+    line.geometry.setDrawRange(routeStart, visibleRouteCount);
     head.visible = sourceVisible && routeIsActive;
     if (head.visible) {
       const headTime = Math.min(currentTime, points[points.length - 1].time);
@@ -856,31 +1027,40 @@ function updateTimeline(seconds) {
       connectorPositions.needsUpdate = true;
     }
   }
-  for (const { curtain, points, sourceId } of elapsedCurtains) {
-    curtain.visible = sourceIsVisible(sourceId);
+  for (const { curtain, curtainDepth, points, sourceId } of elapsedCurtains) {
+    const curtainStart = timelineRange.isActive()
+      ? Math.max(0, countPointsUntil(points, rangeStartTime) - 1)
+      : 0;
     const routeCount = countPointsUntil(points, currentTime);
-    curtain.geometry.setDrawRange(0, Math.max(0, routeCount - 1) * 6);
+    const curtainSegmentCount = Math.max(0, routeCount - 1 - curtainStart);
+    curtain.visible = sourceIsVisible(sourceId) && curtainSegmentCount > 0;
+    curtain.geometry.setDrawRange(curtainStart * 6, curtainSegmentCount * 6);
+    curtainDepth.visible = curtain.visible;
   }
 
   const visibleMemos = memoPoints.filter(
-    (memo) => memo.time <= currentTime && memoMatchesFilters(memo),
+    (memo) => (
+      memo.time >= rangeStartTime
+      && memo.time <= currentTime
+      && memoMatchesFilters(memo)
+      && memoMatchesActivity(memo)
+    ),
   );
   const visibleMemoSet = new Set(visibleMemos);
   const recentMemos = new Set(visibleMemos.slice(-10));
   for (const memo of memoPoints) {
     const matches = visibleMemoSet.has(memo);
-    const hasOccurred = memo.time <= currentTime;
+    const isInTimeRange = memo.time >= rangeStartTime && memo.time <= currentTime;
     memo.marker.visible = sourceIsVisible(memo.sourceId);
-    memo.marker.userData.leader.visible = hasOccurred;
+    memo.marker.userData.leader.visible = isInTimeRange && memoMatchesActivity(memo);
     const isHovered = memo === hoveredMemo;
     const isEmphasized = memo === activeMemo || isHovered;
-    memo.marker.userData.stamp.visible = matches && (hasOccurred || isHovered);
-    memo.marker.userData.head.visible = (
+    memo.marker.userData.stamp.visible = matches && (isInTimeRange || isHovered);
+    memo.marker.userData.selectionHalo.visible = (
       matches
-      && memo !== activeMemo
-      && (hasOccurred || isHovered)
+      && isEmphasized
+      && (isInTimeRange || isHovered)
     );
-    memo.marker.userData.selectionHalo.visible = matches && isEmphasized && (hasOccurred || isHovered);
     syncMemoMarkerScale(memo);
     syncMemoMarkerOpacity(memo, recentMemos.has(memo));
   }
@@ -895,6 +1075,15 @@ function updateTimeline(seconds) {
     onSelect: selectMemo,
     onHover: setHoveredMemo,
     onHoverSuppressionEnd: clearHoverSuppression,
+    language: currentLanguage,
+    translateText: translateDataText,
+  });
+  statisticsDashboard.update({
+    memos: memoPoints.filter(memoMatchesFilters),
+    currentTime,
+    rangeStartTime,
+    timelineStart,
+    timelineEnd,
   });
 }
 
@@ -974,6 +1163,10 @@ function renderTimelineMarkers() {
 
 function memoMatchesFilters(memo) {
   return legendFilter?.matches(memo) ?? true;
+}
+
+function memoMatchesActivity(memo) {
+  return activeActivityFilter === "all" || classifyActivity(memo) === activeActivityFilter;
 }
 
 function sourceIsVisible(sourceId) {
@@ -1061,6 +1254,8 @@ function focusCameraOnMemo(memo) {
   activeCamera = memoTopDownView.activate({
     mapFocus: focus,
     maxSize: cameraState.maxSize,
+    viewportWidth: Math.max(canvas.clientWidth, 1),
+    viewportHeight: Math.max(canvas.clientHeight, 1),
   });
 }
 
@@ -1071,7 +1266,7 @@ function togglePlayback() {
   }
 
   if (playbackEnded) {
-    updateTimeline(0);
+    updateTimeline(timelineRange.resetPlayback());
     playbackEnded = false;
   }
   if (returnToDefaultViewOnPlay) {
@@ -1082,13 +1277,16 @@ function togglePlayback() {
   }
   isPlaying = true;
   syncPlaybackButton();
-  playStartOffset = Number(timeSlider.value);
+  const playbackRange = timelineRange.beginPlayback();
+  playStartOffset = playbackRange.offset;
+  playbackStopOffset = playbackRange.max;
   playStartMs = performance.now();
 }
 
 function stopPlayback({ ended = false } = {}) {
   isPlaying = false;
   playbackEnded = ended;
+  timelineRange.endPlayback({ preserveReplay: ended });
   syncPlaybackButton();
 }
 
@@ -1354,9 +1552,9 @@ function setPlaybackRate(nextRate) {
   const now = performance.now();
   if (isPlaying) {
     const elapsedSeconds = ((now - playStartMs) / 1000) * playbackScale * playbackRate;
-    playStartOffset = Math.min(Number(timeSlider.max), playStartOffset + elapsedSeconds);
+    playStartOffset = Math.min(playbackStopOffset, playStartOffset + elapsedSeconds);
     playStartMs = now;
-    updateTimeline(Math.floor(playStartOffset));
+    updateTimeline(Math.floor(playStartOffset), { playback: true });
   }
 
   playbackRate = THREE.MathUtils.clamp(nextRate, Number(speedSlider.min), Number(speedSlider.max));
@@ -1479,8 +1677,8 @@ function updateFollowCamera(deltaSeconds) {
 }
 
 function resize() {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
+  const width = Math.max(canvas.clientWidth, 1);
+  const height = Math.max(canvas.clientHeight, 1);
   perspectiveCamera.aspect = width / height;
   perspectiveCamera.updateProjectionMatrix();
   map2d.resize(width, height);
@@ -1495,11 +1693,11 @@ function animate() {
 
   if (isPlaying) {
     const nextSeconds = Math.min(
-      Number(timeSlider.max),
+      playbackStopOffset,
       playStartOffset + Math.floor(((frameMs - playStartMs) / 1000) * playbackScale * playbackRate),
     );
-    updateTimeline(nextSeconds);
-    if (nextSeconds >= Number(timeSlider.max)) {
+    updateTimeline(nextSeconds, { playback: true });
+    if (nextSeconds >= playbackStopOffset) {
       stopPlayback({ ended: true });
     }
   }

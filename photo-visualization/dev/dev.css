@@ -3,3 +3,100 @@
  * 共通表示を読み込んだあと、このファイル内の指定で上書きできます。
  */
 @import url("../css/viewFinder.css?v=20260728-01");
+
+.dev-viewer .photo-viewer__header {
+  grid-template-columns: 42px minmax(0, 1fr) auto auto;
+}
+
+.photo-edit-button {
+  padding: 9px 16px;
+  border: 1px solid rgb(0 200 255 / 62%);
+  border-radius: 999px;
+  color: #92e9ff;
+  font-family: "Kiwi Maru", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  background: rgb(0 25 42 / 72%);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.photo-edit-button:hover,
+.photo-edit-button:focus-visible {
+  border-color: #00d9ff;
+  color: #fff;
+  box-shadow: 0 0 18px rgb(0 217 255 / 24%);
+}
+
+.photo-edit-button[hidden] {
+  display: none;
+}
+
+.github-publish {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr);
+  align-items: center;
+  gap: 8px 14px;
+  margin: 14px 0 2px;
+  padding: 14px 16px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.github-publish label {
+  color: #92dfff;
+  font-family: Ubuntu, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.github-publish input {
+  min-width: 0;
+  padding: 10px 12px;
+  color: #fff;
+  border: 1px solid rgb(146 223 255 / 35%);
+  border-radius: 999px;
+  outline: none;
+  background: rgb(0 0 0 / 32%);
+}
+
+.github-publish input:focus {
+  border-color: #00c8ff;
+  box-shadow: 0 0 0 3px rgb(0 200 255 / 12%);
+}
+
+.github-publish p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: rgb(255 255 255 / 62%);
+  font-size: 12px;
+}
+
+.github-publish p.is-error {
+  color: #ff9aab;
+}
+
+.github-publish p.is-success {
+  color: #71f7d0;
+}
+
+@media (max-width: 720px) {
+  .dev-viewer .photo-viewer__header {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+  }
+
+  .photo-edit-button {
+    grid-column: 2 / -1;
+    justify-self: end;
+  }
+
+  .github-publish {
+    grid-template-columns: 1fr;
+  }
+
+  .github-publish p {
+    grid-column: auto;
+  }
+}

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./dev.css?v=20260725-05" />
+    <link rel="stylesheet" href="./dev.css?v=20260728-07" />
     <script type="importmap">
       {
         "imports": {
@@ -65,6 +65,7 @@
             <strong id="photo-title">PHOTO</strong>
           </div>
           <output id="photo-position">1 / 31</output>
+          <button id="edit-current-photo" class="photo-edit-button" type="button">修正する</button>
         </header>
         <div class="photo-viewer__reticle" aria-hidden="true"><i></i></div>
         <aside id="calibration-panel" class="calibration-panel" aria-label="写真視点の座標と角度" hidden>
@@ -152,12 +153,27 @@
             <div><span id="calibration-summary-label">CALIBRATION COMPLETE</span><h2 id="calibration-summary-title">31枚の調整結果</h2></div>
             <button id="close-calibration-summary" type="button" aria-label="結果を閉じる">×</button>
           </header>
-          <p>下の内容をコピーして、そのままCodexへ送ってください。</p>
+          <p>調整結果をGitHubへ保存すると、公開サイトの更新が自動で始まります。</p>
           <div id="calibration-result-list" class="calibration-result-list"></div>
           <textarea id="calibration-output" readonly aria-label="コピー用の視点調整JSON"></textarea>
+          <div class="github-publish">
+            <label for="github-access-token">GitHub access token</label>
+            <input
+              id="github-access-token"
+              type="password"
+              inputmode="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="初回のみ入力"
+            />
+            <p id="github-publish-status" role="status" aria-live="polite">
+              Repository contentsの書き込み権限を持つトークンを使用します。
+            </p>
+          </div>
           <footer>
             <button id="restart-calibration" type="button">最初から調整</button>
-            <button id="copy-calibration" class="calibration-copy" type="button">結果をコピー</button>
+            <button id="copy-calibration" type="button">結果をコピー</button>
+            <button id="publish-calibration" class="calibration-copy" type="button">公開サイトへ反映</button>
           </footer>
         </div>
       </section>
@@ -168,6 +184,6 @@
       </div>
     </main>
 
-    <script type="module" src="./dev.js?v=20260726-21"></script>
+    <script type="module" src="./dev.js?v=20260728-05"></script>
   </body>
 </html>

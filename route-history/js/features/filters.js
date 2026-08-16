@@ -53,6 +53,18 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     syncStateFromUi(state, root);
     onChange?.();
   };
+  const setViewLevel = (nextLevel, toggleButton = root.querySelector(".legend-filter__toggle")) => {
+    viewLevel = nextLevel === 0 ? 0 : 1;
+    root.classList.toggle("is-collapsed", viewLevel === 0);
+    root.dataset.viewLevel = String(viewLevel);
+
+    if (!toggleButton) return;
+    const isExpanded = viewLevel > 0;
+    toggleButton.textContent = isExpanded ? "−" : "+";
+    toggleButton.title = isExpanded ? "フィルターを最小化" : "フィルターを最大化";
+    toggleButton.setAttribute("aria-label", toggleButton.title);
+    toggleButton.setAttribute("aria-expanded", String(isExpanded));
+  };
   const header = makeHeader({
     countReadout,
     onReset: () => {
@@ -61,26 +73,14 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       onChange?.();
     },
     onToggle: (button) => {
-      viewLevel = viewLevel === 0 ? 1 : 0;
-      root.classList.toggle("is-collapsed", viewLevel === 0);
-      root.dataset.viewLevel = String(viewLevel);
-
-      if (viewLevel === 0) {
-        button.textContent = "+";
-        button.title = "フィルターを表示";
-        button.setAttribute("aria-label", "フィルターを表示");
-      } else {
-        button.textContent = "−";
-        button.title = "フィルターを最小化";
-        button.setAttribute("aria-label", "フィルターを最小化");
-      }
-      button.setAttribute("aria-expanded", String(viewLevel > 0));
+      setViewLevel(viewLevel === 0 ? 1 : 0, button);
     },
   });
+  const storage = makeStorageButton(root);
 
-  root.classList.remove("is-collapsed");
+  root.classList.remove("is-collapsed", "is-stored");
   root.dataset.viewLevel = String(viewLevel);
-  root.replaceChildren(header, content);
+  root.replaceChildren(header, content, storage);
   syncCountRangeUi(root);
   root.addEventListener("click", (event) => {
     const option = event.target.closest(".legend-filter__option");
@@ -124,6 +124,9 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     setSources: (sourceIds) => {
       state.sources = new Set(sourceIds);
     },
+    setCollapsed: (collapsed) => {
+      setViewLevel(collapsed ? 0 : 1);
+    },
     state,
   };
 }
@@ -155,6 +158,24 @@ function makeHeader({ countReadout, onReset, onToggle }) {
 
   header.append(toggle, title, count, reset);
   return header;
+}
+
+function makeStorageButton(root) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "legend-filter__storage";
+  button.innerHTML = '<span aria-hidden="true"></span>';
+
+  const setStored = (stored) => {
+    root.classList.toggle("is-stored", stored);
+    button.setAttribute("aria-expanded", String(!stored));
+    button.setAttribute("aria-label", stored ? "フィルターを画面に戻す" : "フィルターを画面外へ収納");
+    button.title = button.getAttribute("aria-label");
+  };
+
+  button.addEventListener("click", () => setStored(!root.classList.contains("is-stored")));
+  setStored(false);
+  return button;
 }
 
 function makeOptionGroup(title, options, variant = "") {
