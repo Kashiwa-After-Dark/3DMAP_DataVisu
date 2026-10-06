@@ -15,7 +15,7 @@ import {
   TIME_START_HOUR,
 } from "../../shared/js/config.js?v=20260728-01";
 import { createAssigneeFilter } from "./features/assigneeFilter.js?v=20260801-22";
-import { createLegendFilter } from "./features/filters.js?v=20260801-43";
+import { createLegendFilter } from "./features/filters.js?v=20260826-45";
 import { createTimelineInstruments } from "./features/instruments.js?v=20260724-12";
 import { create2DMapController } from "./features/map2d.js?v=20260809-31";
 import { createMemoTopDownView } from "./features/memoTopDownView.js?v=20260809-07";
@@ -30,13 +30,13 @@ import { createPlaceSelection } from "./features/placeSelection.js?v=20260801-01
 import { createRouteSelection } from "./features/routeSelection.js?v=20260801-04";
 import { createPanelStorage } from "./features/panelStorage.js?v=20260801-02";
 import { createTaskbarVisibility } from "./features/taskbarVisibility.js?v=20260801-02";
-import { createHintMode } from "./features/hintMode.js?v=20260801-12";
+import { createHintMode } from "./features/hintMode.js?v=20260826-12";
 import { createToolbarMenus } from "./features/toolbarMenus.js?v=20260810-01";
 import { createViewToggle } from "./features/viewToggle.js";
 import { formatTime } from "./formatters.js";
 import { getTimeRange, loadGpxDataset } from "./gpxData.js?v=20260726-01";
 import { createMapDisplay } from "../../shared/js/mapDisplay.js?v=20260728-01";
-import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20260809-01";
+import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20260825-03";
 import { renderMemoPanel } from "./features/memoPanel.js?v=20260809-45";
 import { translateDataText } from "./features/languageMode.js?v=20260810-03";
 
@@ -107,6 +107,8 @@ let routeSelectionRestoreSourceIds = null;
 let hoverSuppressedMemo = null;
 let selectionHaloTexture = null;
 let legendFilter = null;
+let filterStoredBeforeHint = true;
+let filterCollapsedBeforeHint = false;
 let assigneeFilter = null;
 let elapsedRouteLines = [];
 let elapsedCurtains = [];
@@ -203,7 +205,22 @@ createPanelStorage({
   content: memoScrollViewport,
 });
 createTaskbarVisibility({ bars: [topTaskbar, bottomTaskbar] });
-createHintMode({ button: hintModeButton, app: document.querySelector("#app") });
+createHintMode({
+  button: hintModeButton,
+  linkedButtons: [...document.querySelectorAll("[data-hint-mode-button]")],
+  app: document.querySelector("#app"),
+  onActiveChange: (active) => {
+    if (active) {
+      filterStoredBeforeHint = legendFilter?.isStored() ?? legendFilterRoot.classList.contains("is-stored");
+      filterCollapsedBeforeHint = legendFilter?.isCollapsed() ?? legendFilterRoot.classList.contains("is-collapsed");
+      legendFilter?.setStored(false);
+      legendFilter?.setCollapsed(false);
+    } else {
+      legendFilter?.setCollapsed(filterCollapsedBeforeHint);
+      legendFilter?.setStored(filterStoredBeforeHint);
+    }
+  },
+});
 createToolbarMenus({ root: topTaskbar });
 timelineInstruments.updateSpeed(playbackRate);
 viewToggle.setActive(viewMode);
@@ -350,13 +367,13 @@ function updateCameraVisualDensity() {
   }
 }
 
-function syncMemoMarkerScale(memo) {
+function syncMemoMarkerScale(memo, isRecent = memo.marker?.userData.isRecent ?? false) {
   const stamp = memo.marker?.userData.stamp;
   const baseScale = stamp?.userData.baseScale;
   if (!stamp || !baseScale) return;
+  memo.marker.userData.isRecent = isRecent;
   const cameraScale = CAMERA_MODES[cameraMode].stampScale ?? 1;
-  const selectedScale = memo === activeMemo ? 1.35 : memo === hoveredMemo ? 1.24 : 1;
-  stamp.scale.copy(baseScale).multiplyScalar(cameraScale * selectedScale);
+  stamp.scale.copy(baseScale).multiplyScalar(cameraScale);
 }
 
 function setPerspectiveView() {
@@ -1047,7 +1064,12 @@ function updateTimeline(seconds, { playback = false } = {}) {
     ),
   );
   const visibleMemoSet = new Set(visibleMemos);
-  const recentMemos = new Set(visibleMemos.slice(-10));
+  const recentMemos = new Set(
+    [...visibleMemos]
+      .filter((memo) => sourceIsVisible(memo.sourceId))
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 10),
+  );
   for (const memo of memoPoints) {
     const matches = visibleMemoSet.has(memo);
     const isInTimeRange = memo.time >= rangeStartTime && memo.time <= currentTime;
@@ -1061,8 +1083,9 @@ function updateTimeline(seconds, { playback = false } = {}) {
       && isEmphasized
       && (isInTimeRange || isHovered)
     );
-    syncMemoMarkerScale(memo);
-    syncMemoMarkerOpacity(memo, recentMemos.has(memo));
+    const isRecent = recentMemos.has(memo);
+    syncMemoMarkerScale(memo, isRecent);
+    syncMemoMarkerOpacity(memo, isRecent);
   }
 
   renderMemoPanel({
@@ -1114,9 +1137,18 @@ function syncActiveTimeSpacePeriod(seconds) {
 function syncMemoMarkerOpacity(memo, isRecent) {
   const stamp = memo.marker?.userData.stamp;
   const head = memo.marker?.userData.head;
-  const opacity = memo === activeMemo || memo === hoveredMemo || isRecent ? 1 : 0.5;
-  if (stamp?.material) stamp.material.opacity = opacity;
-  if (head?.material) head.material.opacity = opacity;
+  const isFocused = memo === activeMemo || memo === hoveredMemo;
+  const opacity = isFocused || isRecent ? 1 : 0.62;
+  const renderOrder = isFocused ? 37 : isRecent ? 36 : 32;
+  if (stamp?.material) {
+    stamp.userData.setSolid?.(isFocused || isRecent);
+    stamp.material.opacity = opacity;
+    stamp.renderOrder = renderOrder;
+  }
+  if (head?.material) {
+    head.material.opacity = opacity;
+    head.renderOrder = renderOrder;
+  }
 }
 
 function renderTimelineMarkers() {

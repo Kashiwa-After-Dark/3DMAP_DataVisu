@@ -2,9 +2,12 @@ import * as THREE from "three";
 import { hexToRgbChannels } from "../formatters.js";
 
 export function getMarkerSize(memo) {
-  if (!memo.isPeople) return 9;
+  if (!memo.isPeople) return 8;
   const count = memo.count || 1;
-  return THREE.MathUtils.clamp(12 + count * 3.6, 16, 54);
+  if (count <= 3) return 14;
+  if (count <= 5) return 18;
+  if (count <= 10) return 23;
+  return 29;
 }
 
 export function makeGraffitiStamp(memo, category) {
@@ -13,36 +16,47 @@ export function makeGraffitiStamp(memo, category) {
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
   const rgb = hexToRgbChannels(category.color);
+  const drawStamp = (isSolid) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = isSolid ? category.color : `rgba(${rgb}, 0.18)`;
+    ctx.strokeStyle = category.color;
+    ctx.lineWidth = isSolid ? 4.2 : 3.5;
+    ctx.lineJoin = "round";
+    drawGenderShape(ctx, memo.gender);
+    ctx.fill();
+    ctx.stroke();
 
-  ctx.fillStyle = `rgba(${rgb}, 0.12)`;
-  ctx.strokeStyle = category.color;
-  ctx.lineWidth = 3.5;
-  ctx.lineJoin = "round";
-  drawGenderShape(ctx, memo.gender);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.save();
-  ctx.translate(128, 128);
-  ctx.scale(0.87, 0.87);
-  ctx.translate(-128, -128);
-  ctx.lineWidth = 2.5;
-  drawGenderShape(ctx, memo.gender);
-  ctx.stroke();
-  ctx.restore();
+    ctx.save();
+    ctx.translate(128, 128);
+    ctx.scale(0.87, 0.87);
+    ctx.translate(-128, -128);
+    ctx.lineWidth = isSolid ? 2.8 : 2.5;
+    drawGenderShape(ctx, memo.gender);
+    ctx.stroke();
+    ctx.restore();
+  };
+  drawStamp(false);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   const material = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.62,
     depthTest: false,
+    depthWrite: false,
   });
   const sprite = new THREE.Sprite(material);
   const size = getMarkerSize(memo);
   sprite.scale.set(size, size, 1);
   sprite.renderOrder = 32;
+  let isSolid = false;
+  sprite.userData.setSolid = (nextSolid) => {
+    if (nextSolid === isSolid) return;
+    isSolid = nextSolid;
+    drawStamp(isSolid);
+    texture.needsUpdate = true;
+  };
   return sprite;
 }
 

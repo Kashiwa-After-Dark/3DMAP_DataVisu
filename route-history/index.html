@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./css/style.css?v=20260810-01" />
-    <link rel="stylesheet" href="./css/smart-city-trial.css?v=20260811-01" />
+    <link rel="stylesheet" href="./css/style.css?v=20260826-05" />
+    <link rel="stylesheet" href="./css/smart-city-trial.css?v=20260826-02" />
     <script type="importmap">
       {
         "imports": {
@@ -27,55 +27,65 @@
           <strong>KASHIWA AFTER DARK</strong>
           <span>PHOTO DATA VISUALIZATION SYSTEM / LIVE OVERVIEW</span>
         </div>
-        <div class="toolbar-menu toolbar-menu--mode" data-toolbar-menu="mode">
-          <button class="toolbar-menu__toggle" type="button" data-toolbar-menu-toggle aria-expanded="false">
-            <span class="toolbar-menu__icon toolbar-menu__icon--mode" aria-hidden="true"></span>
-            <b>MODE</b>
-          </button>
-          <div class="toolbar-menu__panel toolbar-menu__panel--mode" data-toolbar-menu-panel>
-            <a id="photo-entry" class="photo-entry" href="../photo-visualization/">
-              <span class="photo-entry__icon" aria-hidden="true"></span>
-              <span><b>PHOTO VIEW</b><small>写真可視化ページへ</small></span>
-              <output>31</output>
-            </a>
-            <div class="toolbar-menu__row">
-              <span>MAP VIEW</span>
-              <div class="view-toggle" aria-label="表示切り替え">
-                <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
-                <button id="view-2d" type="button" aria-pressed="false">2D</button>
+        <div class="toolbar-actions">
+          <div class="toolbar-menu toolbar-menu--mode" data-toolbar-menu="mode">
+            <button class="toolbar-menu__toggle" type="button" data-toolbar-menu-toggle aria-expanded="false" aria-label="モード切替" title="モード切替">
+              <span class="toolbar-menu__icon toolbar-menu__icon--mode" aria-hidden="true"></span>
+              <b>MODE</b>
+            </button>
+            <div class="toolbar-menu__panel toolbar-menu__panel--mode" data-toolbar-menu-panel>
+              <a id="photo-entry" class="photo-entry" href="../photo-visualization/">
+                <span class="photo-entry__icon" aria-hidden="true"></span>
+                <span><b>PHOTO VIEW</b><small>写真可視化ページへ</small></span>
+                <output>31</output>
+              </a>
+              <div class="toolbar-menu__row">
+                <span>MAP VIEW</span>
+                <div class="view-toggle" aria-label="表示切り替え">
+                  <button id="view-3d" class="is-active" type="button" aria-pressed="true">3D</button>
+                  <button id="view-2d" type="button" aria-pressed="false">2D</button>
+                </div>
               </div>
-            </div>
-            <button
-              id="statistics-mode"
-              class="statistics-mode-toggle toolbar-menu__command"
-              type="button"
-              aria-label="統計モード"
-              aria-pressed="false"
-              title="統計モード"
-            ><span aria-hidden="true">Σ</span><b>STATISTICS</b></button>
-          </div>
-        </div>
-        <div class="toolbar-menu toolbar-menu--settings" data-toolbar-menu="settings">
-          <button class="toolbar-menu__toggle" type="button" data-toolbar-menu-toggle aria-expanded="false">
-            <span class="toolbar-menu__icon toolbar-menu__icon--settings" aria-hidden="true"></span>
-            <b>SETTINGS</b>
-          </button>
-          <div class="toolbar-menu__panel toolbar-menu__panel--settings" data-toolbar-menu-panel>
-            <div class="toolbar-menu__row">
-              <span>GUIDE</span>
               <button
-                id="hint-mode"
-                class="hint-mode-toggle"
+                id="statistics-mode"
+                class="statistics-mode-toggle toolbar-menu__command"
                 type="button"
-                aria-label="ヒントを表示"
+                aria-label="統計モード"
                 aria-pressed="false"
-                title="ヒントを表示"
-              >?</button>
+                title="統計モード"
+              ><span aria-hidden="true">Σ</span><b>STATISTICS</b></button>
+            </div>
+          </div>
+          <button
+            id="hint-mode"
+            class="hint-mode-toggle toolbar-hint-toggle"
+            type="button"
+            aria-label="ヒントを表示"
+            aria-pressed="false"
+            title="ヒントを表示"
+          >?</button>
+          <div class="toolbar-menu toolbar-menu--settings" data-toolbar-menu="settings">
+            <button class="toolbar-menu__toggle" type="button" data-toolbar-menu-toggle aria-expanded="false" aria-label="設定" title="設定">
+              <span class="toolbar-menu__icon toolbar-menu__icon--settings" aria-hidden="true">⚙</span>
+              <b>SETTINGS</b>
+            </button>
+            <div class="toolbar-menu__panel toolbar-menu__panel--settings" data-toolbar-menu-panel>
+              <div class="toolbar-menu__row">
+                <span>GUIDE</span>
+                <button
+                  class="hint-mode-toggle"
+                  type="button"
+                  data-hint-mode-button
+                  aria-label="ヒントを表示"
+                  aria-pressed="false"
+                  title="ヒントを表示"
+                >?</button>
+              </div>
             </div>
           </div>
         </div>
       </nav>
-      <aside id="legend-filter" class="age-legend" aria-label="データ説明と絞り込み"></aside>
+      <aside id="legend-filter" class="age-legend is-stored" aria-label="データ説明と絞り込み"></aside>
       <aside id="statistics-dashboard" class="statistics-dashboard" aria-label="再生同期統計"></aside>
       <aside id="route-summary" class="route-summary" aria-live="polite" hidden></aside>
       <aside id="memo-panel" class="memo-panel" aria-label="メモ">
@@ -214,6 +224,6 @@
       </section>
     </main>
 
-    <script type="module" src="./js/index.js?v=20260811-04"></script>
+    <script type="module" src="./js/index.js?v=20260826-12"></script>
   </body>
 </html>

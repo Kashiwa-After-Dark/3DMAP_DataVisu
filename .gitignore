@@ -5,3 +5,5 @@ Thumbs.db
 # Local server and tool output
 *.log
 .tmp/
+.codex-*-build/
+pptx-output/

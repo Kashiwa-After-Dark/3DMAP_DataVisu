@@ -78,9 +78,9 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
   });
   const storage = makeStorageButton(root);
 
-  root.classList.remove("is-collapsed", "is-stored");
+  root.classList.remove("is-collapsed");
   root.dataset.viewLevel = String(viewLevel);
-  root.replaceChildren(header, content, storage);
+  root.replaceChildren(header, content, storage.button);
   syncCountRangeUi(root);
   root.addEventListener("click", (event) => {
     const option = event.target.closest(".legend-filter__option");
@@ -127,6 +127,9 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     setCollapsed: (collapsed) => {
       setViewLevel(collapsed ? 0 : 1);
     },
+    isCollapsed: () => root.classList.contains("is-collapsed"),
+    setStored: storage.setStored,
+    isStored: () => root.classList.contains("is-stored"),
     state,
   };
 }
@@ -174,8 +177,8 @@ function makeStorageButton(root) {
   };
 
   button.addEventListener("click", () => setStored(!root.classList.contains("is-stored")));
-  setStored(false);
-  return button;
+  setStored(true);
+  return { button, setStored };
 }
 
 function makeOptionGroup(title, options, variant = "") {

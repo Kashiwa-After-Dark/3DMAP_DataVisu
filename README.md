@@ -197,7 +197,6 @@ GitHubへの直接保存では、初回のみ対象リポジトリの `Contents:
 ### 3Dモデル
 
 - `assets/models/Kashiwa_3Dmap.glb`
-- `assets/models/Kashiwa_3Dmap.fbx`
 - `assets/models/kashiwa_Blosm.glb`
 - `assets/models/kashiwa_Blosm.fbx`
 

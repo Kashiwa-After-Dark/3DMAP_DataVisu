@@ -1,5 +1,46 @@
 const usage = (operation, place, description) => ({ operation, place, description });
 
+const HINT_ORDER = [
+  "タイムスペースマップ",
+  "カードデック",
+  "カード収納",
+  "再生ボタン",
+  "シークバー",
+  "スピードバー",
+  "タイムライン収納",
+  "時刻・方角・速度",
+  "写真可視化",
+  "マップ表示切替",
+  "統計モード",
+  "コード説明・担当者",
+  "絞り込み",
+];
+
+const BADGE_PLACEMENTS = {
+  "カードデック": "left-center",
+  "カード収納": "left-center",
+  "再生ボタン": "top-center",
+  "タイムライン収納": "top-center",
+  "時刻・方角・速度": "top-center-high",
+  "写真可視化": "left-stack",
+  "マップ表示切替": "left-stack",
+  "統計モード": "left-stack",
+  "絞り込み": "right-lower",
+};
+
+const INDEX_GROUPS = {
+  "写真可視化": { label: "ヘッダー", number: "09", start: true },
+  "マップ表示切替": { label: "ヘッダー", number: "09" },
+  "統計モード": { label: "ヘッダー", number: "09" },
+  "コード説明・担当者": { label: "フッター", number: "12", start: true },
+};
+
+const BADGE_ANCHORS = {
+  "写真可視化": ".toolbar-menu__panel--mode",
+  "マップ表示切替": ".toolbar-menu__panel--mode",
+  "統計モード": ".toolbar-menu__panel--mode",
+};
+
 const HINTS = [
   { target: "#legend-filter", title: "絞り込み", description: "条件に一致する観察データだけを地図・カード・タイムラインへ反映します。", usage: [usage("クリック", "フィルター上段", "AGE・GROUP・GENのコードを選択します。選択中の一つを再クリックすると同じ分類を全表示します。"), usage("ドラッグ", "COUNT", "左右のつまみで表示する人数範囲を指定します。"), usage("文字入力", "SEARCH", "コード・担当者・説明文などをキーワード検索します。"), usage("クリック", "ヘッダー右側「全表示」", "絞り込み条件と担当者表示を初期状態へ戻します。"), usage("クリック", "ヘッダー左側「− / ＋」", "フィルター内容を最小化・最大化します。"), usage("クリック", "右中央の三角形", "フィルター全体を画面外へ収納・再表示します。")], placement: "right" },
   { target: "#scene", title: "タイムスペースマップ", description: "地図上の位置と、時間＝高さで観察データを確認する中心画面です。", usage: [usage("ドラッグ", "マップ上", "視点を回転します。"), usage("右ドラッグ", "マップ上", "視点を平行移動します。"), usage("ホイール", "マップ上", "地図を拡大・縮小します。"), usage("カーソル / クリック", "データアイコン", "対象を強調し、選択するとカードと座標を表示します。"), usage("カーソル / クリック", "ルート線", "対象を強調し、選択すると担当者・件数・データ割合を表示します。")], placement: "center", highlight: false },
@@ -14,10 +55,18 @@ const HINTS = [
   { target: "#timeline-minimize", title: "タイムライン収納", description: "タイムラインを小さくしてマップの表示範囲を広げます。", usage: [usage("クリック", "タイムライン右端「−」", "タイムラインを最小化します。"), usage("クリック", "最小化後のボタン", "タイムラインを元の大きさへ戻します。")], placement: "left", offsetX: -8, offsetY: -62 },
   { target: ".timeline-instruments", title: "時刻・方角・速度", description: "現在時刻、カメラの方角、タイムラインの再生速度を表示します。", usage: [usage("確認", "アナログ時計", "タイムラインの現在時刻を確認します。"), usage("確認", "コンパス", "カメラ視点が向いている方角を確認します。"), usage("確認", "速度計", "現在のタイムライン再生速度を確認します。")], placement: "top", offsetY: -8 },
   { target: ".data-code-guide", title: "コード説明・担当者", description: "データコードの意味と、各ルートの担当者を確認します。", usage: [usage("クリック", "担当者ボタン", "選んだ担当者のデータを表示します。複数人を同時に選択できます。"), usage("再クリック", "選択中の担当者ボタン", "その担当者を表示対象から外します。"), usage("連続クリック", "「全員」ボタン", "初期担当者・全担当者・追加データを含む全担当者へ順番に切り替えます。"), usage("右クリック", "下部バー", "常時表示と自動収納を切り替えます。自動収納中は画面下端へカーソルを合わせると表示します。")], placement: "top", offsetX: 230 },
-];
+]
+  .sort((left, right) => HINT_ORDER.indexOf(left.title) - HINT_ORDER.indexOf(right.title))
+  .map((hint) => ({
+    ...hint,
+    badgePlacement: BADGE_PLACEMENTS[hint.title],
+    badgeAnchor: BADGE_ANCHORS[hint.title],
+    indexGroup: INDEX_GROUPS[hint.title],
+  }));
 
-export function createHintMode({ button, app }) {
+export function createHintMode({ button, linkedButtons = [], app, onActiveChange }) {
   if (!button || !app) return null;
+  const triggerButtons = [...new Set([button, ...linkedButtons].filter(Boolean))];
 
   const overlay = document.createElement("section");
   overlay.className = "hint-overlay";
@@ -26,20 +75,38 @@ export function createHintMode({ button, app }) {
 
   const heading = document.createElement("header");
   heading.className = "hint-overlay__heading";
+  const headingCopy = document.createElement("div");
   const headingTitle = document.createElement("b");
   headingTitle.textContent = "HINT MODE";
   const headingText = document.createElement("span");
-  headingText.textContent = "機能名を選択して詳細を表示";
-  heading.append(headingTitle, headingText);
-  overlay.append(heading);
+  headingText.textContent = `${HINTS.length} FUNCTIONS · 機能名を選択`;
+  headingCopy.append(headingTitle, headingText);
+  const exitButton = makeDetailButton("×", "ヒントモードを終了");
+  exitButton.className = "hint-overlay__exit";
+  heading.append(headingCopy, exitButton);
+  const hintIndex = document.createElement("nav");
+  hintIndex.className = "hint-index";
+  hintIndex.setAttribute("aria-label", "機能一覧");
+  overlay.append(heading, hintIndex);
 
   const detail = document.createElement("article");
   detail.className = "hint-detail";
   detail.hidden = true;
   const detailHeader = document.createElement("header");
+  const detailIdentity = document.createElement("div");
   const detailNumber = document.createElement("span");
   const detailTitle = document.createElement("b");
-  detailHeader.append(detailNumber, detailTitle);
+  detailIdentity.append(detailNumber, detailTitle);
+  const detailControls = document.createElement("nav");
+  detailControls.className = "hint-detail__controls";
+  detailControls.setAttribute("aria-label", "ヒント詳細の移動");
+  const previousButton = makeDetailButton("‹", "前の機能");
+  const detailProgress = document.createElement("output");
+  const nextButton = makeDetailButton("›", "次の機能");
+  const closeButton = makeDetailButton("×", "機能一覧へ戻る");
+  closeButton.classList.add("hint-detail__close");
+  detailControls.append(previousButton, detailProgress, nextButton, closeButton);
+  detailHeader.append(detailIdentity, detailControls);
   const detailDescription = document.createElement("p");
   const detailUsage = document.createElement("div");
   const detailUsageTitle = document.createElement("b");
@@ -54,9 +121,12 @@ export function createHintMode({ button, app }) {
     highlight.className = "hint-highlight";
     const connector = document.createElement("i");
     connector.className = "hint-connector";
-    const badge = document.createElement("span");
+    const badge = document.createElement("button");
+    badge.type = "button";
     badge.className = "hint-target-badge";
     badge.textContent = String(index + 1).padStart(2, "0");
+    badge.setAttribute("aria-label", `${hint.title}の説明を表示`);
+    badge.title = hint.title;
     const callout = document.createElement("button");
     callout.type = "button";
     callout.className = "hint-callout";
@@ -65,13 +135,37 @@ export function createHintMode({ button, app }) {
     number.textContent = String(index + 1).padStart(2, "0");
     const title = document.createElement("b");
     title.textContent = hint.title;
-    callout.append(number, title);
+    if (hint.indexGroup) {
+      callout.classList.add("is-group-child");
+      title.textContent = `・${hint.title}`;
+      if (hint.indexGroup.start) {
+        callout.classList.add("is-section-start");
+        const sectionHeading = document.createElement("span");
+        sectionHeading.className = "hint-callout__section";
+        const sectionNumber = document.createElement("em");
+        sectionNumber.textContent = hint.indexGroup.number;
+        const sectionTitle = document.createElement("strong");
+        sectionTitle.textContent = hint.indexGroup.label;
+        sectionHeading.append(sectionNumber, sectionTitle);
+        callout.append(sectionHeading, title);
+      } else {
+        callout.append(title);
+      }
+    } else {
+      callout.append(number, title);
+    }
     callout.addEventListener("click", () => showDetail(index));
     callout.addEventListener("pointerenter", () => setEmphasis(index));
     callout.addEventListener("pointerleave", () => setEmphasis(selectedHintIndex));
     callout.addEventListener("focus", () => setEmphasis(index));
     callout.addEventListener("blur", () => setEmphasis(selectedHintIndex));
-    overlay.append(highlight, connector, badge, callout);
+    badge.addEventListener("click", () => showDetail(index));
+    badge.addEventListener("pointerenter", () => setEmphasis(index));
+    badge.addEventListener("pointerleave", () => setEmphasis(selectedHintIndex));
+    badge.addEventListener("focus", () => setEmphasis(index));
+    badge.addEventListener("blur", () => setEmphasis(selectedHintIndex));
+    overlay.append(highlight, connector, badge);
+    hintIndex.append(callout);
     return { hint, highlight, connector, badge, callout };
   });
 
@@ -94,10 +188,14 @@ export function createHintMode({ button, app }) {
   const showDetail = (index) => {
     const shouldClose = detail.dataset.hintIndex === String(index) && !detail.hidden;
     selectedHintIndex = shouldClose ? null : index;
+    document.body.classList.toggle("is-hint-detail-open", !shouldClose);
     for (const [entryIndex, entry] of entries.entries()) {
       const selected = !shouldClose && entryIndex === index;
       entry.callout.classList.toggle("is-selected", selected);
       entry.callout.setAttribute("aria-expanded", String(selected));
+      for (const element of [entry.highlight, entry.connector, entry.badge, entry.callout]) {
+        element.classList.toggle("is-detail-hidden", !shouldClose && !selected);
+      }
     }
     if (shouldClose) {
       detail.hidden = true;
@@ -109,6 +207,7 @@ export function createHintMode({ button, app }) {
     detail.dataset.hintIndex = String(index);
     detailNumber.textContent = String(index + 1).padStart(2, "0");
     detailTitle.textContent = hint.title;
+    detailProgress.textContent = `${String(index + 1).padStart(2, "0")} / ${String(HINTS.length).padStart(2, "0")}`;
     detailDescription.textContent = hint.description;
     detailUsage.hidden = !hint.usage?.length;
     detailUsageList.replaceChildren(...(hint.usage || []).map((instruction) => {
@@ -131,6 +230,22 @@ export function createHintMode({ button, app }) {
     positionDetail(index);
   };
 
+  const moveDetail = (direction) => {
+    if (selectedHintIndex === null) return;
+    const nextIndex = (selectedHintIndex + direction + HINTS.length) % HINTS.length;
+    showDetail(nextIndex);
+  };
+
+  previousButton.addEventListener("click", () => moveDetail(-1));
+  nextButton.addEventListener("click", () => moveDetail(1));
+  closeButton.addEventListener("click", () => {
+    if (selectedHintIndex !== null) showDetail(selectedHintIndex);
+  });
+  exitButton.addEventListener("click", () => setActive(false));
+  overlay.addEventListener("pointerdown", (event) => {
+    if (event.target === overlay && selectedHintIndex !== null) showDetail(selectedHintIndex);
+  });
+
   const updatePositions = () => {
     if (!active) return;
     for (const entry of entries) positionEntry(entry);
@@ -138,53 +253,18 @@ export function createHintMode({ button, app }) {
   };
 
   const positionDetail = (index) => {
-    const anchor = entries[index]?.callout.getBoundingClientRect();
-    if (!anchor) return;
-    const width = detail.offsetWidth;
-    const height = detail.offsetHeight;
-    const gap = 14;
-    const candidates = [
-      { left: anchor.left + anchor.width / 2 - width / 2, top: anchor.bottom + gap },
-      { left: anchor.left + anchor.width / 2 - width / 2, top: anchor.top - height - gap },
-      { left: anchor.left - width - gap, top: anchor.top + anchor.height / 2 - height / 2 },
-      { left: anchor.right + gap, top: anchor.top + anchor.height / 2 - height / 2 },
-      { left: anchor.left - width - 50, top: anchor.bottom + gap },
-      { left: anchor.right + 50, top: anchor.bottom + gap },
-      { left: anchor.left - width - 50, top: anchor.top - height - gap },
-      { left: anchor.right + 50, top: anchor.top - height - gap },
-    ];
-    const preferredOrder = anchor.top < window.innerHeight * 0.35
-      ? [0, 4, 5, 2, 3, 1, 6, 7]
-      : anchor.bottom > window.innerHeight * 0.68
-        ? [1, 6, 7, 2, 3, 0, 4, 5]
-        : anchor.left > window.innerWidth * 0.62
-          ? [2, 6, 4, 1, 0, 3, 7, 5]
-          : [3, 7, 5, 0, 1, 2, 4, 6];
-    const obstacles = entries
-      .filter((_, entryIndex) => entryIndex !== index)
-      .map((entry) => entry.callout.getBoundingClientRect())
-      .filter((rect) => rect.width > 0 && rect.height > 0);
-    obstacles.push(heading.getBoundingClientRect());
-
-    const ranked = preferredOrder.map((candidateIndex, preference) => {
-      const candidate = candidates[candidateIndex];
-      const left = clamp(candidate.left, 12, window.innerWidth - width - 12);
-      const top = clamp(candidate.top, 70, window.innerHeight - height - 54);
-      const rect = { left, top, right: left + width, bottom: top + height };
-      const overlap = obstacles.reduce((total, obstacle) => total + overlapArea(rect, obstacle), 0);
-      return { left, top, score: overlap + preference * 20 };
-    }).sort((a, b) => a.score - b.score)[0];
-
-    detail.style.left = `${clamp(ranked.left + (HINTS[index].detailOffsetX || 0), 12, window.innerWidth - width - 12)}px`;
-    detail.style.top = `${ranked.top}px`;
+    if (!entries[index]) return;
+    detail.style.left = "";
+    detail.style.top = "";
+    detail.style.maxHeight = "";
   };
 
   const setInactiveUi = (inactive) => {
     const topTaskbar = app.querySelector(".top-taskbar");
-    const buttonMenu = button.closest("[data-toolbar-menu]");
+    const buttonOwner = button.closest(".toolbar-actions") || button;
     const targets = [
       ...[...app.children].filter((element) => element !== topTaskbar),
-      ...[...topTaskbar.children].filter((element) => element !== buttonMenu),
+      ...[...topTaskbar.children].filter((element) => element !== buttonOwner),
     ];
     for (const element of targets) {
       if (inactive) {
@@ -198,39 +278,59 @@ export function createHintMode({ button, app }) {
   };
 
   const setActive = (nextActive) => {
+    const wasActive = active;
     active = Boolean(nextActive);
     document.body.classList.toggle("is-hint-mode", active);
     overlay.hidden = !active;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", String(active));
-    button.setAttribute("aria-label", active ? "ヒントを終了" : "ヒントを表示");
-    button.title = button.getAttribute("aria-label");
+    for (const trigger of triggerButtons) {
+      trigger.classList.toggle("is-active", active);
+      trigger.setAttribute("aria-pressed", String(active));
+      trigger.setAttribute("aria-label", active ? "ヒントを終了" : "ヒントを表示");
+      trigger.title = trigger.getAttribute("aria-label");
+    }
     setInactiveUi(active);
+    if (wasActive !== active) onActiveChange?.(active);
     if (!active) {
+      document.body.classList.remove("is-hint-detail-open");
       selectedHintIndex = null;
       detail.hidden = true;
       delete detail.dataset.hintIndex;
       for (const entry of entries) {
         entry.callout.classList.remove("is-selected");
         entry.callout.setAttribute("aria-expanded", "false");
+        for (const element of [entry.highlight, entry.connector, entry.badge, entry.callout]) {
+          element.classList.remove("is-detail-hidden");
+        }
       }
       setEmphasis(null);
     }
     window.clearTimeout(updateTimer);
     if (active) {
       requestAnimationFrame(updatePositions);
-      updateTimer = window.setTimeout(updatePositions, 300);
+      updateTimer = window.setTimeout(updatePositions, 760);
     }
   };
 
-  button.addEventListener("click", () => setActive(!active));
+  for (const trigger of triggerButtons) {
+    trigger.addEventListener("click", () => setActive(!active));
+  }
   window.addEventListener("resize", updatePositions);
+  app.addEventListener("transitionend", (event) => {
+    if (active && event.propertyName === "transform") updatePositions();
+  });
   window.addEventListener("keydown", (event) => {
     if (!active) return;
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopImmediatePropagation();
-      setActive(false);
+      if (selectedHintIndex !== null) showDetail(selectedHintIndex);
+      else setActive(false);
+      return;
+    }
+    if (selectedHintIndex !== null && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      moveDetail(event.key === "ArrowLeft" ? -1 : 1);
       return;
     }
     if (event.key === "Tab" || event.target.closest?.("#hint-mode, .hint-callout")) return;
@@ -244,7 +344,11 @@ export function createHintMode({ button, app }) {
 
 function positionEntry({ hint, highlight, connector, badge, callout }) {
   const target = document.querySelector(hint.target);
-  const rect = target?.getBoundingClientRect();
+  const targetRect = target?.getBoundingClientRect();
+  const previewRect = document.querySelector("#app")?.getBoundingClientRect();
+  const rect = intersectRects(targetRect, previewRect);
+  const badgeAnchor = hint.badgeAnchor ? document.querySelector(hint.badgeAnchor) : target;
+  const badgeAnchorRect = intersectRects(badgeAnchor?.getBoundingClientRect(), previewRect) || rect;
   const visible = rect && rect.width > 0 && rect.height > 0;
   highlight.hidden = !visible || hint.highlight === false;
   connector.hidden = !visible;
@@ -253,69 +357,74 @@ function positionEntry({ hint, highlight, connector, badge, callout }) {
   if (!visible) return;
 
   if (hint.highlight !== false) {
-    const padding = 5;
+    const padding = 4;
     highlight.style.left = `${rect.left - padding}px`;
     highlight.style.top = `${rect.top - padding}px`;
     highlight.style.width = `${rect.width + padding * 2}px`;
     highlight.style.height = `${rect.height + padding * 2}px`;
   }
 
-  const boxWidth = callout.offsetWidth;
-  const boxHeight = callout.offsetHeight;
-  const gap = 14;
-  let left = rect.left;
-  let top = rect.top;
-  if (hint.placement === "right") {
-    left = rect.right + gap;
-    top = rect.top + 10;
-  } else if (hint.placement === "left") {
-    left = rect.left - boxWidth - gap;
-    top = rect.top + Math.min(70, rect.height * 0.2);
-  } else if (hint.placement === "top") {
-    left = rect.left + rect.width / 2 - boxWidth / 2;
-    top = rect.top - boxHeight - gap;
-  } else if (hint.placement === "bottom") {
-    left = rect.left + rect.width / 2 - boxWidth / 2;
-    top = rect.bottom + gap;
-  } else {
-    left = window.innerWidth * 0.42 - boxWidth / 2;
-    top = window.innerHeight * 0.38 - boxHeight / 2;
-  }
-  left += hint.offsetX || 0;
-  top += hint.offsetY || 0;
-  callout.style.left = `${clamp(left, 12, window.innerWidth - boxWidth - 12)}px`;
-  callout.style.top = `${clamp(top, 70, window.innerHeight - boxHeight - 54)}px`;
+  positionConnector({ hint, connector, badge, callout, targetRect: rect, badgeAnchorRect });
+}
+
+function intersectRects(targetRect, boundaryRect) {
+  if (!targetRect || !boundaryRect) return null;
+  const left = Math.max(targetRect.left, boundaryRect.left);
+  const top = Math.max(targetRect.top, boundaryRect.top);
+  const right = Math.min(targetRect.right, boundaryRect.right);
+  const bottom = Math.min(targetRect.bottom, boundaryRect.bottom);
+  if (right <= left || bottom <= top) return null;
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
+}
+
+function positionConnector({ hint, connector, badge, callout, targetRect, badgeAnchorRect }) {
+  if (!targetRect || callout.hidden) return;
 
   const calloutRect = callout.getBoundingClientRect();
-  const calloutCenterX = calloutRect.left + calloutRect.width / 2;
-  const calloutCenterY = calloutRect.top + calloutRect.height / 2;
-  let targetX = clamp(calloutCenterX, rect.left, rect.right);
-  let targetY = clamp(calloutCenterY, rect.top, rect.bottom);
+  let targetX = targetRect.right - Math.min(16, targetRect.width * 0.15);
+  let targetY = targetRect.top + Math.min(24, targetRect.height * 0.5);
   if (hint.highlight === false) {
-    targetX = window.innerWidth * 0.5;
-    targetY = window.innerHeight * 0.48;
-  } else if (rect.top < 60) {
-    targetY = rect.bottom + 10;
+    targetX = targetRect.left + targetRect.width * 0.58;
+    targetY = targetRect.top + targetRect.height * 0.42;
+  }
+  if (hint.badgePlacement === "top-center") {
+    targetX = targetRect.left + targetRect.width / 2;
+    targetY = targetRect.top - 15;
+  } else if (hint.badgePlacement === "top-center-high") {
+    targetX = targetRect.left + targetRect.width / 2;
+    targetY = targetRect.top - 24;
+  } else if (hint.badgePlacement === "left-center") {
+    targetX = targetRect.left - 15;
+    targetY = targetRect.top + targetRect.height / 2;
+  } else if (hint.badgePlacement === "left-stack") {
+    targetX = badgeAnchorRect.left - 15;
+    targetY = targetRect.top + targetRect.height / 2;
+  } else if (hint.badgePlacement === "right-lower") {
+    targetX = targetRect.right + 24;
+    targetY = targetRect.top + targetRect.height * 0.72;
   }
 
-  const startX = clamp(targetX, calloutRect.left, calloutRect.right);
-  const startY = clamp(targetY, calloutRect.top, calloutRect.bottom);
-  const distance = Math.hypot(targetX - startX, targetY - startY);
-  const angle = Math.atan2(targetY - startY, targetX - startX) * 180 / Math.PI;
-  connector.style.left = `${startX}px`;
-  connector.style.top = `${startY}px`;
+  const listX = calloutRect.left;
+  const listY = calloutRect.top + calloutRect.height / 2;
+  const distance = Math.hypot(listX - targetX, listY - targetY);
+  const angle = Math.atan2(listY - targetY, listX - targetX) * 180 / Math.PI;
+  connector.style.left = `${targetX}px`;
+  connector.style.top = `${targetY}px`;
   connector.style.width = `${distance}px`;
   connector.style.transform = `rotate(${angle}deg)`;
-  badge.style.left = `${clamp(targetX - 12, 3, window.innerWidth - 27)}px`;
+  badge.style.left = `${clamp(targetX - 12, 0, window.innerWidth - 24)}px`;
   badge.style.top = `${clamp(targetY - 12, 62, window.innerHeight - 29)}px`;
+}
+
+function makeDetailButton(symbol, label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = symbol;
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  return button;
 }
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
-}
-
-function overlapArea(a, b) {
-  const width = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
-  const height = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
-  return width * height;
 }
