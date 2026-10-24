@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kashiwa Statistics</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./css/style.css?v=20261024-02" />
+  </head>
+  <body>
+    <header class="statistics-header">
+      <div>
+        <span>KASHIWA AFTER DARK</span>
+        <h1>STATISTICS</h1>
+        <p id="survey-date">SURVEY · ----/--/--</p>
+      </div>
+      <nav aria-label="画面切り替え">
+        <a href="../time-space-graph/">TIME-SPACE MAP</a>
+      </nav>
+    </header>
+
+    <main>
+      <aside class="period-filter" aria-label="時間帯絞り込み">
+        <header>
+          <div><span>TIME PERIOD</span><strong>時間帯</strong></div>
+          <button id="select-all-periods" type="button">ALL</button>
+        </header>
+        <div id="period-filter-list" class="period-filter__list"></div>
+      </aside>
+
+      <section id="statistics-dashboard" class="statistics-dashboard" aria-label="統計ダッシュボード"></section>
+
+      <section class="statistics-timeline" aria-label="統計時間操作">
+        <button id="statistics-play" class="statistics-play" type="button" aria-label="再生" aria-pressed="false">
+          <span aria-hidden="true"></span>
+        </button>
+        <div class="statistics-timeline__track">
+          <div class="statistics-timeline__labels" aria-hidden="true">
+            <span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span>
+          </div>
+          <input id="statistics-time" type="range" min="0" max="21600" step="1" value="0" aria-label="集計時刻" />
+        </div>
+        <output id="statistics-time-readout" for="statistics-time">18:00:00</output>
+      </section>
+
+      <p id="statistics-status" class="statistics-status" role="status">APIデータを読み込んでいます</p>
+    </main>
+
+    <script type="module" src="./js/index.js?v=20261024-05"></script>
+  </body>
+</html>

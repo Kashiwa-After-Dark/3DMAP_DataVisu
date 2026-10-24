@@ -3,7 +3,6 @@ import {
   CAMERA_MODES,
   CATEGORY_STYLES,
   DEFAULT_CATEGORY,
-  GPX_FILES,
   GRAFFITI_OFFSET_SLOTS,
   INITIAL_CENTER_GEO,
   MAP_BLUE_COLOR,
@@ -13,9 +12,13 @@ import {
   TIME_BASE_Y,
   TIME_END_HOUR,
   TIME_START_HOUR,
-} from "./config.js?v=20261022-02";
-import { createAssigneeFilter } from "./features/assigneeFilter.js?v=20260801-22";
-import { createLegendFilter } from "./features/filters.js?v=20260826-45";
+} from "./config.js?v=20261024-02";
+import {
+  PUBLIC_SURVEY_DATE,
+  ROUTE_SOURCES as CONFIGURED_SOURCES,
+} from "../../backend/surveyConfig.js?v=20261024-03";
+import { createLegendFilter } from "./features/filters.js?v=20261024-03";
+import { createTimePeriodFilter } from "./features/timePeriodFilter.js?v=20261024-01";
 import { createTimelineInstruments } from "./features/instruments.js?v=20260724-12";
 import { create2DMapController } from "./features/map2d.js?v=20260809-31";
 import { createMemoTopDownView } from "./features/memoTopDownView.js?v=20260809-07";
@@ -23,23 +26,21 @@ import { applyPerspectiveCameraConstraints } from "./features/cameraConstraints.
 import { createCoordinateConnector } from "./features/coordinateConnector.js?v=20260726-02";
 import { createTimelineKeyboard } from "./features/timelineKeyboard.js?v=20260726-01";
 import { createTimelineRange } from "./features/timelineRange.js?v=20260801-08";
-import { createStatisticsMode } from "../statistics/statisticsMode.js?v=20261022-01";
-import { createStatisticsDashboard } from "../statistics/statisticsDashboard.js?v=20261022-01";
-import { classifyActivity } from "./features/activityClassifier.js?v=20260809-01";
-import { createPlaceSelection } from "./features/placeSelection.js?v=20260801-01";
 import { createRouteSelection } from "./features/routeSelection.js?v=20260801-04";
 import { createPanelStorage } from "./features/panelStorage.js?v=20260801-02";
 import { createTaskbarVisibility } from "./features/taskbarVisibility.js?v=20260801-02";
-import { createHintMode } from "./features/hintMode.js?v=20260826-12";
+import { createHintMode } from "./features/hintMode.js?v=20261024-01";
 import { createToolbarMenus } from "./features/toolbarMenus.js?v=20260810-01";
 import { createViewToggle } from "./features/viewToggle.js";
 import { formatTime } from "./formatters.js";
-import { getTimeRange, loadGpxDataset } from "./gpxData.js?v=20261022-04";
+import { getTimeRange, loadRouteDataset } from "../../backend/routeData.js?v=20261024-03";
 import { createMapDisplay } from "./mapDisplay.js?v=20261022-01";
 import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20260825-03";
-import { renderMemoPanel } from "./features/memoPanel.js?v=20260809-45";
-import { translateDataText } from "./features/languageMode.js?v=20260810-03";
+import { renderMemoPanel } from "./features/memoPanel.js?v=20261024-02";
+import { translateDataText } from "./features/languageMode.js?v=20261024-01";
 
+const initialDataset = await loadRouteDataset(CONFIGURED_SOURCES);
+const GPX_FILES = initialDataset.sources;
 const canvas = document.querySelector("#scene");
 const view3dButton = document.querySelector("#view-3d");
 const view2dButton = document.querySelector("#view-2d");
@@ -65,9 +66,7 @@ const legendFilterRoot = document.querySelector("#legend-filter");
 const analogClock = document.querySelector("#analog-clock");
 const compassCard = document.querySelector("#compass-card");
 const speedEngine = document.querySelector("#speed-engine");
-const assigneeList = document.querySelector("#assignee-list");
-const statisticsModeButton = document.querySelector("#statistics-mode");
-const statisticsDashboardRoot = document.querySelector("#statistics-dashboard");
+const timePeriodList = document.querySelector("#time-period-list");
 const routeSummaryRoot = document.querySelector("#route-summary");
 const topTaskbar = document.querySelector(".top-taskbar");
 const bottomTaskbar = document.querySelector(".data-code-guide");
@@ -103,13 +102,12 @@ let memosBySource = new Map();
 let activeMemo = null;
 let hoveredMemo = null;
 let hoveredRouteLine = null;
-let routeSelectionRestoreSourceIds = null;
 let hoverSuppressedMemo = null;
 let selectionHaloTexture = null;
 let legendFilter = null;
 let filterStoredBeforeHint = true;
 let filterCollapsedBeforeHint = false;
-let assigneeFilter = null;
+let timePeriodFilter = null;
 let elapsedRouteLines = [];
 let elapsedCurtains = [];
 let playStartMs = 0;
@@ -128,7 +126,6 @@ let playbackRate = 1;
 let lastFrameMs = performance.now();
 let iconPointerDown = null;
 let activeTimeSpacePeriodIndex = -2;
-let activeActivityFilter = "all";
 let currentLanguage = "ja";
 let timeAxisLevels = [];
 const followTarget = new THREE.Vector3();
@@ -144,41 +141,11 @@ const memoTopDownView = createMemoTopDownView({
   controls,
 });
 const coordinateConnector = createCoordinateConnector();
-const statisticsDashboard = createStatisticsDashboard({
-  root: statisticsDashboardRoot,
-  getLane: (sourceId) => sourcesById.get(sourceId)?.lane || "reysol",
-  onActivityFilterChange: (activity) => {
-    activeActivityFilter = activity;
-    if (timelineEnd) updateTimeline(Number(timeSlider.value));
-  },
-});
-const placeSelection = createPlaceSelection({
-  lanes: timeLaneElements,
-  onChange: (lanes) => {
-    if (!assigneeFilter) return;
-    const sourceIds = GPX_FILES
-      .filter((source) => source.visibleByDefault !== false && lanes.has(source.lane))
-      .map((source) => source.id);
-    assigneeFilter.setSelection(sourceIds);
-  },
-});
 const routeSelection = createRouteSelection({
   root: routeSummaryRoot,
   sources: GPX_FILES,
   categories: CATEGORY_STYLES,
   getMemos: (sourceId) => memosBySource.get(sourceId) || [],
-  onSelect: (source, { isSwitching }) => {
-    if (!isSwitching) {
-      routeSelectionRestoreSourceIds = assigneeFilter?.getSelection().sourceIds ?? null;
-    }
-    assigneeFilter?.setSelection([source.id]);
-  },
-  onDeselect: () => {
-    if (routeSelectionRestoreSourceIds?.length) {
-      assigneeFilter?.setSelection(routeSelectionRestoreSourceIds);
-    }
-    routeSelectionRestoreSourceIds = null;
-  },
 });
 const viewToggle = createViewToggle({
   view3dButton,
@@ -244,22 +211,6 @@ createTimelineKeyboard({
   onSeek: (seconds, options) => {
     stopPlayback(options);
     updateTimeline(seconds);
-  },
-});
-createStatisticsMode({
-  button: statisticsModeButton,
-  timeline: timelinePanel,
-  minimizeTimeline: toggleTimelineMinimized,
-  setFilterCollapsed: (collapsed) => legendFilter?.setCollapsed(collapsed),
-  onEnter: () => {
-    coordinateConnector.hide();
-    activeMemo = null;
-    hoveredMemo = null;
-    updateTimeline(Number(timeSlider.value));
-  },
-  onChange: (active) => {
-    statisticsDashboard.setActive(active);
-    if (active) updateTimeline(Number(timeSlider.value));
   },
 });
 canvas.addEventListener("pointerdown", startIconSelection);
@@ -405,9 +356,12 @@ function positionDefaultPerspectiveCamera(distance, focus) {
 }
 
 async function loadGpx() {
-  const dataset = await loadGpxDataset(GPX_FILES);
+  const dataset = initialDataset;
   console.info(`Route data source: ${dataset.source}`);
   dataset.errors.forEach((error) => console.error(error));
+  if (dataset.unmatchedSourceFilenames.length) {
+    console.warn("Unconfigured API sources:", dataset.unmatchedSourceFilenames);
+  }
   routeTracks = dataset.tracks;
   trackPoints = routeTracks.flatMap((track) => track.points).sort((a, b) => a.time - b.time);
   memoPoints = dataset.memos;
@@ -415,19 +369,23 @@ async function loadGpx() {
     GPX_FILES.map((source) => [source.id, memoPoints.filter((memo) => memo.sourceId === source.id)]),
   );
 
-  if (!trackPoints.length) {
+  if (!trackPoints.length && !memoPoints.length) {
     const emptyMessage = document.createElement("p");
     emptyMessage.className = "memo-list__empty";
-    emptyMessage.textContent = "移動・観察データは登録されていません";
+    emptyMessage.textContent = `${PUBLIC_SURVEY_DATE}の公開データはまだ表示できません`;
     memoList.replaceChildren(emptyMessage);
     playToggle.disabled = true;
     timeSlider.disabled = true;
     return;
   }
 
+  const activeLanes = new Set(GPX_FILES.map((source) => source.lane));
+  for (const lane of timeLaneElements) lane.style.display = activeLanes.has(lane.dataset.timeLane) ? '' : 'none';
+  document.querySelector('.time-lanes').style.gridTemplateRows = `repeat(${Math.max(activeLanes.size, 1)}, minmax(0, 1fr))`;
+
   await document.fonts?.load("700 24px Ubuntu");
 
-  ({ start: timelineStart, end: timelineEnd } = getTimeRange(trackPoints[0].time));
+  ({ start: timelineStart, end: timelineEnd } = getTimeRange(Date.parse(`${PUBLIC_SURVEY_DATE}T18:00:00+09:00`)));
   timeSlider.max = String(Math.round((timelineEnd - timelineStart) / 1000));
   timelineRange.setMax(Number(timeSlider.max));
   playbackScale = Number(timeSlider.max) / PLAYBACK_DURATION_SECONDS;
@@ -441,32 +399,20 @@ async function loadGpx() {
     sources: GPX_FILES,
     onChange: applyFilters,
     onSourcesReset: () => {
-      placeSelection.selectAll({ notify: false });
-      assigneeFilter?.selectAll({ notify: false });
+      timePeriodFilter?.selectAll({ notify: false });
       setHighlightedTimeSegments([0, 1, 2]);
     },
   });
-  assigneeFilter = createAssigneeFilter({
-    root: assigneeList,
-    sources: GPX_FILES,
-    onChange: ({ sourceIds, segmentIndexes, laneSegmentIndexes }) => {
-      const selectedLanes = new Set(
-        GPX_FILES.filter((source) => sourceIds.includes(source.id)).map((source) => source.lane),
-      );
-      placeSelection.setSelection(selectedLanes, { notify: false });
-      legendFilter.setSources(sourceIds);
-      setHighlightedTimeSegments(segmentIndexes, laneSegmentIndexes);
+  timePeriodFilter = createTimePeriodFilter({
+    root: timePeriodList,
+    onChange: ({ segmentIndexes }) => {
+      setHighlightedTimeSegments(segmentIndexes);
       applyFilters();
     },
   });
-  const initialAssigneeSelection = assigneeFilter.getSelection();
-  legendFilter.setSources(initialAssigneeSelection.sourceIds);
-  setHighlightedTimeSegments(
-    initialAssigneeSelection.segmentIndexes,
-    initialAssigneeSelection.laneSegmentIndexes,
-  );
+  setHighlightedTimeSegments(timePeriodFilter.getSelection().segmentIndexes);
   applyFilters();
-  legendFilter.updateCount(memoPoints);
+  legendFilter.updateCount(memoPoints.filter((memo) => timePeriodFilter?.matches(memo) ?? true));
   renderTimelineMarkers();
   updateCameraVisualDensity();
   focusCameraOnRoute();
@@ -703,7 +649,7 @@ function routeSectionMatchesFilters(time, sourceId) {
   if (!legendFilter) return true;
   const memo = getRouteMemoAtTime(time, sourceId);
   if (memo) return memoMatchesFilters(memo);
-  return legendFilter.state.categories.has(DEFAULT_CATEGORY) && sourceIsVisible(sourceId);
+  return legendFilter.state.ageCategories.has(DEFAULT_CATEGORY) && sourceIsVisible(sourceId);
 }
 
 function setCurtainColor(attribute, index, color) {
@@ -714,7 +660,9 @@ function addTimeAxis() {
   activeTimeSpacePeriodIndex = -2;
   timeAxisLevels = [];
   const routeBounds = new THREE.Box3();
-  for (const point of [...trackPoints, ...memoPoints]) {
+  const spatialPoints = [...trackPoints, ...memoPoints.filter((memo) => memo.hasLocation)];
+  if (!spatialPoints.length) return;
+  for (const point of spatialPoints) {
     routeBounds.expandByPoint(geoToWorld(point));
   }
 
@@ -779,7 +727,9 @@ function addTimeAxis() {
 
 function focusCameraOnRoute() {
   const routeVisualBounds = new THREE.Box3();
-  for (const point of [...trackPoints, ...memoPoints]) {
+  const spatialPoints = [...trackPoints, ...memoPoints.filter((memo) => memo.hasLocation)];
+  if (!spatialPoints.length) return;
+  for (const point of spatialPoints) {
     const world = geoToWorld(point);
     routeVisualBounds.expandByPoint(new THREE.Vector3(world.x, TIME_BASE_Y, world.z));
     routeVisualBounds.expandByPoint(new THREE.Vector3(world.x, timeToHeight(point.time), world.z));
@@ -806,6 +756,7 @@ function addMemoPins() {
   let clusterStart = -Infinity;
   let clusterIndex = 0;
   for (const memo of memoPoints) {
+    if (!memo.hasLocation) continue;
     if (memo.time - clusterStart > 90_000) {
       clusterStart = memo.time;
       clusterIndex = 0;
@@ -820,7 +771,9 @@ function addMemoPins() {
 }
 
 function createMemoMarker(memo, offsetSlot) {
-  const frame = getRouteFrameAtTime(memo.time, memo.sourceId);
+  const frame = memo.routeId && routeTracks.length
+    ? getRouteFrameAtTime(memo.time, memo.sourceId)
+    : { position: geoToWorld(memo), normal: new THREE.Vector3(0, 0, 1) };
   const category = CATEGORY_STYLES[memo.category];
   const categoryColor = new THREE.Color(category.color);
   const lateralOffset = offsetSlot * 6.5;
@@ -1069,7 +1022,6 @@ function updateTimeline(seconds, { playback = false } = {}) {
       memo.time >= rangeStartTime
       && memo.time <= currentTime
       && memoMatchesFilters(memo)
-      && memoMatchesActivity(memo)
     ),
   );
   const visibleMemoSet = new Set(visibleMemos);
@@ -1080,10 +1032,11 @@ function updateTimeline(seconds, { playback = false } = {}) {
       .slice(0, 10),
   );
   for (const memo of memoPoints) {
+    if (!memo.marker) continue;
     const matches = visibleMemoSet.has(memo);
     const isInTimeRange = memo.time >= rangeStartTime && memo.time <= currentTime;
     memo.marker.visible = sourceIsVisible(memo.sourceId);
-    memo.marker.userData.leader.visible = isInTimeRange && memoMatchesActivity(memo);
+    memo.marker.userData.leader.visible = isInTimeRange;
     const isHovered = memo === hoveredMemo;
     const isEmphasized = memo === activeMemo || isHovered;
     memo.marker.userData.stamp.visible = matches && (isInTimeRange || isHovered);
@@ -1109,13 +1062,6 @@ function updateTimeline(seconds, { playback = false } = {}) {
     onHoverSuppressionEnd: clearHoverSuppression,
     language: currentLanguage,
     translateText: translateDataText,
-  });
-  statisticsDashboard.update({
-    memos: memoPoints.filter(memoMatchesFilters),
-    currentTime,
-    rangeStartTime,
-    timelineStart,
-    timelineEnd,
   });
 }
 
@@ -1176,8 +1122,9 @@ function renderTimelineMarkers() {
   );
 
   for (const memo of visibleMemos) {
-    const lane = sourcesById.get(memo.sourceId)?.lane || "reysol";
+    const lane = sourcesById.get(memo.sourceId)?.lane || "unassigned";
     const laneCollisions = collisionCounts.get(lane);
+    if (!laneCollisions) continue;
     const collisionKey = Math.floor((memo.time - timelineStart) / 30_000);
     const collisionIndex = laneCollisions.get(collisionKey) || 0;
     laneCollisions.set(collisionKey, collisionIndex + 1);
@@ -1203,11 +1150,8 @@ function renderTimelineMarkers() {
 }
 
 function memoMatchesFilters(memo) {
-  return legendFilter?.matches(memo) ?? true;
-}
-
-function memoMatchesActivity(memo) {
-  return activeActivityFilter === "all" || classifyActivity(memo) === activeActivityFilter;
+  return (legendFilter?.matches(memo) ?? true)
+    && (timePeriodFilter?.matches(memo) ?? true);
 }
 
 function sourceIsVisible(sourceId) {
@@ -1215,7 +1159,9 @@ function sourceIsVisible(sourceId) {
 }
 
 function applyFilters() {
-  legendFilter?.updateCount(memoPoints);
+  legendFilter?.updateCount(
+    memoPoints.filter((memo) => timePeriodFilter?.matches(memo) ?? true),
+  );
   updateCurtainFilterStyles();
   renderTimelineMarkers();
   updateTimeline(Number(timeSlider.value));
@@ -1331,10 +1277,9 @@ function stopPlayback({ ended = false } = {}) {
   syncPlaybackButton();
 }
 
-function setHighlightedTimeSegments(segmentIndexes, laneSegmentIndexes = null) {
+function setHighlightedTimeSegments(segmentIndexes) {
   for (const lane of timeLaneElements) {
-    const laneName = lane.dataset.timeLane;
-    const activeSegments = new Set(laneSegmentIndexes?.[laneName] ?? segmentIndexes);
+    const activeSegments = new Set(segmentIndexes);
     const segments = [...lane.querySelectorAll(".time-gauge-segments > i")];
     for (const [index, segment] of segments.entries()) {
       segment.classList.toggle("is-muted", !activeSegments.has(index));

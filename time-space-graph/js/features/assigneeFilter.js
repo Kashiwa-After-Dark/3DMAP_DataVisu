@@ -6,7 +6,7 @@ export function createAssigneeFilter({ root, sources, onChange }) {
   const addedSourceIds = sources
     .filter((source) => source.visibleByDefault === false)
     .map((source) => source.id);
-  const allButtonSelections = [defaultSourceIds, allSourceIds, addedSourceIds];
+  const allButtonSelections = [defaultSourceIds, allSourceIds, addedSourceIds].filter((selection) => selection.length);
   const allButton = makeButton("全員", "all");
   const sourceButtons = sources.map((source) => makeButton(source.label, source.id));
   const sourceButtonById = new Map(sourceButtons.map((button) => [button.dataset.sourceId, button]));
@@ -27,6 +27,9 @@ export function createAssigneeFilter({ root, sources, onChange }) {
       segmentIndex,
     );
   }).filter(Boolean);
+  const unassigned = sources.filter((source) => !['reysol', 'terrace'].includes(source.lane));
+  const unassignedGroup = makeSourceGroup(unassigned.map((source) => sourceButtonById.get(source.id)), 'unassigned', null);
+  if (unassignedGroup) sourceGroups.push(unassignedGroup);
   let hasUserSelection = false;
   let allButtonClickIndex = 0;
   root.replaceChildren(allButton, ...sourceGroups);
@@ -36,14 +39,14 @@ export function createAssigneeFilter({ root, sources, onChange }) {
       .filter((button) => button.classList.contains("is-active"))
       .map((button) => button.dataset.sourceId);
     const selectedSources = sources.filter((source) => sourceIds.includes(source.id));
-    const segmentIndexes = [...new Set(selectedSources.map(getSourceSegmentIndex))].sort();
+    const segmentIndexes = [...new Set(selectedSources.flatMap(sourceSegments))].sort();
     const laneSegmentIndexes = Object.fromEntries(
-      ["terrace", "reysol"].map((lane) => [
+      ["terrace", "reysol", "unassigned"].map((lane) => [
         lane,
         [...new Set(
           selectedSources
             .filter((source) => source.lane === lane)
-            .map(getSourceSegmentIndex),
+            .flatMap(sourceSegments),
         )].sort(),
       ]),
     );
@@ -114,14 +117,15 @@ function makeButton(label, value) {
 
 function makeSourceGroup(buttons, lane, segmentIndex) {
   if (!buttons.length) return null;
-  const placeLabel = lane === "terrace" ? "テラス" : "レイソル";
+  const placeLabel = lane === 'unassigned' ? 'エリア未設定' : lane === "terrace" ? "テラス" : "レイソル";
   const timeLabels = ["18–20時", "20–22時", "22–24時"];
   const group = document.createElement("span");
   group.className = "assignee-list__group";
   group.dataset.lane = lane;
   group.dataset.segment = String(segmentIndex);
-  group.title = `${placeLabel} / ${timeLabels[segmentIndex]}`;
-  group.setAttribute("aria-label", `${placeLabel}、${timeLabels[segmentIndex]}の担当者`);
+  const timeLabel = segmentIndex === null ? '全時間帯' : timeLabels[segmentIndex];
+  group.title = `${placeLabel} / ${timeLabel}`;
+  group.setAttribute("aria-label", `${placeLabel}、${timeLabel}の担当者`);
   group.append(...buttons);
   return group;
 }
@@ -131,4 +135,8 @@ function getSourceSegmentIndex(source) {
   if (startHour < 20) return 0;
   if (startHour < 22) return 1;
   return 2;
+}
+
+function sourceSegments(source) {
+  return source.segmentIndexes?.length ? source.segmentIndexes : [getSourceSegmentIndex(source)];
 }

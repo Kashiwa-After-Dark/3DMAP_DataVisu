@@ -25,49 +25,6 @@ export const TIME_END_HOUR = 24;
 export const DEFAULT_CATEGORY = "UN";
 export const GRAFFITI_OFFSET_SLOTS = [0, -1, 1, -2, 2, -3, 3];
 
-const DEFAULT_HIDDEN_SOURCES = new Set([
-  "01_1820_takahashi.gpx",
-  "01_2022_Hayato.gpx",
-  "01_2022_KatayamaTakumi.gpx",
-  "01_2022_Okazaki.gpx",
-  "01_2022_SatoSora.gpx",
-  "01_2022_Senri.gpx",
-]);
-
-const SOURCE_LANES = new Map([
-  ["01_1820_takahashi.gpx", "terrace"],
-  ["01_2022_Hayato.gpx", "terrace"],
-  ["01_2022_KatayamaTakumi.gpx", "terrace"],
-  ["01_2022_Senri.gpx", "terrace"],
-  ["01_2224_Kobayashi.gpx", "terrace"],
-  ["01_1820_Omori.gpx", "reysol"],
-  ["01_1820_Nakamura.gpx", "reysol"],
-  ["01_2022_Tomoya.gpx", "reysol"],
-  ["01_2022_SatoSora.gpx", "reysol"],
-  ["01_2022_Okazaki.gpx", "reysol"],
-  ["01_2224_Yoh.gpx", "reysol"],
-]);
-
-export const GPX_FILES = [
-  "01_1820_Omori.gpx",
-  "01_1820_Nakamura.gpx",
-  "01_1820_takahashi.gpx",
-  "01_2022_Tomoya.gpx",
-  "01_2022_Hayato.gpx",
-  "01_2022_KatayamaTakumi.gpx",
-  "01_2022_Okazaki.gpx",
-  "01_2022_SatoSora.gpx",
-  "01_2022_Senri.gpx",
-  "01_2224_Kobayashi.gpx",
-  "01_2224_Yoh.gpx",
-].map((file, index) => ({
-  id: `source-${index}`,
-  file,
-  label: file.replace(/^\d+_\d+_/, "").replace(/\.gpx$/i, ""),
-  visibleByDefault: !DEFAULT_HIDDEN_SOURCES.has(file),
-  lane: SOURCE_LANES.get(file),
-}));
-
 export const CAMERA_MODES = {
   free: { label: "FREE / 自由" },
   street: {
@@ -121,6 +78,8 @@ export const CAMERA_MODES = {
 };
 
 export const CATEGORY_STYLES = {
+  C: { label: "中学生以下", color: "#67e8f9", soft: "#a5f3fc" },
+  OBJ: { label: "物の記録", color: "#cbd5e1", soft: "#e2e8f0" },
   H: { label: "高校生", color: "#22d3ee", soft: "#a5f3fc" },
   U: { label: "大学生", color: "#397d9f", soft: "#397d9f" },
   Y: { label: "若い社会人", color: "#8b5cf6", soft: "#ddd6fe" },

@@ -1,5 +1,5 @@
 import { hexToRgbChannels } from "../formatters.js";
-import { formatProfileBadge } from "./profiles.js?v=20260725-2";
+import { formatProfileBadge } from "../../../backend/profiles.js?v=20261024-02";
 
 const renderStates = new WeakMap();
 const dockStates = new WeakMap();
@@ -156,7 +156,7 @@ function makeMemoItem({
 
   const source = document.createElement("small");
   source.className = "memo-source";
-  source.textContent = memo.sourceLabel;
+  source.textContent = `${memo.sourceLabel}${memo.hasLocation === false ? ' / 位置不明' : ''}${memo.place ? ` / ${memo.place}` : ''}`;
 
   meta.append(time, badge);
   item.append(meta, title, source);

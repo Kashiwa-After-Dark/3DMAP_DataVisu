@@ -1,13 +1,14 @@
 export function createLegendFilter({ root, categories, sources, onChange, onSourcesReset }) {
-  const ageKeys = ["H", "U", "Y", "A", "S"];
-  const groupKeys = ["CP", "FM", "MX", "UN"];
+  const ageKeys = ["C", "H", "U", "Y", "A", "S"];
+  const groupKeys = ["B", "G", "BG", "GG", "XG", "CP", "FM", "MX", "UN", "OBJ"];
   const allSourceIds = sources.map((source) => source.id);
   const state = {
-    categories: new Set(Object.keys(categories)),
+    ageCategories: new Set(ageKeys),
+    groupCategories: new Set(groupKeys),
     genders: new Set(["M", "F", "X", "U"]),
     sources: new Set(allSourceIds),
     minCount: 0,
-    maxCount: 30,
+    maxCount: Infinity,
     keyword: "",
   };
 
@@ -21,7 +22,7 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
   codeSelector.className = "legend-filter__code-selector";
   codeSelector.append(
     makeOptionGroup("AGE", ageKeys.map((value) => ({
-      name: "category",
+      name: "age-category",
       value,
       label: value,
       range: getAgeRange(value),
@@ -29,11 +30,11 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       color: categories[value].color,
     })), "age"),
     makeOptionGroup("GROUP", groupKeys.map((value) => ({
-      name: "category",
+      name: "group-category",
       value,
       label: value,
       title: getCategoryHelp(value),
-      color: categories[value].color,
+      color: categories[value]?.color || "#397d9f",
       shape: getCategoryShape(value),
     })), "group"),
     makeOptionGroup("GEN", [
@@ -253,10 +254,12 @@ function makeDescription() {
 }
 
 function syncStateFromUi(state, root) {
-  state.categories = getCheckedValues(root, "category");
+  state.ageCategories = getCheckedValues(root, "age-category");
+  state.groupCategories = getCheckedValues(root, "group-category");
   state.genders = getCheckedValues(root, "gender");
   state.minCount = Number(root.querySelector('[name="min-count"]')?.value || 0);
-  state.maxCount = Number(root.querySelector('[name="max-count"]')?.value || 30);
+  const maximum = Number(root.querySelector('[name="max-count"]')?.value || 30);
+  state.maxCount = maximum >= 30 ? Infinity : maximum;
   state.keyword = root.querySelector('[name="keyword"]')?.value.trim().toLowerCase() || "";
 }
 
@@ -283,7 +286,7 @@ function syncCountRangeUi(root, changedInput) {
   control?.style.setProperty("--count-min", `${((min - lowerBound) / span) * 100}%`);
   control?.style.setProperty("--count-max", `${((max - lowerBound) / span) * 100}%`);
   const readout = control?.querySelector("[data-count-range-readout]");
-  if (readout) readout.textContent = `${min}–${max}`;
+  if (readout) readout.textContent = `${min}–${max}${max >= 30 ? '+' : ''}`;
 }
 
 function resetState(state, root, allSourceIds) {
@@ -303,7 +306,14 @@ function getCheckedValues(root, name) {
 }
 
 function memoMatchesState(memo, state) {
-  if (!state.categories.has(memo.category)) return false;
+  if (memo.category === "OBJ") {
+    if (!state.groupCategories.has("OBJ")) return false;
+  } else {
+    const ageCategory = memo.ageCategory || memo.category || "UN";
+    const groupCategory = memo.groupCategory || "UN";
+    if (ageKeysForFiltering().has(ageCategory) && !state.ageCategories.has(ageCategory)) return false;
+    if (!state.groupCategories.has(groupCategory)) return false;
+  }
   if (!state.genders.has(memo.gender)) return false;
   if (!state.sources.has(memo.sourceId)) return false;
   if ((memo.count || 0) < state.minCount) return false;
@@ -315,13 +325,23 @@ function memoMatchesState(memo, state) {
   return true;
 }
 
+function ageKeysForFiltering() {
+  return new Set(["C", "H", "U", "Y", "A", "S"]);
+}
+
 function getCategoryHelp(value) {
   return {
+    C: "中学生以下 [C]hild",
     H: "高校生 [H]igh school",
     U: "大学生 [U]niversity",
     Y: "若い社会人 [Y]oung",
     A: "中高年 [A]dult",
     S: "高齢者 [S]enior",
+    B: "1人",
+    G: "グループ（性別不明）",
+    BG: "男女グループ",
+    GG: "同性グループ",
+    XG: "属性混合グループ",
     CP: "カップル",
     FM: "家族",
     MX: "年齢・属性混合グループ",
@@ -338,6 +358,7 @@ function getCategoryShape(value) {
 
 function getAgeRange(value) {
   return {
+    C: "0–14",
     H: "15–18",
     U: "18–22",
     Y: "23–34",

@@ -1,5 +1,4 @@
-import { extractContentTerms } from "./japaneseContentWords.js?v=20260809-05";
-import { translateDataText } from "../js/features/languageMode.js?v=20260809-05";
+import { extractContentTerms } from "./japaneseContentWords.js?v=20261024-01";
 
 const MAX_WORDS = 64;
 const MIN_FONT_SIZE = 6;
@@ -29,7 +28,6 @@ const TERM_ALIASES = [
 
 export function createStatisticsWordCloud({ root }) {
   let mode = "period";
-  let language = "ja";
   let latestState = null;
 
   root.innerHTML = `
@@ -90,7 +88,7 @@ export function createStatisticsWordCloud({ root }) {
       element.dataset.sentiment = word.sentiment;
       element.dataset.count = String(word.count);
       element.style.fontSize = `${size}px`;
-      const displayLabel = translateDataText(word.label, language);
+      const displayLabel = word.label;
       element.title = `${displayLabel}: ${word.count} / ${word.sentiment.toUpperCase()}`;
       element.textContent = displayLabel;
       return element;
@@ -99,12 +97,7 @@ export function createStatisticsWordCloud({ root }) {
     placeWordsFromCenter(cloud, elements);
   }
 
-  function setLanguage(nextLanguage) {
-    language = nextLanguage;
-    render();
-  }
-
-  return { update, setLanguage };
+  return { update };
 }
 
 function countWords(memos) {

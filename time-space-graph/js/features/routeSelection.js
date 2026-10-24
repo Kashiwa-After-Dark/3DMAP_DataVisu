@@ -40,7 +40,9 @@ export function createRouteSelection({
         color: categories[code]?.color || "#94a3b8",
       }))
       .sort((a, b) => b.count - a.count);
-    const place = source.lane === "terrace" ? "テラス" : "レイソル";
+    const place = source.lane === "route"
+      ? "単一ルート"
+      : source.lane === "terrace" ? "テラス" : "レイソル";
 
     const header = document.createElement("header");
     header.innerHTML = `<span>ROUTE · ${place}</span><strong>${source.label}</strong>`;

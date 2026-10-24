@@ -89,7 +89,7 @@ export function createLanguageMode({ button, root, onChange }) {
   let observer = null;
   const textOriginals = new Map();
   const attributeOriginals = new Map();
-  const excluded = ".memo-panel, .statistics-word-panel, #language-toggle";
+  const excluded = ".memo-panel, #language-toggle";
 
   button.addEventListener("click", () => {
     language = language === "ja" ? "en" : "ja";

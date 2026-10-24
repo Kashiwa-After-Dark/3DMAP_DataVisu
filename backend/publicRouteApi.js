@@ -1,8 +1,10 @@
 // The public site calls a read-only Edge Function. No Supabase API key is sent
 // to browsers; the function alone calls the published-survey RPC.
+import { PUBLIC_SURVEY_DATE } from "./surveyConfig.js?v=20261024-03";
+
 const ROUTE_API_URL = "https://idzkmlbjcxhhneqbgcfy.supabase.co/functions/v1/public-route-history";
 
-export const PUBLIC_SURVEY_DATE = "2026-07-07";
+export { PUBLIC_SURVEY_DATE };
 
 export async function fetchPublicRouteHistory(date = PUBLIC_SURVEY_DATE) {
   const url = new URL(ROUTE_API_URL);
@@ -19,9 +21,9 @@ export async function fetchPublicRouteHistory(date = PUBLIC_SURVEY_DATE) {
 }
 
 export function mapPublicTracks(data, sources) {
-  const sourcesByFile = new Map(sources.map((source) => [source.file, source]));
+  const findSource = publicSourceLookup(sources);
   return data.tracks.flatMap((route) => {
-    const source = sourcesByFile.get(route.sourceFilename);
+    const source = findSource(route);
     if (!source || !Array.isArray(route.points)) return [];
     const points = route.points.map((point) => ({
       lat: Number(point.lat),
@@ -37,4 +39,12 @@ export function mapPublicTracks(data, sources) {
       points,
     }] : [];
   });
+}
+
+export function publicSourceLookup(sources) {
+  const byId = new Map(sources.flatMap((source) => [[source.id, source], [source.apiId, source]]));
+  const byFile = new Map(sources.flatMap((source) => (
+    (source.sourceFiles || [source.file]).map((file) => [file, source])
+  )));
+  return (record) => (record.sourceId && byId.get(record.sourceId)) || byFile.get(record.sourceFilename);
 }

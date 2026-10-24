@@ -1,8 +1,8 @@
-import { createStatisticsWordCloud } from "./statisticsWordCloud.js?v=20260811-02";
-import { createStatisticsActivityChart } from "./statisticsActivityChart.js?v=20260809-01";
+import { createStatisticsWordCloud } from "./statisticsWordCloud.js?v=20261024-01";
+import { createStatisticsActivityChart } from "./statisticsActivityChart.js?v=20261024-01";
 
-const AGE_KEYS = ["H", "U", "Y", "A", "S"];
-const GROUP_KEYS = ["CP", "FM", "MX", "UN"];
+const AGE_KEYS = ["C", "H", "U", "Y", "A", "S", "MX"];
+const GROUP_KEYS = ["B", "G", "BG", "GG", "XG", "CP", "FM", "MX", "UN"];
 const GENDER_KEYS = ["M", "F", "X", "U"];
 const TIME_SEGMENTS = [
   { label: "18–20", start: 18, end: 20 },
@@ -10,11 +10,12 @@ const TIME_SEGMENTS = [
   { label: "22–24", start: 22, end: 24 },
 ];
 const LABELS = {
-  age: { H: "高校生", U: "大学生", Y: "若い社会人", A: "中高年", S: "高齢者" },
-  group: { CP: "カップル", FM: "家族", MX: "混合", UN: "不明" },
+  age: { C: '中学生以下', H: "高校生", U: "大学生", Y: "若い社会人", A: "中高年", S: "高齢者", MX: '複数年齢', UN: '不明' },
+  group: { B: 'B', G: 'G', BG: 'BG', GG: 'GG', XG: 'XG', CP: "カップル", FM: "家族", MX: "混合", UN: "不明" },
   gender: { M: "男性", F: "女性", X: "男女混合", U: "不明" },
 };
 const COLORS = {
+  C: '#67e8f9', B: '#38bdf8', G: '#f472b6', BG: '#0ea5e9', GG: '#ec4899', XG: '#a78bfa',
   H: "#22d3ee",
   U: "#397d9f",
   Y: "#8b5cf6",
@@ -29,7 +30,7 @@ const COLORS = {
   X: "#a78bfa",
 };
 
-export function createStatisticsDashboard({ root, getLane, onActivityFilterChange }) {
+export function createStatisticsDashboard({ root, onActivityFilterChange }) {
   let active = false;
   let latestState = null;
   let renderTimer = null;
@@ -38,7 +39,7 @@ export function createStatisticsDashboard({ root, getLane, onActivityFilterChang
   root.innerHTML = `
     <section class="statistics-kpis" aria-label="主要統計">
       ${makeKpi("DATA", "statistics-data-count", "0")}
-      ${makeKpi("PEOPLE", "statistics-people-count", "0")}
+      ${makeKpi("PEOPLE / MIN", "statistics-people-count", "0")}
       ${makeKpi("PACE / 15MIN", "statistics-pace", "0")}
       ${makeKpi("UNKNOWN", "statistics-unknown", "0")}
     </section>
@@ -49,7 +50,7 @@ export function createStatisticsDashboard({ root, getLane, onActivityFilterChang
       </section>
       <section class="statistics-lane-panel">
         ${makeHudFrame()}
-        <header><b>ROUTE COMPARISON</b><span>DATA / AGE</span></header>
+        <header><b>TIME PERIODS</b><span>DATA / AGE</span></header>
         <div class="statistics-age-legend" aria-label="年齢コードの色">
           ${[...AGE_KEYS, "UN"].map((key) => `<span style="--stat-color:${COLORS[key]}"><i></i>${key}</span>`).join("")}
         </div>
@@ -118,10 +119,6 @@ export function createStatisticsDashboard({ root, getLane, onActivityFilterChang
     if (active && latestState) render(latestState);
   }
 
-  function setLanguage(language) {
-    wordCloud.setLanguage(language);
-  }
-
   function update(state) {
     const periodIndex = getPeriodIndex(state);
     const periodStartTime = getPeriodStartTime(state, periodIndex);
@@ -148,7 +145,7 @@ export function createStatisticsDashboard({ root, getLane, onActivityFilterChang
     const people = sumPeople(activeMemos);
     const durationMinutes = Math.max((state.currentTime - state.periodStartTime) / 60_000, 1);
     const unknown = activeMemos.filter(
-      (memo) => !memo.isPeople || memo.category === "UN",
+      (memo) => memo.isPeople && ((memo.ageCategory || memo.category) === "UN" || memo.gender === 'U'),
     ).length;
 
     elements.data.textContent = String(activeMemos.length);
@@ -169,24 +166,26 @@ export function createStatisticsDashboard({ root, getLane, onActivityFilterChang
   }
 
   function renderLanes(memos) {
-    const rows = ["reysol", "terrace"].map((lane) => {
-      const laneMemos = memos.filter((memo) => getLane(memo.sourceId) === lane);
+    const rows = [{ id: "route", label: "柏駅周辺ルート", laneMemos: memos }].map((row) => {
+      const { laneMemos } = row;
       return {
-        id: lane,
-        label: lane === "reysol" ? "レイソル" : "テラス",
+        id: row.id,
+        label: row.label,
         data: laneMemos.length,
         segments: TIME_SEGMENTS.map((segment) => {
           const segmentMemos = laneMemos.filter((memo) => {
-            const date = new Date(memo.time);
-            const hour = date.getHours() + date.getMinutes() / 60;
+            const date = new Date(memo.time + 9 * 3600_000);
+            const hour = date.getUTCHours() + date.getUTCMinutes() / 60;
             return hour >= segment.start && hour < segment.end;
           });
           const ageCounts = new Map([...AGE_KEYS, "UN"].map((key) => [key, 0]));
           for (const memo of segmentMemos) {
-            const key = AGE_KEYS.includes(memo.category) ? memo.category : "UN";
+            if (!memo.isPeople) continue;
+            const age = memo.ageCategory || memo.category;
+            const key = AGE_KEYS.includes(age) ? age : "UN";
             ageCounts.set(key, ageCounts.get(key) + 1);
           }
-          return { ...segment, data: segmentMemos.length, ageCounts };
+          return { ...segment, data: segmentMemos.length, people: segmentMemos.filter((memo) => memo.isPeople).length, ageCounts };
         }),
       };
     });
@@ -200,7 +199,7 @@ export function createStatisticsDashboard({ root, getLane, onActivityFilterChang
               <div class="statistics-lane-stack" aria-label="${row.label} ${segment.label}の年齢構成">
                 ${[...AGE_KEYS, "UN"].map((key) => {
                   const count = segment.ageCounts.get(key);
-                  const ratio = segment.data ? count / segment.data : 0;
+                  const ratio = segment.people ? count / segment.people : 0;
                   return `<i style="width:${ratio * 100}%;--stat-color:${COLORS[key]}" title="${key}: ${count}"></i>`;
                 }).join("")}
               </div>
@@ -240,13 +239,15 @@ export function createStatisticsDashboard({ root, getLane, onActivityFilterChang
 
   function getCompositionEntries(memos, mode) {
     const config = {
-      age: { keys: AGE_KEYS, getValue: (memo) => memo.category },
-      group: { keys: GROUP_KEYS, getValue: (memo) => memo.category },
+      age: { keys: [...AGE_KEYS, 'UN'], getValue: (memo) => memo.ageCategory || memo.category },
+      group: { keys: GROUP_KEYS, getValue: (memo) => memo.groupCategory || memo.category },
       gender: { keys: GENDER_KEYS, getValue: (memo) => memo.gender },
     }[mode];
     const counts = new Map(config.keys.map((key) => [key, 0]));
     for (const memo of memos) {
-      const value = config.getValue(memo);
+      if (!memo.isPeople) continue;
+      const rawValue = config.getValue(memo);
+      const value = config.keys.includes(rawValue) ? rawValue : (mode === 'gender' ? 'U' : 'UN');
       if (counts.has(value)) counts.set(value, counts.get(value) + 1);
     }
     const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
@@ -257,7 +258,7 @@ export function createStatisticsDashboard({ root, getLane, onActivityFilterChang
     return { entries, total };
   }
 
-  return { setActive, setLanguage, update };
+  return { setActive, update };
 }
 
 function getPeriodIndex(state) {

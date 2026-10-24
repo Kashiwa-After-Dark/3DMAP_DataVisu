@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./css/style.css?v=20261022-01" />
-    <link rel="stylesheet" href="./css/smart-city-trial.css?v=20260826-02" />
+    <link rel="stylesheet" href="./css/style.css?v=20261024-02" />
+    <link rel="stylesheet" href="./css/smart-city-trial.css?v=20261024-01" />
     <script type="importmap">
       {
         "imports": {
@@ -41,14 +41,13 @@
                   <button id="view-2d" type="button" aria-pressed="false">2D</button>
                 </div>
               </div>
-              <button
-                id="statistics-mode"
-                class="statistics-mode-toggle toolbar-menu__command"
-                type="button"
-                aria-label="統計モード"
-                aria-pressed="false"
-                title="統計モード"
-              ><span aria-hidden="true">Σ</span><b>STATISTICS</b></button>
+              <a
+                id="statistics-link"
+                class="analysis-link toolbar-menu__command"
+                href="../statistics-mode/"
+                aria-label="統計画面を開く"
+                title="統計画面を開く"
+              ><span aria-hidden="true">Σ</span><b>STATISTICS</b></a>
             </div>
           </div>
           <button
@@ -81,7 +80,6 @@
         </div>
       </nav>
       <aside id="legend-filter" class="age-legend is-stored" aria-label="データ説明と絞り込み"></aside>
-      <aside id="statistics-dashboard" class="statistics-dashboard" aria-label="再生同期統計"></aside>
       <aside id="route-summary" class="route-summary" aria-live="polite" hidden></aside>
       <aside id="memo-panel" class="memo-panel" aria-label="メモ">
         <div id="memo-scroll-viewport" class="memo-scroll-viewport">
@@ -166,23 +164,14 @@
               <span style="left: 100%">24</span>
             </div>
             <div class="time-lanes">
-              <div class="time-lane time-lane--upper" data-time-lane="reysol">
-                <button class="time-lane__label is-active" type="button" data-place-select="reysol" aria-pressed="true">レイソル</button>
+              <div class="time-lane time-lane--single" data-time-lane="route">
+                <span class="time-lane__label">ROUTE</span>
                 <div class="time-gauge-segments" aria-hidden="true">
                   <i><b data-time-gauge-fill></b></i>
                   <i><b data-time-gauge-fill></b></i>
                   <i><b data-time-gauge-fill></b></i>
                 </div>
-                <div class="time-event-markers" data-time-event-markers="reysol" aria-label="レイソル担当の観察データ時刻"></div>
-              </div>
-              <div class="time-lane time-lane--lower" data-time-lane="terrace">
-                <button class="time-lane__label is-active" type="button" data-place-select="terrace" aria-pressed="true">テラス</button>
-                <div class="time-gauge-segments" aria-hidden="true">
-                  <i><b data-time-gauge-fill></b></i>
-                  <i><b data-time-gauge-fill></b></i>
-                  <i><b data-time-gauge-fill></b></i>
-                </div>
-                <div class="time-event-markers" data-time-event-markers="terrace" aria-label="テラス担当の観察データ時刻"></div>
+                <div class="time-event-markers" data-time-event-markers="route" aria-label="観察データの時刻"></div>
               </div>
             </div>
             <i class="time-range-selection" aria-hidden="true"></i>
@@ -209,16 +198,16 @@
         </datalist>
       </section>
       <section class="data-code-guide" aria-label="データコード説明">
-        <div class="data-code-guide__group"><b>AGE</b> H 高校生 / U 大学生 / Y 若い社会人 / A 中高年 / S 高齢者</div>
-        <div class="data-code-guide__group"><b>GROUP</b> CP カップル / FM 家族 / MX 年齢・属性混合 / UN 不明</div>
+        <div class="data-code-guide__group"><b>AGE</b> C 中学生以下 / H 高校生 / U 大学生 / Y 若い社会人 / A 中高年 / S 高齢者</div>
+        <div class="data-code-guide__group"><b>GROUP</b> B 1人 / G グループ / BG 男女 / GG 同性 / XG 混合 / CP カップル / FM 家族 / MX 属性混合 / UN 不明 / OBJ 物</div>
         <div class="data-code-guide__group"><b>GEN</b> M 男性 / F 女性 / X 男女混合 / U 不明</div>
-        <div class="data-code-guide__group data-code-guide__group--assignees">
-          <b>担当者</b>
-          <div id="assignee-list" class="assignee-list" aria-label="担当者で絞り込み"></div>
+        <div class="data-code-guide__group data-code-guide__group--periods">
+          <b>時間帯</b>
+          <div id="time-period-list" class="time-period-list" aria-label="時間帯で絞り込み"></div>
         </div>
       </section>
     </main>
 
-    <script type="module" src="./js/index.js?v=20261022-05"></script>
+    <script type="module" src="./js/index.js?v=20261024-04"></script>
   </body>
 </html>

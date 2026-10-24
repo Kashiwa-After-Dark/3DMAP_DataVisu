@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY } from "../config.js?v=20261022-02";
+const DEFAULT_CATEGORY = "UN";
 
 export function getMemoProfile(text) {
   const normalized = text
@@ -59,9 +59,11 @@ export function getMemoProfile(text) {
 }
 
 export function formatProfileBadge(memo, category) {
+  if (memo.recordType === 'objects') return `物 / ${memo.quantity ?? '不明'}個`;
   if (!memo.isPeople) return category.label;
   const genderLabels = { M: "男性", F: "女性", X: "混合", U: "不明" };
-  return `${memo.symbol} · ${genderLabels[memo.gender]} · ${memo.count}人`;
+  const count = memo.countMax && memo.countMax !== memo.count ? `${memo.count}–${memo.countMax}` : memo.count;
+  return `${memo.symbol} · ${genderLabels[memo.gender]} · ${count}${memo.countOver30 ? '+' : ''}人`;
 }
 
 function getSymbolCategory(symbol) {
