@@ -51,6 +51,9 @@ const SURVEY_SOURCES_BY_DATE = {
     sourceFiles: [
       "observations_people_2026-10-24.csv",
       "observations_objects_2026-10-24.csv",
+      // The published tracks are stored under a separate GPX source even
+      // though they belong to this single logical observation route.
+      "tracks_2026-10-25.gpx",
     ],
     label: "柏駅周辺ルート",
     lane: "route",
@@ -76,11 +79,17 @@ export function resolveSurveySources(data, configured = ROUTE_SOURCES) {
     const key = record.sourceId || record.sourceFilename;
     if (!key || result.has(key)) continue;
     const prior = configured.find((source) => source.apiId === key || source.id === key || source.file === record.sourceFilename);
+    const sourceKey = prior?.id || key;
+    const existing = result.get(sourceKey);
+    if (existing) {
+      existing.apiIds = [...new Set([...(existing.apiIds || []), key])];
+      continue;
+    }
     const sourceRecords = data.memos.filter((memo) => (memo.sourceId || memo.sourceFilename) === key);
     const segmentIndexes = getSegmentIndexes(sourceRecords);
-    result.set(key, {
+    result.set(sourceKey, {
       ...prior,
-      id: prior?.id || key, apiId: key,
+      id: sourceKey, apiId: key, apiIds: [key],
       file: prior?.file || record.sourceFilename || key,
       label: prior?.label || record.sourceLabel || record.sourceFilename || key,
       lane: prior?.lane || 'unassigned', visibleByDefault: prior?.visibleByDefault !== false,

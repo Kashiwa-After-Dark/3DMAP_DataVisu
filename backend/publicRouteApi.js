@@ -1,6 +1,6 @@
 // The public site calls a read-only Edge Function. No Supabase API key is sent
 // to browsers; the function alone calls the published-survey RPC.
-import { PUBLIC_SURVEY_DATE } from "./surveyConfig.js?v=20261024-03";
+import { PUBLIC_SURVEY_DATE } from "./surveyConfig.js?v=20261025-01";
 
 const ROUTE_API_URL = "https://idzkmlbjcxhhneqbgcfy.supabase.co/functions/v1/public-route-history";
 
@@ -35,14 +35,25 @@ export function mapPublicTracks(data, sources) {
     return points.length > 1 ? [{
       id: `${source.id}-api-${route.routeId}`,
       sourceId: source.id,
-      sourceLabel: source.label,
+      // Keep the API route identity and assignee label alongside the logical
+      // source used by the observation filters. Several named tracks can
+      // therefore share one logical route without losing their identity.
+      routeId: route.routeId,
+      apiSourceId: route.sourceId,
+      trackSourceId: route.sourceId,
+      sourceLabel: route.sourceLabel || source.label,
+      routeSourceLabel: source.label,
       points,
     }] : [];
   });
 }
 
 export function publicSourceLookup(sources) {
-  const byId = new Map(sources.flatMap((source) => [[source.id, source], [source.apiId, source]]));
+  const byId = new Map(sources.flatMap((source) => [
+    source.id,
+    source.apiId,
+    ...(source.apiIds || []),
+  ].filter(Boolean).map((id) => [id, source])));
   const byFile = new Map(sources.flatMap((source) => (
     (source.sourceFiles || [source.file]).map((file) => [file, source])
   )));

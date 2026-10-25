@@ -16,7 +16,7 @@ import {
 import {
   PUBLIC_SURVEY_DATE,
   ROUTE_SOURCES as CONFIGURED_SOURCES,
-} from "../../backend/surveyConfig.js?v=20261024-03";
+} from "../../backend/surveyConfig.js?v=20261025-01";
 import { createLegendFilter } from "./features/filters.js?v=20261024-03";
 import { createTimePeriodFilter } from "./features/timePeriodFilter.js?v=20261024-01";
 import { createTimelineInstruments } from "./features/instruments.js?v=20260724-12";
@@ -33,7 +33,7 @@ import { createHintMode } from "./features/hintMode.js?v=20261024-01";
 import { createToolbarMenus } from "./features/toolbarMenus.js?v=20260810-01";
 import { createViewToggle } from "./features/viewToggle.js";
 import { formatTime } from "./formatters.js";
-import { getTimeRange, loadRouteDataset } from "../../backend/routeData.js?v=20261024-03";
+import { getTimeRange, loadRouteDataset } from "../../backend/routeData.js?v=20261025-01";
 import { createMapDisplay } from "./mapDisplay.js?v=20261022-01";
 import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20260825-03";
 import { renderMemoPanel } from "./features/memoPanel.js?v=20261024-02";

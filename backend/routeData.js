@@ -1,6 +1,6 @@
 import { getMemoProfile } from "./profiles.js?v=20261024-02";
-import { fetchPublicRouteHistory, mapPublicTracks, publicSourceLookup } from "./publicRouteApi.js?v=20261024-03";
-import { resolveSurveySources } from "./surveyConfig.js?v=20261024-03";
+import { fetchPublicRouteHistory, mapPublicTracks, publicSourceLookup } from "./publicRouteApi.js?v=20261025-01";
+import { resolveSurveySources } from "./surveyConfig.js?v=20261025-01";
 
 export async function loadRouteDataset(sources) {
   try {
@@ -29,7 +29,9 @@ export async function loadRouteDataset(sources) {
           record.memo ? `メモ: ${record.memo}` : ''].filter(Boolean).join(' / '),
         place: record.place, motion: record.motion, direction: record.direction,
         sourceId: source.id,
-        sourceLabel: source.label,
+        sourceLabel: record.sourceLabel || source.label,
+        routeSourceLabel: source.label,
+        recordSourceId: record.sourceId,
         ...memoProfile(record, `${rawName} ${rawDesc}`),
         marker: null,
       }];
