@@ -1,0 +1,334 @@
+body.smart-city-trial {
+  --app-background: #07131f;
+  --map-blue: #72c7dc;
+  --map-blue-rgb: 114, 199, 220;
+  color: #f4fbfd;
+  background: var(--app-background);
+}
+
+body.smart-city-trial #scene {
+  filter: saturate(0.9) brightness(1.24) contrast(1.08);
+}
+
+.smart-city-trial .top-taskbar,
+.smart-city-trial .data-code-guide {
+  border-color: rgba(var(--map-blue-rgb), 0.74);
+  color: #d9edf2;
+  background: rgba(7, 19, 31, 0.98);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035), 0 10px 28px rgba(0, 0, 0, 0.38);
+}
+
+.smart-city-trial .system-identity strong,
+.smart-city-trial .timeline strong,
+.smart-city-trial .memo-item strong {
+  color: #ffffff;
+}
+
+.smart-city-trial .system-identity span,
+.smart-city-trial .memo-source,
+.smart-city-trial .memo-item p,
+.smart-city-trial .legend-filter__description,
+.smart-city-trial .data-code-guide {
+  color: #b8d0d8;
+}
+
+.smart-city-trial .age-legend,
+.smart-city-trial .memo-item,
+.smart-city-trial .timeline,
+.smart-city-trial .toolbar-menu__panel,
+.smart-city-trial .route-summary,
+.smart-city-trial .hint-detail {
+  border-color: rgba(var(--map-blue-rgb), 0.72);
+  background: rgba(8, 23, 36, 0.97);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035), 0 14px 34px rgba(0, 0, 0, 0.34);
+}
+
+.smart-city-trial .legend-filter__header,
+.smart-city-trial .timeline__header {
+  border-color: rgba(var(--map-blue-rgb), 0.48);
+}
+
+.smart-city-trial .legend-filter__header button,
+.smart-city-trial .legend-filter__control input,
+.smart-city-trial .timeline__controls button,
+.smart-city-trial .speed-control,
+.smart-city-trial .time-track-shell,
+.smart-city-trial .timeline-minimize,
+.smart-city-trial .view-toggle,
+.smart-city-trial .marker-display-mode {
+  border-color: rgba(var(--map-blue-rgb), 0.62);
+  color: #eef9fb;
+  background: #0c2233;
+}
+
+.smart-city-trial .legend-filter__control input::placeholder {
+  color: #9eb5be;
+  opacity: 1;
+}
+
+.smart-city-trial .legend-filter__group--age .legend-filter__option:has(input:checked) > span {
+  color: #07131f;
+  text-shadow: none;
+}
+
+.smart-city-trial .age-legend {
+  width: min(310px, calc(100vw - 28px));
+}
+
+.smart-city-trial .legend-filter__group--group {
+  column-gap: 5px;
+  row-gap: 6px;
+}
+
+.smart-city-trial .legend-filter__group--group .legend-filter__option {
+  width: 24px;
+  height: 24px;
+}
+
+.smart-city-trial .legend-filter__option:has(input[value="OBJ"]:checked) > span {
+  color: #07131f;
+  text-shadow: none;
+}
+
+.smart-city-trial .memo-item {
+  color: #edf7fa;
+}
+
+.smart-city-trial .memo-item p {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.smart-city-trial .memo-category {
+  color: #ffffff;
+  background: rgba(var(--memo-rgb), 0.18);
+}
+
+.smart-city-trial .toolbar-menu__panel--mode {
+  min-width: 300px;
+}
+
+.smart-city-trial .toolbar-menu__row--visual {
+  align-items: start;
+}
+
+.marker-display-mode {
+  display: grid;
+  min-width: 194px;
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid;
+}
+
+.marker-display-mode__controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.marker-display-mode button {
+  min-height: 30px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  color: #a9c1c9;
+  background: transparent;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.marker-display-mode button.is-active {
+  border-color: var(--map-blue);
+  color: #ffffff;
+  background: rgba(var(--map-blue-rgb), 0.2);
+}
+
+.marker-display-mode__legend {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid rgba(var(--map-blue-rgb), 0.26);
+  padding: 6px 3px 2px;
+}
+
+.marker-display-mode__legend > b {
+  color: #d7edf2;
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
+.marker-color-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 8px;
+}
+
+.marker-color-legend > span {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 9px minmax(0, 1fr);
+  gap: 5px;
+  align-items: center;
+}
+
+.marker-color-legend i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 50%;
+  background: var(--legend-swatch);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--legend-swatch), transparent 54%);
+}
+
+.marker-color-legend em {
+  overflow: hidden;
+  color: #c1d7dd;
+  font: 600 8px/1.2 var(--ui-font);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-city-trial .time-gauge-segments > i {
+  background: rgba(174, 200, 210, 0.22);
+}
+
+.smart-city-trial .time-gauge-segments b {
+  box-shadow: 0 0 3px rgba(var(--map-blue-rgb), 0.24);
+}
+
+.smart-city-trial .time-event-marker {
+  box-shadow: 0 0 2px color-mix(in srgb, var(--marker-color) 28%, transparent);
+  opacity: 0.82;
+}
+
+.smart-city-trial .timeline-instruments {
+  grid-template-columns: 60px 48px 70px;
+  gap: 9px;
+  width: 196px;
+  align-items: end;
+}
+
+.smart-city-trial .clock-dial,
+.smart-city-trial .compass-dial,
+.smart-city-trial .speed-engine {
+  border: 2px solid rgba(var(--map-blue-rgb), 0.68);
+  background: #081725;
+  box-shadow:
+    inset 0 0 0 3px #050e18,
+    inset 0 0 12px rgba(var(--map-blue-rgb), 0.12),
+    0 5px 12px rgba(0, 0, 0, 0.38);
+  filter: none;
+}
+
+.smart-city-trial .clock-dial {
+  width: 60px;
+  height: 60px;
+}
+
+.smart-city-trial .clock-dial .instrument-fine-ticks i {
+  transform-origin: 50% 27px;
+}
+
+.smart-city-trial .clock-mark--12 {
+  top: 5px;
+}
+
+.smart-city-trial .clock-mark--3 {
+  right: 5px;
+}
+
+.smart-city-trial .clock-mark--6 {
+  bottom: 5px;
+}
+
+.smart-city-trial .clock-mark--9 {
+  left: 5px;
+}
+
+.smart-city-trial .clock-hand--hour {
+  height: 16px;
+}
+
+.smart-city-trial .clock-hand--minute {
+  height: 21px;
+}
+
+.smart-city-trial .compass-dial {
+  width: 46px;
+  height: 46px;
+  margin: 1px;
+  background: #081725;
+}
+
+.smart-city-trial .compass-north-arrow {
+  top: 9px;
+  left: calc(50% - 5px);
+  width: 10px;
+  height: 26px;
+}
+
+.smart-city-trial .compass-card .instrument-fine-ticks i {
+  transform-origin: 50% 20px;
+}
+
+.smart-city-trial .compass-card .instrument-fine-ticks i.is-major {
+  transform-origin: 50% 25px;
+}
+
+.smart-city-trial .speed-engine {
+  width: 70px;
+  height: 70px;
+}
+
+.smart-city-trial .speed-engine .instrument-fine-ticks i {
+  transform-origin: 50% 32px;
+}
+
+.smart-city-trial .speed-engine__needle {
+  bottom: 35px;
+  height: 24px;
+}
+
+.smart-city-trial .speed-engine__readout {
+  bottom: 7px;
+  font-size: 11px;
+}
+
+.smart-city-trial .language-toggle {
+  width: 86px;
+  height: 30px;
+  border-color: rgba(var(--map-blue-rgb), 0.58);
+  background: #0c2233;
+}
+
+.smart-city-trial :focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .smart-city-trial .toolbar-menu__panel--mode {
+    min-width: min(300px, calc(100vw - 24px));
+  }
+
+  .marker-display-mode {
+    min-width: 168px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .smart-city-trial .toolbar-actions {
+    margin-right: 8px;
+  }
+
+  .smart-city-trial .toolbar-menu--mode .toolbar-menu__panel {
+    position: fixed;
+    top: 64px;
+    right: 8px;
+    left: auto;
+    width: min(300px, calc(100vw - 16px));
+  }
+
+  .smart-city-trial .system-identity span {
+    display: none;
+  }
+}

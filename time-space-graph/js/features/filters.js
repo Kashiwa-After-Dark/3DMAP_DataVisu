@@ -311,8 +311,13 @@ function memoMatchesState(memo, state) {
   } else {
     const ageCategory = memo.ageCategory || memo.category || "UN";
     const groupCategory = memo.groupCategory || "UN";
-    if (ageKeysForFiltering().has(ageCategory) && !state.ageCategories.has(ageCategory)) return false;
-    if (!state.groupCategories.has(groupCategory)) return false;
+    const isMixed = ageCategory === "MX" || groupCategory === "MX";
+    if (isMixed) {
+      if (!state.groupCategories.has("MX")) return false;
+    } else {
+      if (ageKeysForFiltering().has(ageCategory) && !state.ageCategories.has(ageCategory)) return false;
+      if (!state.groupCategories.has(groupCategory)) return false;
+    }
   }
   if (!state.genders.has(memo.gender)) return false;
   if (!state.sources.has(memo.sourceId)) return false;

@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./css/style.css?v=20261024-02" />
     <link rel="stylesheet" href="./css/smart-city-trial.css?v=20261024-01" />
+    <link rel="stylesheet" href="./css/readability.css?v=20261028-07" />
     <script type="importmap">
       {
         "imports": {
@@ -41,6 +42,10 @@
                   <button id="view-2d" type="button" aria-pressed="false">2D</button>
                 </div>
               </div>
+              <div class="toolbar-menu__row toolbar-menu__row--visual">
+                <span>DATA COLOR</span>
+                <div id="marker-display-mode" class="marker-display-mode" aria-label="データアイコンの色分け"></div>
+              </div>
               <a
                 id="statistics-link"
                 class="analysis-link toolbar-menu__command"
@@ -64,6 +69,14 @@
               <b>SETTINGS</b>
             </button>
             <div class="toolbar-menu__panel toolbar-menu__panel--settings" data-toolbar-menu-panel>
+              <div class="toolbar-menu__row">
+                <span>LANGUAGE</span>
+                <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch to English">
+                  <span data-language-option="ja">日本語</span>
+                  <i aria-hidden="true">/</i>
+                  <span data-language-option="en">EN</span>
+                </button>
+              </div>
               <div class="toolbar-menu__row">
                 <span>GUIDE</span>
                 <button
@@ -208,6 +221,6 @@
       </section>
     </main>
 
-    <script type="module" src="./js/index.js?v=20261024-04"></script>
+    <script type="module" src="./js/index.js?v=20261028-07"></script>
   </body>
 </html>

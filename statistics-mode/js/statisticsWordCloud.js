@@ -1,4 +1,5 @@
 import { extractContentTerms } from "./japaneseContentWords.js?v=20261024-01";
+import { classifyImpression } from "../../backend/impressionClassifier.js?v=20261028-01";
 
 const MAX_WORDS = 64;
 const MIN_FONT_SIZE = 6;
@@ -42,6 +43,7 @@ export function createStatisticsWordCloud({ root }) {
       <span data-sentiment="positive">POS</span>
       <span data-sentiment="neutral">NEU</span>
       <span data-sentiment="negative">NEG</span>
+      <span data-sentiment="unknown">UN</span>
       <span data-sentiment="action">ACTION</span>
     </div>
     <div class="statistics-word-cloud" aria-live="polite"></div>
@@ -105,13 +107,21 @@ function countWords(memos) {
   const labels = new Map();
   const classifications = new Map();
   for (const memo of memos) {
-    const text = `${memo.name || ""} ${memo.desc || ""}`.trim();
-    for (const term of extractContentTerms(text)) {
+    const fields = memo.activity || memo.impression
+      ? [
+        { text: memo.activity, sentiment: "action" },
+        { text: memo.impression, sentiment: classifyImpression(memo) },
+      ]
+      : [{ text: `${memo.name || ""} ${memo.desc || ""}`, sentiment: null }];
+    for (const field of fields) for (const term of extractContentTerms(field.text || "")) {
       const label = normalizeTerm(term.label);
       const key = label.toLocaleLowerCase("ja");
       counts.set(key, (counts.get(key) || 0) + 1);
       if (!labels.has(key)) labels.set(key, label);
-      if (!classifications.has(key)) classifications.set(key, term);
+      if (!classifications.has(key)) classifications.set(key, {
+        ...term,
+        sentiment: field.sentiment || term.sentiment,
+      });
     }
   }
 

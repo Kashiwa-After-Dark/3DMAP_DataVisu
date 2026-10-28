@@ -1,3 +1,5 @@
+import { AGE_STYLES } from "../../backend/visualEncoding.js?v=20261028-02";
+
 export const ORIGIN = {
   lat: 35.86183529140233,
   lon: 139.97190479462844,
@@ -77,16 +79,4 @@ export const CAMERA_MODES = {
   },
 };
 
-export const CATEGORY_STYLES = {
-  C: { label: "中学生以下", color: "#67e8f9", soft: "#a5f3fc" },
-  OBJ: { label: "物の記録", color: "#cbd5e1", soft: "#e2e8f0" },
-  H: { label: "高校生", color: "#22d3ee", soft: "#a5f3fc" },
-  U: { label: "大学生", color: "#397d9f", soft: "#397d9f" },
-  Y: { label: "若い社会人", color: "#8b5cf6", soft: "#ddd6fe" },
-  A: { label: "中高年", color: "#f59e0b", soft: "#fde68a" },
-  S: { label: "高齢者", color: "#ef4444", soft: "#fecaca" },
-  CP: { label: "カップル", color: "#ec4899", soft: "#fbcfe8" },
-  FM: { label: "家族", color: "#14b8a6", soft: "#99f6e4" },
-  MX: { label: "属性混合", color: "#a78bfa", soft: "#ede9fe" },
-  UN: { label: "その他・不明", color: "#94a3b8", soft: "#e2e8f0" },
-};
+export const CATEGORY_STYLES = AGE_STYLES;

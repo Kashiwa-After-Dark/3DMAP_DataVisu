@@ -1,9 +1,12 @@
-import { createStatisticsWordCloud } from "./statisticsWordCloud.js?v=20261024-01";
-import { createStatisticsActivityChart } from "./statisticsActivityChart.js?v=20261024-01";
+import { createStatisticsWordCloud } from "./statisticsWordCloud.js?v=20261028-02";
+import { createStatisticsActivityChart } from "./statisticsActivityChart.js?v=20261028-01";
+import { AGE_STYLES } from "../../backend/visualEncoding.js?v=20261028-02";
+import { IMPRESSION_TYPES, classifyImpression } from "../../backend/impressionClassifier.js?v=20261028-01";
 
 const AGE_KEYS = ["C", "H", "U", "Y", "A", "S", "MX"];
 const GROUP_KEYS = ["B", "G", "BG", "GG", "XG", "CP", "FM", "MX", "UN"];
 const GENDER_KEYS = ["M", "F", "X", "U"];
+const IMPRESSION_KEYS = ["positive", "neutral", "negative", "unknown"];
 const TIME_SEGMENTS = [
   { label: "18–20", start: 18, end: 20 },
   { label: "20–22", start: 20, end: 22 },
@@ -13,21 +16,14 @@ const LABELS = {
   age: { C: '中学生以下', H: "高校生", U: "大学生", Y: "若い社会人", A: "中高年", S: "高齢者", MX: '複数年齢', UN: '不明' },
   group: { B: 'B', G: 'G', BG: 'BG', GG: 'GG', XG: 'XG', CP: "カップル", FM: "家族", MX: "混合", UN: "不明" },
   gender: { M: "男性", F: "女性", X: "男女混合", U: "不明" },
+  impression: { positive: "肯定的", neutral: "中立", negative: "懸念", unknown: "判定保留" },
 };
 const COLORS = {
-  C: '#67e8f9', B: '#38bdf8', G: '#f472b6', BG: '#0ea5e9', GG: '#ec4899', XG: '#a78bfa',
-  H: "#22d3ee",
-  U: "#397d9f",
-  Y: "#8b5cf6",
-  A: "#f59e0b",
-  S: "#ef4444",
-  CP: "#ec4899",
-  FM: "#14b8a6",
-  MX: "#a78bfa",
-  UN: "#94a3b8",
-  M: "#38bdf8",
-  F: "#f472b6",
-  X: "#a78bfa",
+  ...Object.fromEntries(Object.entries(AGE_STYLES).map(([key, value]) => [key, value.color])),
+  B: '#56b4e9', G: '#f0e442', BG: '#00d084', GG: '#e879f9', XG: '#ff9f1c',
+  CP: "#ff6b9d", FM: "#00e5ff",
+  M: "#56b4e9", F: "#ff9f1c", X: "#e879f9",
+  ...Object.fromEntries(IMPRESSION_TYPES.map((item) => [item.id, item.color])),
 };
 
 export function createStatisticsDashboard({ root, onActivityFilterChange }) {
@@ -39,7 +35,7 @@ export function createStatisticsDashboard({ root, onActivityFilterChange }) {
   root.innerHTML = `
     <section class="statistics-kpis" aria-label="主要統計">
       ${makeKpi("DATA", "statistics-data-count", "0")}
-      ${makeKpi("PEOPLE / MIN", "statistics-people-count", "0")}
+      ${makeKpi("PEOPLE", "statistics-people-count", "0")}
       ${makeKpi("PACE / 15MIN", "statistics-pace", "0")}
       ${makeKpi("UNKNOWN", "statistics-unknown", "0")}
     </section>
@@ -64,6 +60,7 @@ export function createStatisticsDashboard({ root, onActivityFilterChange }) {
             <button type="button" data-composition="age" role="tab" aria-selected="false">AGE</button>
             <button type="button" data-composition="group" class="is-active" role="tab" aria-selected="true">GROUP</button>
             <button type="button" data-composition="gender" role="tab">GEN</button>
+            <button type="button" data-composition="impression" role="tab">印象</button>
           </div>
         </header>
         <div class="statistics-composition-stage">
@@ -242,6 +239,7 @@ export function createStatisticsDashboard({ root, onActivityFilterChange }) {
       age: { keys: [...AGE_KEYS, 'UN'], getValue: (memo) => memo.ageCategory || memo.category },
       group: { keys: GROUP_KEYS, getValue: (memo) => memo.groupCategory || memo.category },
       gender: { keys: GENDER_KEYS, getValue: (memo) => memo.gender },
+      impression: { keys: IMPRESSION_KEYS, getValue: classifyImpression },
     }[mode];
     const counts = new Map(config.keys.map((key) => [key, 0]));
     for (const memo of memos) {

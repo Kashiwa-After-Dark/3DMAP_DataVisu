@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, classifyActivity } from "../../backend/activityClassifier.js?v=20261024-01";
+import { ACTIVITY_TYPES, classifyActivity } from "../../backend/activityClassifier.js?v=20261028-01";
 
 const TIME_SEGMENTS = [
   { label: "18–20", start: 18, end: 20 },

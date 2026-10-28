@@ -12,6 +12,8 @@ export function renderMemoPanel({
   activeMemo,
   suppressedMemo,
   categories,
+  getVisual,
+  visualMode = "attribute",
   formatTime,
   onSelect,
   onHover,
@@ -29,6 +31,7 @@ export function renderMemoPanel({
     && previous.featuredMemo === featuredMemo
     && previous.suppressedMemo === suppressedMemo
     && previous.language === language
+    && previous.visualMode === visualMode
     && previous.memos.length === chronologicalMemos.length
     && previous.memos.every((memo, index) => memo === chronologicalMemos[index]);
   if (unchanged) return false;
@@ -40,7 +43,7 @@ export function renderMemoPanel({
       isCurrent: memo === featuredMemo,
       isHoverSuppressed: memo === suppressedMemo,
       isLatest: memo === latestMemo,
-      category: categories[memo.category],
+      category: getVisual?.(memo) || categories[memo.category],
       formatTime,
       onSelect,
       onHover,
@@ -55,6 +58,7 @@ export function renderMemoPanel({
     featuredMemo,
     suppressedMemo,
     language,
+    visualMode,
   });
   return true;
 }
@@ -92,7 +96,7 @@ function makeMemoItem({
   item.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown Enter");
   if (isCurrent) item.setAttribute("aria-current", "true");
   item.style.setProperty("--memo-color", category.color);
-  item.style.setProperty("--memo-soft", category.soft);
+  item.style.setProperty("--memo-soft", category.soft || category.color);
   item.style.setProperty("--memo-rgb", hexToRgbChannels(category.color));
   item.addEventListener("mouseenter", () => {
     if (item.parentElement?.dataset.dockInputMode === "keyboard") return;

@@ -12,12 +12,12 @@ import {
   TIME_BASE_Y,
   TIME_END_HOUR,
   TIME_START_HOUR,
-} from "./config.js?v=20261024-02";
+} from "./config.js?v=20261028-02";
 import {
   PUBLIC_SURVEY_DATE,
   ROUTE_SOURCES as CONFIGURED_SOURCES,
 } from "../../backend/surveyConfig.js?v=20261025-01";
-import { createLegendFilter } from "./features/filters.js?v=20261024-03";
+import { createLegendFilter } from "./features/filters.js?v=20261028-01";
 import { createTimePeriodFilter } from "./features/timePeriodFilter.js?v=20261024-01";
 import { createTimelineInstruments } from "./features/instruments.js?v=20260724-12";
 import { create2DMapController } from "./features/map2d.js?v=20260809-31";
@@ -29,15 +29,17 @@ import { createTimelineRange } from "./features/timelineRange.js?v=20260801-08";
 import { createRouteSelection } from "./features/routeSelection.js?v=20260801-04";
 import { createPanelStorage } from "./features/panelStorage.js?v=20260801-02";
 import { createTaskbarVisibility } from "./features/taskbarVisibility.js?v=20260801-02";
-import { createHintMode } from "./features/hintMode.js?v=20261024-01";
+import { createHintMode } from "./features/hintMode.js?v=20261028-01";
 import { createToolbarMenus } from "./features/toolbarMenus.js?v=20260810-01";
+import { createMarkerDisplayMode } from "./features/markerDisplayMode.js?v=20261028-02";
 import { createViewToggle } from "./features/viewToggle.js";
 import { formatTime } from "./formatters.js";
-import { getTimeRange, loadRouteDataset } from "../../backend/routeData.js?v=20261025-01";
+import { getTimeRange, loadRouteDataset } from "../../backend/routeData.js?v=20261028-01";
 import { createMapDisplay } from "./mapDisplay.js?v=20261022-01";
-import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20260825-03";
-import { renderMemoPanel } from "./features/memoPanel.js?v=20261024-02";
-import { translateDataText } from "./features/languageMode.js?v=20261024-01";
+import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20261028-01";
+import { renderMemoPanel } from "./features/memoPanel.js?v=20261028-01";
+import { createLanguageMode, translateDataText } from "./features/languageMode.js?v=20261028-02";
+import { getObservationVisual } from "../../backend/visualEncoding.js?v=20261028-02";
 
 const initialDataset = await loadRouteDataset(CONFIGURED_SOURCES);
 const GPX_FILES = initialDataset.sources;
@@ -71,6 +73,8 @@ const routeSummaryRoot = document.querySelector("#route-summary");
 const topTaskbar = document.querySelector(".top-taskbar");
 const bottomTaskbar = document.querySelector(".data-code-guide");
 const hintModeButton = document.querySelector("#hint-mode");
+const languageToggle = document.querySelector("#language-toggle");
+const markerDisplayModeRoot = document.querySelector("#marker-display-mode");
 const sourcesById = new Map(GPX_FILES.map((source) => [source.id, source]));
 
 const mapDisplay = createMapDisplay(canvas);
@@ -127,6 +131,7 @@ let lastFrameMs = performance.now();
 let iconPointerDown = null;
 let activeTimeSpacePeriodIndex = -2;
 let currentLanguage = "ja";
+let markerVisualMode = "attribute";
 let timeAxisLevels = [];
 const followTarget = new THREE.Vector3();
 const followDirection = new THREE.Vector3(1, 0, 0);
@@ -189,6 +194,21 @@ createHintMode({
   },
 });
 createToolbarMenus({ root: topTaskbar });
+createLanguageMode({
+  button: languageToggle,
+  root: document.querySelector("#app"),
+  onChange: (language) => {
+    currentLanguage = language;
+    if (memoPoints.length) updateTimeline(Number(timeSlider.value));
+  },
+});
+createMarkerDisplayMode({
+  root: markerDisplayModeRoot,
+  onChange: (mode) => {
+    markerVisualMode = mode;
+    refreshObservationVisuals();
+  },
+});
 timelineInstruments.updateSpeed(playbackRate);
 viewToggle.setActive(viewMode);
 
@@ -554,8 +574,10 @@ function pushCurtainVertex(positions, colors, point, color) {
 
 function getRouteColor(time, sourceId) {
   const latestMemo = getRouteMemoAtTime(time, sourceId);
-  const category = latestMemo?.category || DEFAULT_CATEGORY;
-  const color = new THREE.Color(CATEGORY_STYLES[category].color);
+  const visual = latestMemo
+    ? getObservationVisual(latestMemo, markerVisualMode)
+    : CATEGORY_STYLES[DEFAULT_CATEGORY];
+  const color = new THREE.Color(visual.color);
   if (latestMemo?.count) {
     const groupStrength = THREE.MathUtils.clamp(Math.log2(latestMemo.count + 1) / 8, 0, 0.22);
     color.lerp(new THREE.Color(0xffffff), groupStrength);
@@ -774,8 +796,8 @@ function createMemoMarker(memo, offsetSlot) {
   const frame = memo.routeId && routeTracks.length
     ? getRouteFrameAtTime(memo.time, memo.sourceId)
     : { position: geoToWorld(memo), normal: new THREE.Vector3(0, 0, 1) };
-  const category = CATEGORY_STYLES[memo.category];
-  const categoryColor = new THREE.Color(category.color);
+  const visual = getObservationVisual(memo, markerVisualMode);
+  const categoryColor = new THREE.Color(visual.color);
   const lateralOffset = offsetSlot * 6.5;
   const offset = frame.normal.clone().multiplyScalar(lateralOffset);
   const group = new THREE.Group();
@@ -799,13 +821,14 @@ function createMemoMarker(memo, offsetSlot) {
   leader.renderOrder = 29;
   leader.userData.routeSourceId = memo.sourceId;
 
-  const stamp = makeGraffitiStamp(memo, category);
+  const stamp = makeGraffitiStamp(memo, visual);
   stamp.position.y = 2.2;
   stamp.userData.baseScale = stamp.scale.clone();
   const selectionHalo = makeSelectionHalo(categoryColor, stamp);
   group.userData.stamp = stamp;
   group.userData.leader = leader;
   group.userData.selectionHalo = selectionHalo;
+  group.userData.visual = visual;
   stamp.userData.memo = memo;
 
   group.add(leader, selectionHalo, stamp);
@@ -827,6 +850,10 @@ function finishIconSelection(event) {
   if (!start || start.pointerId !== event.pointerId) return;
   if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
 
+  if (activeMemo) {
+    deselectMemo(activeMemo);
+    return;
+  }
   const memo = getMemoIconAtPointer(event);
   if (memo) {
     selectMemo(memo);
@@ -1056,6 +1083,8 @@ function updateTimeline(seconds, { playback = false } = {}) {
     activeMemo,
     suppressedMemo: hoverSuppressedMemo,
     categories: CATEGORY_STYLES,
+    getVisual: (memo) => getObservationVisual(memo, markerVisualMode),
+    visualMode: markerVisualMode,
     formatTime,
     onSelect: selectMemo,
     onHover: setHoveredMemo,
@@ -1093,7 +1122,7 @@ function syncMemoMarkerOpacity(memo, isRecent) {
   const stamp = memo.marker?.userData.stamp;
   const head = memo.marker?.userData.head;
   const isFocused = memo === activeMemo || memo === hoveredMemo;
-  const opacity = isFocused || isRecent ? 1 : 0.62;
+  const opacity = isFocused || isRecent ? 1 : 0.82;
   const renderOrder = isFocused ? 37 : isRecent ? 36 : 32;
   if (stamp?.material) {
     stamp.userData.setSolid?.(isFocused || isRecent);
@@ -1137,7 +1166,7 @@ function renderTimelineMarkers() {
     marker.className = `time-event-marker${memo.isPeople ? "" : " is-neutral"}`;
     marker.style.left = `${position}%`;
     marker.style.height = `${height}px`;
-    marker.style.setProperty("--marker-color", CATEGORY_STYLES[memo.category].color);
+    marker.style.setProperty("--marker-color", getObservationVisual(memo, markerVisualMode).color);
     marker.style.setProperty("--marker-offset", `${offsets[collisionIndex % offsets.length]}px`);
     markersByLane.get(lane).push(marker);
   }
@@ -1162,6 +1191,29 @@ function applyFilters() {
   legendFilter?.updateCount(
     memoPoints.filter((memo) => timePeriodFilter?.matches(memo) ?? true),
   );
+  updateCurtainFilterStyles();
+  renderTimelineMarkers();
+  updateTimeline(Number(timeSlider.value));
+}
+
+function refreshObservationVisuals() {
+  for (const memo of memoPoints) {
+    if (!memo.marker) continue;
+    const visual = getObservationVisual(memo, markerVisualMode);
+    memo.marker.userData.visual = visual;
+    memo.marker.userData.stamp?.userData.setVisual?.(visual);
+    memo.marker.userData.leader?.material.color.set(visual.color);
+    memo.marker.userData.selectionHalo?.material.color.set(visual.color);
+  }
+
+  for (const { line, points, sourceId } of elapsedRouteLines) {
+    const colors = line.geometry.getAttribute("color");
+    points.forEach((point, index) => {
+      const color = getRouteColor(point.time, sourceId);
+      colors.setXYZ(index, color.r, color.g, color.b);
+    });
+    colors.needsUpdate = true;
+  }
   updateCurtainFilterStyles();
   renderTimelineMarkers();
   updateTimeline(Number(timeSlider.value));

@@ -1,6 +1,6 @@
-import { loadRouteDataset, getTimeRange } from "../../backend/routeData.js?v=20261025-01";
+import { loadRouteDataset, getTimeRange } from "../../backend/routeData.js?v=20261028-01";
 import { PUBLIC_SURVEY_DATE, ROUTE_SOURCES as CONFIGURED_SOURCES } from "../../backend/surveyConfig.js?v=20261025-01";
-import { createStatisticsDashboard } from "./statisticsDashboard.js?v=20261024-03";
+import { createStatisticsDashboard } from "./statisticsDashboard.js?v=20261028-03";
 import { createStatisticsPeriodFilter } from "./statisticsPeriodFilter.js?v=20261024-02";
 let ROUTE_SOURCES = CONFIGURED_SOURCES;
 
