@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>テラス | Kashiwa After Dark</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./css/style.css?v=20261109-data1" />
+    <link rel="stylesheet" href="./css/station-context.css?v=20261109-context1" />
+    <link rel="stylesheet" href="./css/place-summary.css?v=20261109-place1" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.166.1/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.166.1/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="map" aria-label="テラス周辺の拡大3Dマップ"></canvas>
+      <header class="header">
+        <a class="brand" href="../time-space-graph/" title="ルートヒストリーへ戻る">KASHIWA AFTER DARK<span>TERRACE MAP</span></a>
+        <button id="data-toggle" class="data-toggle" type="button" aria-label="観察データの表示切替" aria-expanded="true" aria-controls="observations"><i data-lucide="list"></i><span>観察データ</span><b id="data-count">—</b></button>
+      </header>
+      <section class="place-title" aria-label="表示対象">
+        <span class="eyebrow"><i></i> FOCUS AREA</span>
+        <h1>テラス</h1>
+        <p>駅前デッキ・プラザ前</p>
+      </section>
+      <div class="north" aria-label="北の方角"><span id="north-arrow">↑</span><b>N</b></div>
+      <aside id="observations" aria-label="テラスの観察データ">
+        <div class="observations-heading"><div><h2>観察データ</h2><p><span id="survey-date">—</span> · TR</p></div><output id="observation-count">—件</output><button id="reload-data" class="icon-button" type="button" aria-label="観察データを再読み込み" title="観察データを再読み込み"><i data-lucide="refresh-cw"></i></button></div>
+        <div class="data-filters">
+          <div class="period-filter" role="group" aria-label="観察時間帯"><button type="button" data-period="all" aria-pressed="true">すべて</button><button type="button" data-period="0" aria-pressed="false">18–20</button><button type="button" data-period="1" aria-pressed="false">20–22</button><button type="button" data-period="2" aria-pressed="false">22–24</button></div>
+          <select id="place-code" aria-label="場所" disabled><option value="all">場所：すべて</option></select>
+        </div>
+        <p id="observation-status" role="status">観察データを読み込み中</p>
+        <div class="observation-tabs" role="tablist" aria-label="観察データの表示"><button id="tab-places" type="button" role="tab" aria-selected="true" aria-controls="place-summary" data-observation-tab="places">場所比較</button><button id="tab-records" type="button" role="tab" aria-selected="false" aria-controls="record-content" tabindex="-1" data-observation-tab="records">観察一覧</button></div>
+        <div class="observation-scroll"><section id="place-summary" role="tabpanel" aria-labelledby="tab-places"></section><section id="record-content" role="tabpanel" aria-labelledby="tab-records" hidden><section id="observation-detail" aria-label="選択した観察記録" hidden></section><ul id="observation-list" aria-label="観察記録の一覧"></ul></section></div>
+      </aside>
+      <section class="map-controls" aria-label="地図操作">
+        <div class="view-switch" role="group" aria-label="地図の視点">
+          <button type="button" id="view-3d" aria-pressed="true">3D</button>
+          <button type="button" id="view-2d" aria-pressed="false">2D</button>
+        </div>
+        <span class="divider"></span>
+        <button class="icon-button" type="button" id="zoom-in" title="拡大" aria-label="拡大"><i data-lucide="zoom-in"></i></button>
+        <button class="icon-button" type="button" id="zoom-out" title="縮小" aria-label="縮小"><i data-lucide="zoom-out"></i></button>
+        <button class="icon-button" type="button" id="reset-view" title="テラス全体に戻す" aria-label="テラス全体に戻す"><i data-lucide="locate-fixed"></i></button>
+        <button class="icon-button" type="button" id="fullscreen" title="全画面表示" aria-label="全画面表示" aria-pressed="false"><i data-lucide="maximize"></i></button>
+      </section>
+      <footer class="footer">
+        <div class="focus-key"><i></i><span>テラス</span><small>deck01 / deck02</small></div>
+        <label class="context-toggle"><input id="show-context" type="checkbox" checked /><span>周辺を表示</span></label>
+        <output id="view-status">斜め視点</output>
+      </footer>
+      <div class="load-state" id="load-state" role="status"><span class="spinner"></span><p id="load-message">地図を読み込み中</p><button id="retry" type="button" hidden>再読み込み</button></div>
+      <noscript><p class="noscript">地図を表示するにはJavaScriptを有効にしてください。</p></noscript>
+    </main>
+    <script type="module" src="./js/index.js?v=20261109-place1"></script>
+  </body>
+</html>

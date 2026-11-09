@@ -1,3 +1,7 @@
+import { ACTIVITY_TYPES, getActivityType } from "../../../backend/activityClassifier.js?v=20261028-02";
+import { IMPRESSION_TYPES } from "../../../backend/impressionClassifier.js?v=20261029-db1";
+import { getPerspectiveImpressionType } from "./emotionPerspective.js?v=20261029-db1";
+
 export function createLegendFilter({ root, categories, sources, onChange, onSourcesReset }) {
   const ageKeys = ["C", "H", "U", "Y", "A", "S"];
   const groupKeys = ["B", "G", "BG", "GG", "XG", "CP", "FM", "MX", "UN", "OBJ"];
@@ -6,6 +10,9 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     ageCategories: new Set(ageKeys),
     groupCategories: new Set(groupKeys),
     genders: new Set(["M", "F", "X", "U"]),
+    activityTypes: new Set([...ACTIVITY_TYPES.map((entry) => entry.id), "object"]),
+    impressionTypes: new Set([...IMPRESSION_TYPES.map((entry) => entry.id), "object"]),
+    impressionPerspective: "observer",
     sources: new Set(allSourceIds),
     minCount: 0,
     maxCount: Infinity,
@@ -18,6 +25,16 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
 
   const content = document.createElement("div");
   content.className = "legend-filter__content";
+  const tabList = makeTabList();
+  const filterPanel = document.createElement("div");
+  filterPanel.className = "legend-filter__panel legend-filter__panel--filter";
+  filterPanel.dataset.filterPanel = "filter";
+  const visualPanel = document.createElement("div");
+  visualPanel.id = "marker-display-mode";
+  visualPanel.className = "marker-display-mode legend-filter__panel legend-filter__panel--visual";
+  visualPanel.dataset.filterPanel = "visual";
+  visualPanel.setAttribute("aria-label", "データアイコンの色分け");
+  visualPanel.hidden = true;
   const codeSelector = document.createElement("div");
   codeSelector.className = "legend-filter__code-selector";
   codeSelector.append(
@@ -47,24 +64,12 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     makeSearchControl(),
   );
   content.append(codeSelector, makeDescription());
-  let viewLevel = 1;
+  let activeTab = "filter";
 
   const handleChange = (changedInput) => {
     syncCountRangeUi(root, changedInput);
     syncStateFromUi(state, root);
     onChange?.();
-  };
-  const setViewLevel = (nextLevel, toggleButton = root.querySelector(".legend-filter__toggle")) => {
-    viewLevel = nextLevel === 0 ? 0 : 1;
-    root.classList.toggle("is-collapsed", viewLevel === 0);
-    root.dataset.viewLevel = String(viewLevel);
-
-    if (!toggleButton) return;
-    const isExpanded = viewLevel > 0;
-    toggleButton.textContent = isExpanded ? "−" : "+";
-    toggleButton.title = isExpanded ? "フィルターを最小化" : "フィルターを最大化";
-    toggleButton.setAttribute("aria-label", toggleButton.title);
-    toggleButton.setAttribute("aria-expanded", String(isExpanded));
   };
   const header = makeHeader({
     countReadout,
@@ -73,17 +78,45 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       onSourcesReset?.();
       onChange?.();
     },
-    onToggle: (button) => {
-      setViewLevel(viewLevel === 0 ? 1 : 0, button);
-    },
   });
-  const storage = makeStorageButton(root);
-
+  filterPanel.append(header, content);
   root.classList.remove("is-collapsed");
-  root.dataset.viewLevel = String(viewLevel);
-  root.replaceChildren(header, content, storage.button);
+  root.replaceChildren(tabList, filterPanel, visualPanel);
+  const setActiveTab = (tabId) => {
+    const nextTab = ["impression", "activity"].includes(tabId) ? tabId : "filter";
+    activeTab = nextTab;
+    filterPanel.hidden = nextTab !== "filter";
+    visualPanel.hidden = nextTab === "filter";
+    root.dataset.activeTab = nextTab;
+    for (const button of tabList.querySelectorAll("[data-filter-tab]")) {
+      const selected = button.dataset.filterTab === nextTab;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-selected", String(selected));
+      button.setAttribute("aria-expanded", String(selected && !root.classList.contains("is-stored")));
+      button.tabIndex = selected ? 0 : -1;
+    }
+  };
+  const setStored = (stored) => {
+    root.classList.toggle("is-stored", Boolean(stored));
+    for (const button of tabList.querySelectorAll("[data-filter-tab]")) {
+      const expanded = !stored && button.dataset.filterTab === activeTab;
+      button.setAttribute("aria-expanded", String(expanded));
+    }
+  };
+  setActiveTab(activeTab);
+  setStored(root.classList.contains("is-stored"));
   syncCountRangeUi(root);
   root.addEventListener("click", (event) => {
+    const tab = event.target.closest("[data-filter-tab]");
+    if (tab && root.contains(tab)) {
+      const sameOpenTab = tab.dataset.filterTab === activeTab && !root.classList.contains("is-stored");
+      if (sameOpenTab) setStored(true);
+      else {
+        setActiveTab(tab.dataset.filterTab);
+        setStored(false);
+      }
+      return;
+    }
     const option = event.target.closest(".legend-filter__option");
     if (!option || !root.contains(option)) return;
     event.preventDefault();
@@ -125,17 +158,47 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     setSources: (sourceIds) => {
       state.sources = new Set(sourceIds);
     },
-    setCollapsed: (collapsed) => {
-      setViewLevel(collapsed ? 0 : 1);
+    displayModeRoot: visualPanel,
+    displayModeTabs: [...tabList.querySelectorAll("[data-marker-mode]")],
+    setActiveTab,
+    getActiveTab: () => activeTab,
+    setVisualCategories: (mode, ids, perspective) => {
+      if (mode === "activity") state.activityTypes = new Set([...ids, "object"]);
+      if (mode === "impression") state.impressionTypes = new Set([...ids, "object"]);
+      if (mode === "impression" && perspective) state.impressionPerspective = perspective;
+      onChange?.();
     },
-    isCollapsed: () => root.classList.contains("is-collapsed"),
-    setStored: storage.setStored,
+    setStored,
     isStored: () => root.classList.contains("is-stored"),
     state,
   };
 }
 
-function makeHeader({ countReadout, onReset, onToggle }) {
+function makeTabList() {
+  const tabs = document.createElement("nav");
+  tabs.className = "legend-filter__tabs";
+  tabs.setAttribute("aria-label", "絞り込みとデータ色の切り替え");
+  tabs.setAttribute("role", "tablist");
+  const definitions = [
+    { id: "filter", label: "年齢", markerMode: "attribute" },
+    { id: "impression", label: "感情", markerMode: "impression" },
+    { id: "activity", label: "行動", markerMode: "activity" },
+  ];
+  for (const definition of definitions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.filterTab = definition.id;
+    if (definition.markerMode) button.dataset.markerMode = definition.markerMode;
+    button.textContent = definition.label;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(definition.id === "filter"));
+    button.tabIndex = definition.id === "filter" ? 0 : -1;
+    tabs.append(button);
+  }
+  return tabs;
+}
+
+function makeHeader({ countReadout, onReset }) {
   const header = document.createElement("header");
   header.className = "legend-filter__header";
 
@@ -151,35 +214,8 @@ function makeHeader({ countReadout, onReset, onToggle }) {
   reset.textContent = "全表示";
   reset.addEventListener("click", onReset);
 
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "legend-filter__toggle";
-  toggle.textContent = "−";
-  toggle.title = "フィルターを最小化";
-  toggle.setAttribute("aria-label", "フィルターを最小化");
-  toggle.setAttribute("aria-expanded", "true");
-  toggle.addEventListener("click", () => onToggle(toggle));
-
-  header.append(toggle, title, count, reset);
+  header.append(title, count, reset);
   return header;
-}
-
-function makeStorageButton(root) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "legend-filter__storage";
-  button.innerHTML = '<span aria-hidden="true"></span>';
-
-  const setStored = (stored) => {
-    root.classList.toggle("is-stored", stored);
-    button.setAttribute("aria-expanded", String(!stored));
-    button.setAttribute("aria-label", stored ? "フィルターを画面に戻す" : "フィルターを画面外へ収納");
-    button.title = button.getAttribute("aria-label");
-  };
-
-  button.addEventListener("click", () => setStored(!root.classList.contains("is-stored")));
-  setStored(true);
-  return { button, setStored };
 }
 
 function makeOptionGroup(title, options, variant = "") {
@@ -299,6 +335,8 @@ function resetState(state, root, allSourceIds) {
   syncCountRangeUi(root);
   syncStateFromUi(state, root);
   state.sources = new Set(allSourceIds);
+  state.activityTypes = new Set([...ACTIVITY_TYPES.map((entry) => entry.id), "object"]);
+  state.impressionTypes = new Set([...IMPRESSION_TYPES.map((entry) => entry.id), "object"]);
 }
 
 function getCheckedValues(root, name) {
@@ -306,6 +344,13 @@ function getCheckedValues(root, name) {
 }
 
 function memoMatchesState(memo, state) {
+  const isObject = memo.isPeople === false || memo.category === "OBJ";
+  if (isObject) {
+    if (!state.activityTypes.has("object") || !state.impressionTypes.has("object")) return false;
+  } else {
+    if (!state.activityTypes.has(getActivityType(memo).id)) return false;
+    if (!state.impressionTypes.has(getPerspectiveImpressionType(memo, state.impressionPerspective).id)) return false;
+  }
   if (memo.category === "OBJ") {
     if (!state.groupCategories.has("OBJ")) return false;
   } else {

@@ -1,5 +1,6 @@
 import { hexToRgbChannels } from "../formatters.js";
 import { formatProfileBadge } from "../../../backend/profiles.js?v=20261024-02";
+import {translatedMemoText} from '../../../backend/translatedMemo.js?v=20261029-db1';
 
 const renderStates = new WeakMap();
 const dockStates = new WeakMap();
@@ -14,6 +15,7 @@ export function renderMemoPanel({
   categories,
   getVisual,
   visualMode = "attribute",
+  visualKey = visualMode,
   formatTime,
   onSelect,
   onHover,
@@ -22,21 +24,44 @@ export function renderMemoPanel({
   translateText = (value) => value,
 }) {
   enableGlobalKeyboardNavigation(list);
-  const chronologicalMemos = [...memos].sort((a, b) => b.time - a.time);
+  const previous = renderStates.get(list);
+  if (previous && previous.inputMemos === memos && previous.activeMemo === activeMemo
+    && previous.suppressedMemo === suppressedMemo && previous.language === language
+    && previous.visualMode === visualMode && previous.visualKey === visualKey) return false;
+  const chronologicalMemos = previous?.inputMemos === memos ? previous.memos : [...memos].sort((a, b) => b.time - a.time);
   const latestMemo = chronologicalMemos[0];
   const featuredMemo = chronologicalMemos.includes(activeMemo) ? activeMemo : null;
-  const previous = renderStates.get(list);
   const unchanged = previous
     && previous.activeMemo === activeMemo
     && previous.featuredMemo === featuredMemo
     && previous.suppressedMemo === suppressedMemo
     && previous.language === language
     && previous.visualMode === visualMode
+    && previous.visualKey === visualKey
     && previous.memos.length === chronologicalMemos.length
     && previous.memos.every((memo, index) => memo === chronologicalMemos[index]);
-  if (unchanged) return false;
+  if (unchanged) {
+    previous.inputMemos = memos;
+    return false;
+  }
 
-  list.replaceChildren(
+  const sameContent = previous
+    && previous.language === language
+    && previous.visualMode === visualMode
+    && previous.visualKey === visualKey
+    && previous.memos.length === chronologicalMemos.length
+    && previous.memos.every((memo, index) => memo === chronologicalMemos[index]);
+  if (sameContent) {
+    clearDockClasses(list);
+    for (const [index, item] of [...list.children].entries()) {
+      const current = chronologicalMemos[index] === featuredMemo;
+      item.classList.toggle("is-current", current);
+      item.classList.toggle("is-hover-suppressed", chronologicalMemos[index] === suppressedMemo);
+      item.setAttribute("aria-pressed", String(current));
+      if (current) item.setAttribute("aria-current", "true");
+      else item.removeAttribute("aria-current");
+    }
+  } else list.replaceChildren(
     ...chronologicalMemos.map((memo, index) => makeMemoItem({
       memo,
       index,
@@ -53,12 +78,14 @@ export function renderMemoPanel({
     })),
   );
   renderStates.set(list, {
+    inputMemos: memos,
     memos: chronologicalMemos,
     activeMemo,
     featuredMemo,
     suppressedMemo,
     language,
     visualMode,
+    visualKey,
   });
   return true;
 }
@@ -153,20 +180,23 @@ function makeMemoItem({
 
   const badge = document.createElement("span");
   badge.className = "memo-category";
-  badge.textContent = formatProfileBadge(memo, category);
+  const badgeText = formatProfileBadge(memo, category);
+  badge.textContent = language === "en"
+    ? badgeText.replaceAll("男性", "Male").replaceAll("女性", "Female").replaceAll("混合", "Mixed").replaceAll("不明", "Unknown").replaceAll("人", " people").replaceAll("個", " items").replaceAll("物", "Object")
+    : badgeText;
 
   const title = document.createElement("strong");
-  title.textContent = translateText(memo.name, language);
+  title.textContent = translatedMemoText(memo,'name',language,translateText);
 
   const source = document.createElement("small");
   source.className = "memo-source";
-  source.textContent = `${memo.sourceLabel}${memo.hasLocation === false ? ' / 位置不明' : ''}${memo.place ? ` / ${memo.place}` : ''}`;
+  source.textContent = `${memo.sourceLabel}${memo.hasLocation === false ? (language === "en" ? ' / Location unknown' : ' / 位置不明') : ''}${memo.place ? ` / ${translatedMemoText(memo,'place',language,translateText)}` : ''}`;
 
   meta.append(time, badge);
   item.append(meta, title, source);
   if (memo.desc) {
     const body = document.createElement("p");
-    body.textContent = translateText(memo.desc, language);
+    body.textContent = translatedMemoText(memo,'desc',language,translateText);
     item.append(body);
   }
 
@@ -223,22 +253,24 @@ function focusMemoItem(item) {
   scrollMemoItemVertically(item);
 }
 
-function scrollMemoItemVertically(item) {
+export function scrollMemoItemVertically(item, { behavior = "auto" } = {}) {
   const viewport = item.closest(".memo-scroll-viewport");
   if (!viewport) return;
 
   viewport.scrollLeft = 0;
+  const viewportRect = viewport.getBoundingClientRect();
+  const cardRect = item.getBoundingClientRect();
   const viewportTop = viewport.scrollTop;
   const viewportBottom = viewportTop + viewport.clientHeight;
-  const itemTop = item.offsetTop;
-  const itemHeight = Math.min(Math.max(item.scrollHeight, 132), 300);
+  const itemTop = cardRect.top - viewportRect.top + viewportTop;
+  const itemHeight = cardRect.height;
   const itemBottom = itemTop + itemHeight;
   const edgePadding = 10;
 
   if (itemTop < viewportTop + edgePadding) {
-    viewport.scrollTop = Math.max(itemTop - edgePadding, 0);
+    viewport.scrollTo({ top: Math.max(itemTop - edgePadding, 0), behavior });
   } else if (itemBottom > viewportBottom - edgePadding) {
-    viewport.scrollTop += itemBottom - viewportBottom + edgePadding;
+    viewport.scrollTo({ top: viewportTop + itemBottom - viewportBottom + edgePadding, behavior });
   }
   viewport.scrollLeft = 0;
 }

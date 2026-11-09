@@ -17,9 +17,9 @@ import {
   PUBLIC_SURVEY_DATE,
   ROUTE_SOURCES as CONFIGURED_SOURCES,
 } from "../../backend/surveyConfig.js?v=20261025-01";
-import { createLegendFilter } from "./features/filters.js?v=20261028-01";
+import { createLegendFilter } from "./features/filters.js?v=20261029-db2";
 import { createTimePeriodFilter } from "./features/timePeriodFilter.js?v=20261024-01";
-import { createTimelineInstruments } from "./features/instruments.js?v=20260724-12";
+import { createTimelineInstruments } from "./features/instruments.js?v=20261029-perf1";
 import { create2DMapController } from "./features/map2d.js?v=20260809-31";
 import { createMemoTopDownView } from "./features/memoTopDownView.js?v=20260809-07";
 import { applyPerspectiveCameraConstraints } from "./features/cameraConstraints.js?v=20260809-02";
@@ -29,17 +29,24 @@ import { createTimelineRange } from "./features/timelineRange.js?v=20260801-08";
 import { createRouteSelection } from "./features/routeSelection.js?v=20260801-04";
 import { createPanelStorage } from "./features/panelStorage.js?v=20260801-02";
 import { createTaskbarVisibility } from "./features/taskbarVisibility.js?v=20260801-02";
-import { createHintMode } from "./features/hintMode.js?v=20261028-01";
+import { createHintMode } from "./features/hintMode.js?v=20261029-08";
 import { createToolbarMenus } from "./features/toolbarMenus.js?v=20260810-01";
-import { createMarkerDisplayMode } from "./features/markerDisplayMode.js?v=20261028-02";
+import { createMarkerDisplayMode } from "./features/markerDisplayMode.js?v=20261029-db2";
+import { createImpressionVolume } from "./features/impressionVolume.js?v=20261029-perf1";
+import { getPerspectiveImpressionType } from "./features/emotionPerspective.js?v=20261029-db1";
+import { createActivityFlow } from "./features/activityFlow.js?v=20261109-dots1";
+import { createStationFlowView } from "./features/stationFlowView.js?v=20261101-stack1";
 import { createViewToggle } from "./features/viewToggle.js";
 import { formatTime } from "./formatters.js";
-import { getTimeRange, loadRouteDataset } from "../../backend/routeData.js?v=20261028-01";
-import { createMapDisplay } from "./mapDisplay.js?v=20261022-01";
-import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20261028-01";
-import { renderMemoPanel } from "./features/memoPanel.js?v=20261028-01";
-import { createLanguageMode, translateDataText } from "./features/languageMode.js?v=20261028-02";
-import { getObservationVisual } from "../../backend/visualEncoding.js?v=20261028-02";
+import { getTimeRange, loadRouteDataset } from "../../backend/routeData.js?v=20261029-db1";
+import { createMapDisplay } from "./mapDisplay.js?v=20261029-perf1";
+import { makeAxisLabel, makeGraffitiStamp } from "./features/markers.js?v=20261029-perf1";
+import { renderMemoPanel, scrollMemoItemVertically } from "./features/memoPanel.js?v=20261029-perf1";
+import { createLanguageMode, translateDataText } from "./features/languageMode.js?v=20261101-02";
+import { getObservationVisual } from "../../backend/visualEncoding.js?v=20261029-db2";
+import { createMemoFilterCache } from "./features/memoFilterCache.js?v=20261029-perf1";
+import { createPlaybackCadence } from "./features/playbackCadence.js?v=20261029-perf1";
+import { getMapPixelRatio } from "./features/renderQuality.js?v=20261029-perf1";
 
 const initialDataset = await loadRouteDataset(CONFIGURED_SOURCES);
 const GPX_FILES = initialDataset.sources;
@@ -56,6 +63,7 @@ const timeReadout = document.querySelector("#time-readout");
 const speedSlider = document.querySelector("#speed-slider");
 const speedReadout = document.querySelector("#speed-readout");
 const timeLaneElements = [...document.querySelectorAll("[data-time-lane]")];
+const timeLaneFills = timeLaneElements.map((lane) => [...lane.querySelectorAll("[data-time-gauge-fill]")]);
 const timeEventMarkerLanes = new Map(
   [...document.querySelectorAll("[data-time-event-markers]")]
     .map((element) => [element.dataset.timeEventMarkers, element]),
@@ -74,7 +82,6 @@ const topTaskbar = document.querySelector(".top-taskbar");
 const bottomTaskbar = document.querySelector(".data-code-guide");
 const hintModeButton = document.querySelector("#hint-mode");
 const languageToggle = document.querySelector("#language-toggle");
-const markerDisplayModeRoot = document.querySelector("#marker-display-mode");
 const sourcesById = new Map(GPX_FILES.map((source) => [source.id, source]));
 
 const mapDisplay = createMapDisplay(canvas);
@@ -110,7 +117,7 @@ let hoverSuppressedMemo = null;
 let selectionHaloTexture = null;
 let legendFilter = null;
 let filterStoredBeforeHint = true;
-let filterCollapsedBeforeHint = false;
+let filterTabBeforeHint = "filter";
 let timePeriodFilter = null;
 let elapsedRouteLines = [];
 let elapsedCurtains = [];
@@ -132,7 +139,16 @@ let iconPointerDown = null;
 let activeTimeSpacePeriodIndex = -2;
 let currentLanguage = "ja";
 let markerVisualMode = "attribute";
+let markerDisplayModeController = null;
+let activityFlow = null;
+let impressionVolume = null;
 let timeAxisLevels = [];
+let timeAxisObjects = [];
+let viewBeforeActivity = "3d";
+const stationFlowView = createStationFlowView({ camera: perspectiveCamera, controls, groundGrid, mapGroup, scene, getAxes: () => timeAxisObjects });
+let lastMarkerMode = null;
+const memoFilterCache = createMemoFilterCache(() => memoPoints, memoMatchesFilters);
+const playbackCadence = createPlaybackCadence();
 const followTarget = new THREE.Vector3();
 const followDirection = new THREE.Vector3(1, 0, 0);
 const map2d = create2DMapController({
@@ -171,24 +187,24 @@ const timelineRange = createTimelineRange({
     updateTimeline(end);
   },
 });
-createPanelStorage({
+const memoStorage = createPanelStorage({
   panel: memoPanel,
   button: memoPanelStorage,
   content: memoScrollViewport,
 });
 createTaskbarVisibility({ bars: [topTaskbar, bottomTaskbar] });
-createHintMode({
+const hintMode = createHintMode({
   button: hintModeButton,
   linkedButtons: [...document.querySelectorAll("[data-hint-mode-button]")],
   app: document.querySelector("#app"),
   onActiveChange: (active) => {
     if (active) {
       filterStoredBeforeHint = legendFilter?.isStored() ?? legendFilterRoot.classList.contains("is-stored");
-      filterCollapsedBeforeHint = legendFilter?.isCollapsed() ?? legendFilterRoot.classList.contains("is-collapsed");
+      filterTabBeforeHint = legendFilter?.getActiveTab() ?? "filter";
       legendFilter?.setStored(false);
-      legendFilter?.setCollapsed(false);
+      legendFilter?.setActiveTab("filter");
     } else {
-      legendFilter?.setCollapsed(filterCollapsedBeforeHint);
+      legendFilter?.setActiveTab(filterTabBeforeHint);
       legendFilter?.setStored(filterStoredBeforeHint);
     }
   },
@@ -199,14 +215,13 @@ createLanguageMode({
   root: document.querySelector("#app"),
   onChange: (language) => {
     currentLanguage = language;
-    if (memoPoints.length) updateTimeline(Number(timeSlider.value));
-  },
-});
-createMarkerDisplayMode({
-  root: markerDisplayModeRoot,
-  onChange: (mode) => {
-    markerVisualMode = mode;
-    refreshObservationVisuals();
+    hintMode?.setLanguage(language);
+    activityFlow?.setLanguage(language);
+    impressionVolume?.setLanguage(language);
+    if (memoPoints.length) {
+      updateTimeline(Number(timeSlider.value));
+      if (activeMemo) revealSelectedMemoCard();
+    }
   },
 });
 timelineInstruments.updateSpeed(playbackRate);
@@ -413,14 +428,55 @@ async function loadGpx() {
   addRouteLines();
   addTimeAxis();
   addMemoPins();
+  activityFlow = createActivityFlow({
+    parent: gpxGroup,
+    tracks: routeTracks,
+    memos: memoPoints,
+    project: geoToWorld,
+    startTime: timelineStart,
+    endTime: timelineEnd,
+    groundHeight: TIME_BASE_Y,
+    heightForTime: timeToHeight,
+  });
+  activityFlow.setLanguage(currentLanguage);
+  impressionVolume = createImpressionVolume({
+    parent: gpxGroup, memos: memoPoints, project: geoToWorld,
+    startTime: timelineStart, endTime: timelineEnd, heightForTime: timeToHeight,
+  });
+  impressionVolume.setLanguage(currentLanguage);
   legendFilter = createLegendFilter({
     root: legendFilterRoot,
     categories: CATEGORY_STYLES,
     sources: GPX_FILES,
     onChange: applyFilters,
     onSourcesReset: () => {
+      markerDisplayModeController?.resetFilters({ notify: false });
       timePeriodFilter?.selectAll({ notify: false });
       setHighlightedTimeSegments([0, 1, 2]);
+    },
+  });
+  markerDisplayModeController = createMarkerDisplayMode({
+    root: legendFilter.displayModeRoot,
+    tabs: legendFilter.displayModeTabs,
+    flowLegend: activityFlow.legend,
+    impressionLegend: impressionVolume.legend,
+    onChange: (mode) => {
+      if (mode === "activity" && markerVisualMode !== "activity") {
+        viewBeforeActivity = viewMode;
+        setViewMode("3d");
+        stationFlowView.activate();
+      } else if (mode !== "activity" && markerVisualMode === "activity") {
+        stationFlowView.deactivate();
+        if (viewBeforeActivity === "2d") setViewMode("2d");
+      }
+      markerVisualMode = mode;
+      resize();
+      if (mode !== "attribute" && activeMemo) deselectMemo(activeMemo);
+      refreshObservationVisuals();
+    },
+    onPerspectiveChange: (perspective) => impressionVolume.setPerspective(perspective),
+    onFilterChange: (mode, selectedIds, perspective) => {
+      legendFilter?.setVisualCategories(mode, selectedIds, perspective);
     },
   });
   timePeriodFilter = createTimePeriodFilter({
@@ -575,7 +631,7 @@ function pushCurtainVertex(positions, colors, point, color) {
 function getRouteColor(time, sourceId) {
   const latestMemo = getRouteMemoAtTime(time, sourceId);
   const visual = latestMemo
-    ? getObservationVisual(latestMemo, markerVisualMode)
+    ? getCurrentObservationVisual(latestMemo)
     : CATEGORY_STYLES[DEFAULT_CATEGORY];
   const color = new THREE.Color(visual.color);
   if (latestMemo?.count) {
@@ -679,6 +735,7 @@ function setCurtainColor(attribute, index, color) {
 }
 
 function addTimeAxis() {
+  const firstAxisChild = gpxGroup.children.length;
   activeTimeSpacePeriodIndex = -2;
   timeAxisLevels = [];
   const routeBounds = new THREE.Box3();
@@ -745,6 +802,7 @@ function addTimeAxis() {
   const title = makeAxisLabel("TIME (Z) · JST", true);
   title.position.set(minX, TIME_BASE_Y + TIME_AXIS_HEIGHT + 12, minZ);
   gpxGroup.add(title);
+  timeAxisObjects = gpxGroup.children.slice(firstAxisChild);
 }
 
 function focusCameraOnRoute() {
@@ -796,7 +854,7 @@ function createMemoMarker(memo, offsetSlot) {
   const frame = memo.routeId && routeTracks.length
     ? getRouteFrameAtTime(memo.time, memo.sourceId)
     : { position: geoToWorld(memo), normal: new THREE.Vector3(0, 0, 1) };
-  const visual = getObservationVisual(memo, markerVisualMode);
+  const visual = getCurrentObservationVisual(memo);
   const categoryColor = new THREE.Color(visual.color);
   const lateralOffset = offsetSlot * 6.5;
   const offset = frame.normal.clone().multiplyScalar(lateralOffset);
@@ -850,13 +908,13 @@ function finishIconSelection(event) {
   if (!start || start.pointerId !== event.pointerId) return;
   if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
 
-  if (activeMemo) {
-    deselectMemo(activeMemo);
-    return;
-  }
   const memo = getMemoIconAtPointer(event);
   if (memo) {
     selectMemo(memo);
+    return;
+  }
+  if (activeMemo) {
+    deselectMemo(activeMemo);
     return;
   }
   const routeHit = getRouteHitAtPointer(event);
@@ -997,8 +1055,7 @@ function updateTimeline(seconds, { playback = false } = {}) {
     ? `${formatTime(rangeStartTime).slice(0, 5)}—${formatTime(currentTime).slice(0, 5)}`
     : formatTime(currentTime);
   const progress = THREE.MathUtils.clamp(endSeconds / Number(timeSlider.max), 0, 1);
-  for (const lane of timeLaneElements) {
-    const fills = [...lane.querySelectorAll("[data-time-gauge-fill]")];
+  for (const fills of timeLaneFills) {
     for (const [index, fill] of fills.entries()) {
       const segmentProgress = THREE.MathUtils.clamp(progress * fills.length - index, 0, 1);
       fill.style.width = `${segmentProgress * 100}%`;
@@ -1015,11 +1072,11 @@ function updateTimeline(seconds, { playback = false } = {}) {
       && currentTime <= points[points.length - 1].time;
     const visibleRouteCount = Math.max(0, routeCount - routeStart);
     const routeHasStarted = visibleRouteCount > 1;
-    fullRouteLine.visible = sourceVisible && routeHasStarted;
+    fullRouteLine.visible = markerVisualMode === "attribute" && sourceVisible && routeHasStarted;
     fullRouteLine.geometry.setDrawRange(routeStart, visibleRouteCount);
-    line.visible = sourceVisible && routeHasStarted;
+    line.visible = markerVisualMode === "attribute" && sourceVisible && routeHasStarted;
     line.geometry.setDrawRange(routeStart, visibleRouteCount);
-    head.visible = sourceVisible && routeIsActive;
+    head.visible = markerVisualMode === "attribute" && sourceVisible && routeIsActive;
     if (head.visible) {
       const headTime = Math.min(currentTime, points[points.length - 1].time);
       head.position.copy(getTrackPositionAtTime(points, headTime));
@@ -1039,52 +1096,53 @@ function updateTimeline(seconds, { playback = false } = {}) {
       : 0;
     const routeCount = countPointsUntil(points, currentTime);
     const curtainSegmentCount = Math.max(0, routeCount - 1 - curtainStart);
-    curtain.visible = sourceIsVisible(sourceId) && curtainSegmentCount > 0;
+    curtain.visible = markerVisualMode === "attribute" && sourceIsVisible(sourceId) && curtainSegmentCount > 0;
     curtain.geometry.setDrawRange(curtainStart * 6, curtainSegmentCount * 6);
     curtainDepth.visible = curtain.visible;
   }
 
-  const visibleMemos = memoPoints.filter(
+  const filteredMemos = memoFilterCache.get();
+  const visibleMemos = filteredMemos.filter(
     (memo) => (
       memo.time >= rangeStartTime
       && memo.time <= currentTime
-      && memoMatchesFilters(memo)
     ),
   );
   const visibleMemoSet = new Set(visibleMemos);
   const recentMemos = new Set(
-    [...visibleMemos]
-      .filter((memo) => sourceIsVisible(memo.sourceId))
-      .sort((a, b) => b.time - a.time)
-      .slice(0, 10),
+    visibleMemos.slice(-10),
   );
-  for (const memo of memoPoints) {
-    if (!memo.marker) continue;
-    const matches = visibleMemoSet.has(memo);
-    const isInTimeRange = memo.time >= rangeStartTime && memo.time <= currentTime;
-    memo.marker.visible = sourceIsVisible(memo.sourceId);
-    memo.marker.userData.leader.visible = isInTimeRange;
-    const isHovered = memo === hoveredMemo;
-    const isEmphasized = memo === activeMemo || isHovered;
-    memo.marker.userData.stamp.visible = matches && (isInTimeRange || isHovered);
-    memo.marker.userData.selectionHalo.visible = (
-      matches
-      && isEmphasized
-      && (isInTimeRange || isHovered)
-    );
-    const isRecent = recentMemos.has(memo);
-    syncMemoMarkerScale(memo, isRecent);
-    syncMemoMarkerOpacity(memo, isRecent);
+  if (markerVisualMode === "attribute" || lastMarkerMode !== markerVisualMode) {
+    for (const memo of memoPoints) {
+      if (!memo.marker) continue;
+      if (markerVisualMode !== "attribute") {
+        memo.marker.visible = false;
+        continue;
+      }
+      const matches = visibleMemoSet.has(memo);
+      const isInTimeRange = memo.time >= rangeStartTime && memo.time <= currentTime;
+      memo.marker.visible = sourceIsVisible(memo.sourceId);
+      memo.marker.userData.leader.visible = isInTimeRange;
+      const isHovered = memo === hoveredMemo;
+      const isEmphasized = memo === activeMemo || isHovered;
+      memo.marker.userData.stamp.visible = matches && (isInTimeRange || isHovered);
+      memo.marker.userData.selectionHalo.visible = matches && isEmphasized && (isInTimeRange || isHovered);
+      const isRecent = recentMemos.has(memo);
+      syncMemoMarkerScale(memo, isRecent);
+      syncMemoMarkerOpacity(memo, isRecent);
+    }
   }
+  lastMarkerMode = markerVisualMode;
 
   renderMemoPanel({
     list: memoList,
-    memos: memoPoints.filter(memoMatchesFilters),
+    memos: filteredMemos,
     activeMemo,
     suppressedMemo: hoverSuppressedMemo,
     categories: CATEGORY_STYLES,
-    getVisual: (memo) => getObservationVisual(memo, markerVisualMode),
+    getVisual: getCurrentObservationVisual,
     visualMode: markerVisualMode,
+    visualKey: `${markerVisualMode}:${legendFilter?.state.impressionPerspective}`,
     formatTime,
     onSelect: selectMemo,
     onHover: setHoveredMemo,
@@ -1092,6 +1150,14 @@ function updateTimeline(seconds, { playback = false } = {}) {
     language: currentLanguage,
     translateText: translateDataText,
   });
+  activityFlow?.update({
+    mode: markerVisualMode,
+    currentTime,
+    rangeStart: rangeStartTime,
+    matches: memoFilterCache.has,
+    isTrackVisible: (track) => sourceIsVisible(track.sourceId) && (timePeriodFilter?.matches({ time: currentTime }) ?? true),
+  });
+  impressionVolume?.update({ mode: markerVisualMode, currentTime, rangeStart: rangeStartTime, matches: memoFilterCache.has });
 }
 
 function syncActiveTimeSpacePeriod(seconds) {
@@ -1166,7 +1232,7 @@ function renderTimelineMarkers() {
     marker.className = `time-event-marker${memo.isPeople ? "" : " is-neutral"}`;
     marker.style.left = `${position}%`;
     marker.style.height = `${height}px`;
-    marker.style.setProperty("--marker-color", getObservationVisual(memo, markerVisualMode).color);
+    marker.style.setProperty("--marker-color", getCurrentObservationVisual(memo).color);
     marker.style.setProperty("--marker-offset", `${offsets[collisionIndex % offsets.length]}px`);
     markersByLane.get(lane).push(marker);
   }
@@ -1176,6 +1242,13 @@ function renderTimelineMarkers() {
     container.replaceChildren(...markers);
     container.setAttribute("aria-label", `${markers.length}件の観察データの時刻`);
   }
+}
+
+function getCurrentObservationVisual(memo) {
+  const visual = getObservationVisual(memo, markerVisualMode);
+  return markerVisualMode === "impression" && memo.isPeople
+    ? { ...visual, ...getPerspectiveImpressionType(memo, legendFilter?.state.impressionPerspective) }
+    : visual;
 }
 
 function memoMatchesFilters(memo) {
@@ -1188,6 +1261,7 @@ function sourceIsVisible(sourceId) {
 }
 
 function applyFilters() {
+  memoFilterCache.invalidate();
   legendFilter?.updateCount(
     memoPoints.filter((memo) => timePeriodFilter?.matches(memo) ?? true),
   );
@@ -1199,7 +1273,7 @@ function applyFilters() {
 function refreshObservationVisuals() {
   for (const memo of memoPoints) {
     if (!memo.marker) continue;
-    const visual = getObservationVisual(memo, markerVisualMode);
+    const visual = getCurrentObservationVisual(memo);
     memo.marker.userData.visual = visual;
     memo.marker.userData.stamp?.userData.setVisual?.(visual);
     memo.marker.userData.leader?.material.color.set(visual.color);
@@ -1236,21 +1310,10 @@ function selectMemo(memo) {
 }
 
 function revealSelectedMemoCard() {
+  memoStorage?.setStored(false);
   window.requestAnimationFrame(() => {
     const card = memoList.querySelector(".memo-item.is-current");
-    const viewport = memoList.closest(".memo-scroll-viewport");
-    if (!card || !viewport) return;
-
-    const cardTop = card.offsetTop;
-    const cardBottom = cardTop + Math.min(Math.max(card.scrollHeight, 132), 300);
-    if (cardTop < viewport.scrollTop + 10) {
-      viewport.scrollTo({ top: Math.max(cardTop - 10, 0), behavior: "smooth" });
-    } else if (cardBottom > viewport.scrollTop + viewport.clientHeight - 10) {
-      viewport.scrollTo({
-        top: cardBottom - viewport.clientHeight + 10,
-        behavior: "smooth",
-      });
-    }
+    if (card) scrollMemoItemVertically(card);
   });
 }
 
@@ -1282,6 +1345,7 @@ function clearHoverSuppression(memo) {
 }
 
 function focusCameraOnMemo(memo) {
+  if (markerVisualMode !== "attribute") return;
   if (!memo.marker || !cameraState) return;
 
   cameraMode = "free";
@@ -1717,6 +1781,8 @@ function updateFollowCamera(deltaSeconds) {
 function resize() {
   const width = Math.max(canvas.clientWidth, 1);
   const height = Math.max(canvas.clientHeight, 1);
+  const pixelRatio = getMapPixelRatio({ width, height, devicePixelRatio: window.devicePixelRatio, mode: markerVisualMode });
+  if (renderer.getPixelRatio() !== pixelRatio) renderer.setPixelRatio(pixelRatio);
   perspectiveCamera.aspect = width / height;
   perspectiveCamera.updateProjectionMatrix();
   map2d.resize(width, height);
@@ -1734,7 +1800,9 @@ function animate() {
       playbackStopOffset,
       playStartOffset + Math.floor(((frameMs - playStartMs) / 1000) * playbackScale * playbackRate),
     );
-    updateTimeline(nextSeconds, { playback: true });
+    if (playbackCadence.shouldUpdate({ seconds: nextSeconds, run: playStartMs, now: frameMs, ended: nextSeconds >= playbackStopOffset })) {
+      updateTimeline(nextSeconds, { playback: true });
+    }
     if (nextSeconds >= playbackStopOffset) {
       stopPlayback({ ended: true });
     }
@@ -1762,6 +1830,8 @@ function animate() {
   } else {
     coordinateConnector.hide();
   }
+  activityFlow?.animate(frameMs);
+  impressionVolume?.animate(frameMs);
   renderer.render(scene, activeCamera);
   requestAnimationFrame(animate);
 }

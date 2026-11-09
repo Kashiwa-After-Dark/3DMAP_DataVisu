@@ -8,9 +8,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./css/style.css?v=20261024-02" />
-    <link rel="stylesheet" href="./css/smart-city-trial.css?v=20261024-01" />
-    <link rel="stylesheet" href="./css/readability.css?v=20261028-07" />
+    <link rel="stylesheet" href="./css/style.css?v=20261029-02" />
+    <link rel="stylesheet" href="./css/smart-city-trial.css?v=20261029-01" />
+    <link rel="stylesheet" href="./css/readability.css?v=20261029-08" />
+    <link rel="stylesheet" href="./css/station-flow.css?v=20261109-dots1" />
     <script type="importmap">
       {
         "imports": {
@@ -42,10 +43,6 @@
                   <button id="view-2d" type="button" aria-pressed="false">2D</button>
                 </div>
               </div>
-              <div class="toolbar-menu__row toolbar-menu__row--visual">
-                <span>DATA COLOR</span>
-                <div id="marker-display-mode" class="marker-display-mode" aria-label="データアイコンの色分け"></div>
-              </div>
               <a
                 id="statistics-link"
                 class="analysis-link toolbar-menu__command"
@@ -53,6 +50,13 @@
                 aria-label="統計画面を開く"
                 title="統計画面を開く"
               ><span aria-hidden="true">Σ</span><b>STATISTICS</b></a>
+              <a
+                id="terrace-link"
+                class="analysis-link toolbar-menu__command"
+                href="../terrace-map/"
+                aria-label="テラスマップを開く"
+                title="テラスマップを開く"
+              ><span aria-hidden="true">⌖</span><b>TERRACE</b></a>
             </div>
           </div>
           <button
@@ -221,6 +225,6 @@
       </section>
     </main>
 
-    <script type="module" src="./js/index.js?v=20261028-07"></script>
+    <script type="module" src="./js/index.js?v=20261109-dots1"></script>
   </body>
 </html>

@@ -1,3 +1,4 @@
+import {storedEmotionId} from './storedEmotion.js?v=20261029-db1';
 export const IMPRESSION_TYPES = Object.freeze([
   { id: "positive", label: "肯定的", code: "POS", color: "#ffb000" },
   { id: "neutral", label: "中立・落ち着き", code: "NEU", color: "#f4f7fa" },
@@ -12,6 +13,7 @@ const IMPRESSION_RULES = [
 ];
 
 export function classifyImpression(memo) {
+  const stored=storedEmotionId(memo);if(stored!==null)return stored;
   const text = String(memo.impression || "").trim();
   if (!text) return "unknown";
   return IMPRESSION_RULES.find(([, pattern]) => pattern.test(text))?.[0] || "unknown";

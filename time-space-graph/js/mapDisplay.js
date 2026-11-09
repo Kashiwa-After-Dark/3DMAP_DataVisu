@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { getMapPixelRatio } from "./features/renderQuality.js?v=20261029-perf1";
 import {
   BACKGROUND_COLOR,
   COORDINATE_SCALE,
@@ -12,9 +13,10 @@ export function createMapDisplay(canvas) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
+    stencil: true,
     powerPreference: "high-performance",
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(getMapPixelRatio({ width: canvas.clientWidth, height: canvas.clientHeight, devicePixelRatio: window.devicePixelRatio }));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();

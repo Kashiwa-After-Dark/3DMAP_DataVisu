@@ -108,45 +108,75 @@ body.smart-city-trial #scene {
   min-width: 300px;
 }
 
-.smart-city-trial .toolbar-menu__row--visual {
-  align-items: start;
-}
-
 .marker-display-mode {
   display: grid;
-  min-width: 194px;
+  min-width: 0;
   gap: 6px;
-  padding: 3px;
-  border: 1px solid;
-}
-
-.marker-display-mode__controls {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
-}
-
-.marker-display-mode button {
-  min-height: 30px;
-  padding: 4px 6px;
-  border: 1px solid transparent;
-  color: #a9c1c9;
+  padding: 7px 5px 5px;
+  border: 0;
   background: transparent;
-  font-size: 9px;
-  cursor: pointer;
 }
 
-.marker-display-mode button.is-active {
-  border-color: var(--map-blue);
-  color: #ffffff;
-  background: rgba(var(--map-blue-rgb), 0.2);
+.smart-city-trial .legend-filter__panel--visual {
+  border: 0;
+  color: #eef9fb;
+  background: transparent;
 }
 
 .marker-display-mode__legend {
   display: grid;
   gap: 5px;
-  border-top: 1px solid rgba(var(--map-blue-rgb), 0.26);
-  padding: 6px 3px 2px;
+  padding: 0;
+}
+
+.activity-flow-legend {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin-top: 8px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(120, 217, 255, 0.35);
+  color: #e7f2f8;
+  font: 500 11px/1.5 var(--ui-font);
+  overflow-wrap: anywhere;
+}
+
+.age-legend:has(.activity-flow-legend) .legend-filter__panel--visual {
+  max-height: max(200px, calc(100dvh - 290px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #47798c transparent;
+}
+
+.activity-flow-legend > b {
+  font-size: 11px;
+}
+
+.activity-flow-legend__period {
+  color: #ffffff;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-flow-legend__directions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+}
+
+.activity-flow-legend__motions {
+  color: #ffffff;
+}
+
+.activity-flow-legend small,
+.activity-flow-legend a {
+  color: #b5cbd6;
+  font-size: 10px;
+}
+
+.activity-flow-legend a {
+  width: fit-content;
+  text-underline-offset: 2px;
 }
 
 .marker-display-mode__legend > b {
@@ -161,12 +191,38 @@ body.smart-city-trial #scene {
   gap: 5px 8px;
 }
 
-.marker-color-legend > span {
+.marker-color-legend > span,
+.marker-color-legend > button {
   display: grid;
   min-width: 0;
   grid-template-columns: 9px minmax(0, 1fr);
   gap: 5px;
   align-items: center;
+}
+
+.marker-color-legend > button {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  padding: 3px;
+  text-align: left;
+  background: rgba(var(--map-blue-rgb), 0.06);
+  cursor: pointer;
+  transition: border-color 130ms ease, background 130ms ease, opacity 130ms ease;
+}
+
+.marker-color-legend > button:hover,
+.marker-color-legend > button:focus-visible {
+  border-color: rgba(var(--map-blue-rgb), 0.66);
+  background: rgba(var(--map-blue-rgb), 0.16);
+}
+
+.marker-color-legend > button[aria-pressed="false"] {
+  opacity: 0.3;
+}
+
+.marker-color-legend > button[aria-pressed="true"] {
+  border-color: rgba(var(--map-blue-rgb), 0.2);
 }
 
 .marker-color-legend i {
@@ -179,6 +235,44 @@ body.smart-city-trial #scene {
 }
 
 .marker-color-legend em {
+  overflow: hidden;
+  color: #c1d7dd;
+  font: 600 8px/1.2 var(--ui-font);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marker-display-mode__hint {
+  grid-column: 1 / -1;
+  color: #91aab3;
+  font: 600 8px/1.25 var(--ui-font);
+}
+
+.marker-shape-legend {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px 8px;
+  border-top: 1px solid rgba(var(--map-blue-rgb), 0.18);
+  padding-top: 6px;
+}
+
+.marker-shape-legend > span {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 4px;
+  align-items: center;
+}
+
+.marker-shape-legend i {
+  color: #eef9fb;
+  font: 700 14px/1 Ubuntu, sans-serif;
+  font-style: normal;
+  text-align: center;
+}
+
+.marker-shape-legend em {
   overflow: hidden;
   color: #c1d7dd;
   font: 600 8px/1.2 var(--ui-font);
@@ -310,9 +404,38 @@ body.smart-city-trial #scene {
     min-width: min(300px, calc(100vw - 24px));
   }
 
-  .marker-display-mode {
-    min-width: 168px;
-  }
+}
+
+.emotion-perspective {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.emotion-perspective button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 3px;
+  border: 1px solid #456577;
+  border-radius: 0;
+  background: #0c1821;
+  color: #c8d5de;
+  font: inherit;
+  font-size: 11px;
+  white-space: normal;
+  cursor: pointer;
+}
+
+.emotion-perspective button[aria-checked="true"] {
+  color: #ffffff;
+  border-color: #8bcce7;
+  background: #244557;
+}
+
+.emotion-perspective button:focus-visible {
+  outline: 1px solid #d9f5ff;
+  outline-offset: 2px;
 }
 
 @media (max-width: 1100px) {

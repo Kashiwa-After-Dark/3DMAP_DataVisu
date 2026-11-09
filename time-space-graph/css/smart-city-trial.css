@@ -199,7 +199,7 @@ body.smart-city-trial #scene {
 .smart-city-trial .timeline__controls button,
 .smart-city-trial .speed-control,
 .smart-city-trial .time-track-shell,
-.smart-city-trial .timeline-minimize {
+.smart-city-trial .timeline:not(.is-minimized) .timeline-minimize {
   border-color: rgba(114, 199, 220, 0.35);
   border-radius: 2px;
   background: #081520;

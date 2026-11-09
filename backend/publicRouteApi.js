@@ -6,9 +6,10 @@ const ROUTE_API_URL = "https://idzkmlbjcxhhneqbgcfy.supabase.co/functions/v1/pub
 
 export { PUBLIC_SURVEY_DATE };
 
-export async function fetchPublicRouteHistory(date = PUBLIC_SURVEY_DATE) {
+export async function fetchPublicRouteHistory(date = PUBLIC_SURVEY_DATE, language = 'ja') {
   const url = new URL(ROUTE_API_URL);
   url.searchParams.set("date", date);
+  url.searchParams.set('lang',language);
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Map API request failed (${response.status}): ${await response.text()}`);

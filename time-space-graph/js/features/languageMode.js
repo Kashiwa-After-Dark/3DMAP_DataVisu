@@ -1,4 +1,14 @@
+import { translateObservationText } from "./observationTranslations.js?v=20261029-01";
+
 const UI_ENGLISH = [
+  ["観察対象の感情", "SUBJECT EMOTION"],
+  ["観察者の感情", "OBSERVER FEELING"],
+  ["感情の視点", "EMOTION PERSPECTIVE"],
+  ["カードデックを表示", "SHOW CARD DECK"],
+  ["タイムラインを展開", "EXPAND TIMELINE"],
+  ["モード切替", "SWITCH MODE"],
+  ["設定", "SETTINGS"],
+  ["時間帯", "TIME PERIOD"],
   ["データ説明と絞り込み", "DATA GUIDE AND FILTER"],
   ["再生同期統計", "PLAYBACK STATISTICS"],
   ["タイムラインを最小化", "MINIMIZE TIMELINE"],
@@ -24,6 +34,7 @@ const UI_ENGLISH = [
   ["全表示", "SHOW ALL"],
   ["担当者", "ASSIGNEES"],
   ["高校生", "HIGH SCHOOL"],
+  ["中学生以下", "CHILD"],
   ["大学生", "UNIVERSITY"],
   ["若い社会人", "YOUNG WORKERS"],
   ["中高年", "ADULT"],
@@ -32,6 +43,7 @@ const UI_ENGLISH = [
   ["年齢・属性混合", "MIXED GROUP"],
   ["家族", "FAMILY"],
   ["男女混合", "MIXED GENDER"],
+  ["性別混合", "MIXED GENDER"],
   ["男性", "MALE"],
   ["女性", "FEMALE"],
   ["不明", "UNKNOWN"],
@@ -53,39 +65,28 @@ const UI_ENGLISH = [
   ["行動の色", "ACTIVITY COLORS"],
   ["観察者印象の色", "IMPRESSION COLORS"],
   ["年齢の色", "AGE COLORS"],
+  ["物の記録", "OBJECT"],
+  ["形", "SHAPE"],
+  ["物", "OBJECT"],
+  ["絞り込みとデータ色の切り替え", "FILTER AND DATA COLOR TABS"],
+  ["データアイコンの色分け", "DATA ICON COLORS"],
+  ["絞り込み", "FILTERS"],
+  ["絞込", "FILTER"],
+  ["感情", "MOOD"],
+  ["行動", "ACT."],
+  ["年齢", "AGE"],
   ["通過", "PASSING"],
   ["その他", "OTHER"],
   ["の行動構成", " ACTIVITY COMPOSITION"],
   ["年齢構成", " AGE COMPOSITION"],
   ["観察データ", "OBSERVATION DATA"],
   ["選択中のコードだけを表示。暗いコードを選ぶと表示へ追加。", "SHOWS SELECTED CODES. SELECT A DIM CODE TO ADD IT."],
+  ["色を選択して絞り込み", "SELECT COLORS TO FILTER"],
+  ["で絞り込み", " FILTER"],
   ["キーワード", "KEYWORD"],
   ["メモ検索", "SEARCH OBSERVATIONS"],
   ["全員", "ALL"],
   ["件", " ITEMS"],
-];
-
-const DATA_JA_TO_EN = [
-  ["女子大学生", "female university student"], ["男子大学生", "male university student"],
-  ["女子高校生", "female high school student"], ["男子高校生", "male high school student"],
-  ["外国人", "foreign visitor"], ["会社員", "office worker"], ["社会人", "worker"],
-  ["主婦", "homemaker"], ["高齢者", "senior"], ["警備員", "security guard"],
-  ["配達員", "delivery worker"], ["店員", "store employee"], ["住民", "resident"],
-  ["道路脇腰掛け", "sitting by the roadside"],
-  ["若い社会人", "young workers"], ["社会人", "workers"], ["高校生", "high school students"],
-  ["大学生", "university students"], ["男の人", "man"], ["女の人", "woman"], ["子ども", "children"],
-  ["子供", "children"], ["会話", "conversation"], ["交流", "socializing"], ["立っていた", "standing"],
-  ["立っている", "standing"], ["座っていた", "sitting"], ["座っている", "sitting"], ["待っていた", "waiting"],
-  ["飲んでいた", "drinking"], ["食べていた", "eating"], ["買っていた", "shopping"], ["遊んでいた", "playing"],
-  ["歩いていた", "walking"], ["帰る", "going home"], ["帰り", "going home"], ["休憩", "resting"],
-  ["駅前", "station front"], ["駐車場", "parking lot"], ["道路脇", "roadside"], ["店舗前", "storefront"],
-  ["自転車", "bicycle"], ["ゲームセンター", "game center"], ["たい焼き", "taiyaki"], ["多かった", "many"],
-  ["楽しそう", "happy"], ["静か", "quiet"], ["事故", "accident"], ["危険", "danger"], ["混雑", "crowding"],
-  ["麗澤大生", "Reitaku University students"], ["柏駅", "Kashiwa Station"], ["パレット柏", "Palette Kashiwa"],
-  ["腰掛け", "sitting"], ["散歩", "walking"], ["キャッチ", "street solicitation"], ["傘", "umbrella"],
-  ["道路", "road"], ["店舗", "store"], ["広場", "plaza"], ["飲み帰り", "returning after drinks"],
-  ["飲み終わり", "after drinking"], ["帰る人", "people going home"], ["持ってた", "carrying"],
-  ["捕まってる", "being approached"], ["見た", "seen"], ["男", "man"], ["女", "woman"], ["人", "people"],
 ];
 
 const DATA_EN_TO_JA = [
@@ -105,7 +106,7 @@ export function createLanguageMode({ button, root, onChange }) {
   let observer = null;
   const textOriginals = new Map();
   const attributeOriginals = new Map();
-  const excluded = ".memo-panel, #language-toggle";
+  const excluded = ".memo-panel, .activity-flow-legend, .station-flow-summary, .station-flow-legend, #language-toggle";
 
   button.addEventListener("click", () => {
     language = language === "ja" ? "en" : "ja";
@@ -216,19 +217,7 @@ function saveLanguage(language) {
 export function translateDataText(value, language) {
   const text = String(value || "");
   if (language !== "en") return replaceTerms(text, DATA_EN_TO_JA);
-  const prepared = text.replace(/(\d+)人/gu, "$1 people");
-  return normalizeEnglishDataText(replaceTerms(prepared, DATA_JA_TO_EN));
-}
-
-function normalizeEnglishDataText(value) {
-  return value
-    .replace(/にて/gu, " ")
-    .replace(/(?:していた|している|だった|でした|してる|して|いた|いる)/gu, " ")
-    .replace(/[はがをにでとのへも]/gu, " ")
-    .replace(/[　\s]+/gu, " ")
-    .replace(/([A-Za-z])(\d)/gu, "$1 $2")
-    .replace(/\s+([,.!?])/gu, "$1")
-    .trim();
+  return translateObservationText(text);
 }
 
 function replaceTerms(value, replacements) {

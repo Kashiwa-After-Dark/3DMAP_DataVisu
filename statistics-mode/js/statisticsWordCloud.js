@@ -1,5 +1,5 @@
 import { extractContentTerms } from "./japaneseContentWords.js?v=20261024-01";
-import { classifyImpression } from "../../backend/impressionClassifier.js?v=20261028-01";
+import { classifyImpression } from "../../backend/impressionClassifier.js?v=20261029-db1";
 
 const MAX_WORDS = 64;
 const MIN_FONT_SIZE = 6;

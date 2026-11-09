@@ -1,5 +1,5 @@
 import { getActivityType } from "./activityClassifier.js";
-import { getImpressionType } from "./impressionClassifier.js";
+import { getImpressionType } from "./impressionClassifier.js?v=20261029-db1";
 
 // Okabe-Ito-derived colors remain distinguishable without relying on red/green alone.
 export const AGE_STYLES = Object.freeze({
@@ -15,9 +15,9 @@ export const AGE_STYLES = Object.freeze({
 });
 
 export const VISUAL_MODES = Object.freeze([
-  { id: "attribute", label: "年齢", description: "色＝年齢、形＝グループ" },
-  { id: "activity", label: "行動", description: "色＝行動、形＝グループ" },
-  { id: "impression", label: "観察者印象", description: "色＝観察者印象、形＝グループ" },
+  { id: "attribute", label: "年齢", description: "色＝年齢、形＝性別・カップル・不明" },
+  { id: "activity", label: "行動", description: "色＝行動、形＝性別・カップル・不明" },
+  { id: "impression", label: "観察者印象", description: "色＝観察者印象、形＝性別・カップル・不明" },
 ]);
 
 export function getObservationVisual(memo, mode = "attribute") {
@@ -30,6 +30,6 @@ export function getObservationVisual(memo, mode = "attribute") {
   return {
     ...source,
     id: source.id || memo.ageCategory || memo.category || "UN",
-    shape: memo.groupCategory || "UN",
+    shape: memo.groupCategory === "CP" ? "CP" : ["M", "F", "X"].includes(memo.gender) ? memo.gender : "U",
   };
 }

@@ -21,6 +21,8 @@ export function createTimelineInstruments({ clock, compassCard, speedEngine }) {
   const speedNeedle = speedEngine.querySelector("[data-speed-engine-needle]");
   const speedReadout = speedEngine.querySelector("[data-speed-engine-readout]");
   let lastHeading = 0;
+  let lastCompassTransform = "";
+  let lastCompassLabel = "";
   const timeFormatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Tokyo",
     hour: "2-digit",
@@ -49,11 +51,16 @@ export function createTimelineInstruments({ clock, compassCard, speedEngine }) {
     }
     const pitch = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(forward.y, -1, 1)));
     const displayPitch = THREE.MathUtils.clamp(pitch * 0.78, -62, 62);
-    compassCard.style.transform = `rotateX(${displayPitch}deg) rotateZ(${-lastHeading}deg)`;
-    compassCard.parentElement.setAttribute(
-      "aria-label",
-      `カメラ方角 ${Math.round((lastHeading + 360) % 360)}度、仰角 ${Math.round(pitch)}度`,
-    );
+    const transform = `rotateX(${displayPitch.toFixed(2)}deg) rotateZ(${(-lastHeading).toFixed(2)}deg)`;
+    if (transform !== lastCompassTransform) {
+      compassCard.style.transform = transform;
+      lastCompassTransform = transform;
+    }
+    const label = `カメラ方角 ${Math.round((lastHeading + 360) % 360)}度、仰角 ${Math.round(pitch)}度`;
+    if (label !== lastCompassLabel) {
+      compassCard.parentElement.setAttribute("aria-label", label);
+      lastCompassLabel = label;
+    }
   }
 
   function updateSpeed(rate) {

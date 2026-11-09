@@ -1,7 +1,7 @@
-import { createStatisticsWordCloud } from "./statisticsWordCloud.js?v=20261028-02";
+import { createStatisticsWordCloud } from "./statisticsWordCloud.js?v=20261029-db2";
 import { createStatisticsActivityChart } from "./statisticsActivityChart.js?v=20261028-01";
 import { AGE_STYLES } from "../../backend/visualEncoding.js?v=20261028-02";
-import { IMPRESSION_TYPES, classifyImpression } from "../../backend/impressionClassifier.js?v=20261028-01";
+import { IMPRESSION_TYPES, classifyImpression } from "../../backend/impressionClassifier.js?v=20261029-db1";
 
 const AGE_KEYS = ["C", "H", "U", "Y", "A", "S", "MX"];
 const GROUP_KEYS = ["B", "G", "BG", "GG", "XG", "CP", "FM", "MX", "UN"];

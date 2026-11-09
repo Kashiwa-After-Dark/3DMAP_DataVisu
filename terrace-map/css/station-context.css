@@ -1,0 +1,20 @@
+.station-context { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.station-anchor { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; border: 1px solid #c2d9d1; border-radius: 3px; padding: 5px 10px; color: #eaf6ef; background: #122822ed; font-size: 13px; box-shadow: 0 2px 8px #0006; white-space: nowrap; }
+.station-anchor:hover, .station-anchor[aria-expanded="true"] { background: #b6dacf; color: #0b231a; }
+.station-context-panel { position: absolute; pointer-events: auto; overflow-y: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid #749b8c; border-radius: 5px; background: #0d1c1cf5; box-shadow: 0 8px 28px #0008; scrollbar-width: thin; }
+.station-context-panel header { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+.station-context-panel h2 { font-size: 19px; margin: 0; font-weight: 500; }
+.station-context-panel header p { font-size: 11px; color: #b9cec6; margin: 5px 0 0; }
+.station-close { background: none; border: 0; color: #dcebe4; width: 28px; height: 28px; font-size: 24px; line-height: 1; padding: 0; }
+.station-context-panel h3 { margin: 18px 0 10px; padding-top: 12px; border-top: 1px solid #3b534c; font-weight: 500; font-size: 14px; }
+.station-operation { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.station-operation li { display: grid; gap: 4px; font-size: 12px; line-height: 1.6; }
+.station-operation b { font-weight: 500; }
+.station-operation span { color: #d6e3dc; }
+.station-context-panel a { color: #a9d9ca; text-underline-offset: 3px; font-size: 11px; }
+.station-note { font-size: 10px; line-height: 1.7; color: #a9bfb5; margin: 10px 0 0; }
+.weather-source { float: right; font-weight: 400; }
+.station-weather-summary { font-size: 13px; line-height: 1.8; margin: 0; }
+.station-weather-location { font-size: 11px; color: #b9cec6; margin: 8px 0; }
+.station-weather-hours { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .station-context-panel { padding: 14px; } }

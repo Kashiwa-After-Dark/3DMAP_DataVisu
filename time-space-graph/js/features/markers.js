@@ -1,6 +1,29 @@
 import * as THREE from "three";
 import { hexToRgbChannels } from "../formatters.js";
 
+const stampTextures = new Map();
+
+function getStampTexture(visual, isSolid) {
+  const key = `${visual.color}:${visual.shape || "U"}:${isSolid}`;
+  if (stampTextures.has(key)) return stampTextures.get(key);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(0.5, 0.5);
+  const rgb = hexToRgbChannels(visual.color);
+  ctx.fillStyle = isSolid ? visual.color : `rgba(${rgb}, 0.48)`;
+  ctx.strokeStyle = isSolid ? "#ffffff" : visual.color;
+  ctx.lineWidth = isSolid ? 5 : 4;
+  ctx.lineJoin = "round";
+  drawDataShape(ctx, visual.shape || "U");
+  ctx.fill();
+  ctx.stroke();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  stampTextures.set(key, texture);
+  return texture;
+}
+
 export function getMarkerSize(memo) {
   if (!memo.isPeople) return 8;
   const count = memo.count || 1;
@@ -11,39 +34,10 @@ export function getMarkerSize(memo) {
 }
 
 export function makeGraffitiStamp(memo, initialVisual) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext("2d");
   let visual = initialVisual;
   let isSolid = false;
-  const drawStamp = (isSolid) => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const rgb = hexToRgbChannels(visual.color);
-    ctx.fillStyle = isSolid ? visual.color : `rgba(${rgb}, 0.48)`;
-    ctx.strokeStyle = isSolid ? "#ffffff" : visual.color;
-    ctx.lineWidth = isSolid ? 5 : 4;
-    ctx.lineJoin = "round";
-    drawGroupShape(ctx, visual.shape || memo.groupCategory || "UN");
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.save();
-    ctx.translate(128, 128);
-    ctx.scale(0.78, 0.78);
-    ctx.translate(-128, -128);
-    ctx.strokeStyle = isSolid ? "#07131f" : "rgba(255, 255, 255, 0.86)";
-    ctx.lineWidth = isSolid ? 4 : 3.2;
-    drawGenderMark(ctx, memo.gender);
-    ctx.stroke();
-    ctx.restore();
-  };
-  drawStamp(false);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
   const material = new THREE.SpriteMaterial({
-    map: texture,
+    map: getStampTexture(visual, isSolid),
     transparent: true,
     opacity: 0.82,
     depthTest: false,
@@ -56,14 +50,12 @@ export function makeGraffitiStamp(memo, initialVisual) {
   sprite.userData.setSolid = (nextSolid) => {
     if (nextSolid === isSolid) return;
     isSolid = nextSolid;
-    drawStamp(isSolid);
-    texture.needsUpdate = true;
+    material.map = getStampTexture(visual, isSolid);
   };
   sprite.userData.setVisual = (nextVisual) => {
     if (!nextVisual || (visual.color === nextVisual.color && visual.shape === nextVisual.shape)) return;
     visual = nextVisual;
-    drawStamp(isSolid);
-    texture.needsUpdate = true;
+    material.map = getStampTexture(visual, isSolid);
   };
   return sprite;
 }
@@ -135,14 +127,14 @@ export function makeCoordinateLabel(memo) {
   return sprite;
 }
 
-function drawGroupShape(ctx, group) {
-  if (group === "B") {
+function drawDataShape(ctx, shape) {
+  if (shape === "F") {
     ctx.beginPath();
     ctx.arc(128, 128, 72, 0, Math.PI * 2);
     return;
   }
 
-  if (group === "CP") {
+  if (shape === "CP") {
     ctx.beginPath();
     ctx.moveTo(128, 210);
     ctx.bezierCurveTo(104, 176, 48, 145, 48, 92);
@@ -153,7 +145,7 @@ function drawGroupShape(ctx, group) {
     return;
   }
 
-  if (group === "BG") {
+  if (shape === "X") {
     ctx.beginPath();
     ctx.moveTo(128, 42);
     ctx.lineTo(214, 128);
@@ -163,21 +155,8 @@ function drawGroupShape(ctx, group) {
     return;
   }
 
-  if (group === "FM") {
-    ctx.beginPath();
-    ctx.moveTo(128, 36);
-    ctx.lineTo(218, 112);
-    ctx.lineTo(196, 112);
-    ctx.lineTo(196, 210);
-    ctx.lineTo(60, 210);
-    ctx.lineTo(60, 112);
-    ctx.lineTo(38, 112);
-    ctx.closePath();
-    return;
-  }
-
-  if (group === "G" || group === "XG") {
-    const sides = group === "G" ? 6 : 5;
+  if (shape === "OBJ") {
+    const sides = 8;
     ctx.beginPath();
     for (let index = 0; index < sides; index += 1) {
       const angle = -Math.PI / 2 + (index / sides) * Math.PI * 2;
@@ -189,7 +168,7 @@ function drawGroupShape(ctx, group) {
     return;
   }
 
-  if (group === "UN") {
+  if (shape === "U") {
     ctx.beginPath();
     ctx.moveTo(128, 34);
     ctx.lineTo(222, 210);
@@ -208,26 +187,4 @@ function drawGroupShape(ctx, group) {
   ctx.lineTo(42, 194);
   ctx.lineTo(42, 62);
   ctx.closePath();
-}
-
-function drawGenderMark(ctx, gender) {
-  ctx.beginPath();
-  if (gender === "M") {
-    ctx.moveTo(78, 128);
-    ctx.lineTo(178, 128);
-    return;
-  }
-  if (gender === "F") {
-    ctx.moveTo(128, 78);
-    ctx.lineTo(128, 178);
-    return;
-  }
-  if (gender === "X") {
-    ctx.moveTo(88, 88);
-    ctx.lineTo(168, 168);
-    ctx.moveTo(168, 88);
-    ctx.lineTo(88, 168);
-    return;
-  }
-  ctx.arc(128, 128, 15, 0, Math.PI * 2);
 }

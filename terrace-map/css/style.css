@@ -1,0 +1,102 @@
+@font-face {
+  font-family: SmartFontUI;
+  src: local("SmartFontUI"), local("スマートフォントUI"), local("03スマートフォントUI");
+  font-display: swap;
+}
+:root { color-scheme: dark; font-family: Ubuntu, SmartFontUI, "Yu Gothic UI", sans-serif; color: #e3eeeb; background: #080d10; font-synthesis: none; }
+* { box-sizing: border-box; letter-spacing: 0; }
+html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { user-select: none; }
+button, input { font: inherit; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid #a9e1d1; outline-offset: 4px; }
+#app { position: relative; isolation: isolate; }
+#map { display: block; width: 100%; height: 100%; touch-action: none; }
+.header { position: absolute; z-index: 2; top: 0; left: 0; right: 0; height: 68px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #354247; background: #0b1217e8; }
+.brand { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 18px; color: #f2f6f4; text-decoration: none; font-size: 15px; font-weight: 500; }
+.brand span { font-size: 10px; font-weight: 400; color: #a9bebb; }
+.demo-label { font-size: 10px; color: #c9b787; white-space: nowrap; }
+.data-toggle { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: #d6e5df; padding: 9px 0 9px 12px; font-size: 12px; }
+.data-toggle svg { width: 17px; height: 17px; }
+.data-toggle b { font-weight: 400; font-variant-numeric: tabular-nums; color: #9ecdbb; }
+#observations { position: absolute; z-index: 2; top: 68px; right: 0; bottom: 50px; width: 340px; display: flex; flex-direction: column; background: #101a1f; border-left: 1px solid #354247; }
+.observations-heading { display: flex; align-items: center; gap: 10px; padding: 20px 18px 12px; }
+.observations-heading h2 { margin: 0; font-size: 16px; font-weight: 500; }
+.observations-heading p { margin: 6px 0 0; color: #a9bcb6; font-size: 11px; }
+.observations-heading output { margin-left: auto; white-space: nowrap; font-size: 16px; font-variant-numeric: tabular-nums; }
+.observations-heading .icon-button { width: 32px; height: 32px; padding: 8px; }
+.icon-button:disabled { opacity: 0.4; cursor: default; }
+.data-filters { padding: 0 18px; }
+.period-filter { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.period-filter button { min-width: 0; min-height: 34px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #adbfba; font-size: 11px; }
+.period-filter button[aria-pressed="true"] { color: #f2f7f4; border-bottom-color: #b6d9ca; background: #233732; }
+#place-code { width: 100%; margin-top: 12px; border: 1px solid #40534e; border-radius: 3px; background: #14231f; color: #d5e5df; padding: 8px; font-size: 12px; }
+#observation-status { margin: 14px 18px; color: #b9cbc4; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.observation-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #56736a #101a1f; }
+#observation-list { list-style: none; padding: 0; margin: 0; }
+#observation-list button { width: 100%; display: grid; gap: 6px; text-align: left; padding: 14px 18px; background: none; border: 0; border-top: 1px solid #2a3a37; color: #e0eae5; }
+#observation-list button:hover, #observation-list button[aria-pressed="true"] { background: #263d35; }
+.observation-meta { color: #a8bfb4; font-size: 11px; }
+#observation-list strong { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.observation-action { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+#observation-detail { margin: 0; padding: 18px; border-top: 1px solid #729185; background: #162720; }
+#observation-detail h3 { margin: 0 0 16px; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+#observation-detail dl { display: grid; gap: 10px; margin: 0; }
+#observation-detail dt { font-size: 10px; color: #9fb7aa; }
+#observation-detail dd { margin: -6px 0 6px; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-wrap; }
+.data-panel-open #map { width: calc(100% - 340px); }
+.data-panel-open .map-controls { right: 368px; }
+.data-panel-open .north { right: 372px; }
+.place-title { position: absolute; z-index: 1; top: 100px; left: 30px; pointer-events: none; max-width: calc(100% - 100px); }
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #a2b8b4; }
+.eyebrow i, .focus-key i { width: 6px; height: 6px; background: #8ed5c0; border-radius: 50%; flex: 0 0 auto; }
+h1 { margin: 10px 0 6px; font-size: 28px; line-height: 1.2; font-weight: 500; }
+.place-title p { margin: 0; font-size: 12px; color: #afc0bf; }
+.north { position: absolute; right: 32px; top: 108px; display: grid; gap: 3px; width: 24px; justify-items: center; color: #c6d4d3; pointer-events: none; }
+.north span { display: block; font-size: 29px; line-height: 30px; }
+.north b { font-size: 11px; font-weight: 400; }
+.map-controls { position: absolute; right: 28px; bottom: 78px; display: flex; align-items: center; gap: 3px; padding: 5px; border: 1px solid #425452; border-radius: 6px; background: #0e191ee8; }
+.icon-button { width: 38px; height: 38px; padding: 10px; display: grid; place-items: center; border: 0; border-radius: 3px; background: transparent; color: #cfddda; }
+.icon-button svg { width: 18px; height: 18px; stroke-width: 1.6; }
+.icon-button:hover { background: #283c3d; color: #fff; }
+.view-switch { display: grid; grid-template-columns: repeat(2, 38px); gap: 2px; }
+.view-switch button { height: 36px; padding: 0; border: 0; border-radius: 3px; background: none; color: #aebfbd; font-size: 12px; }
+.view-switch button[aria-pressed="true"] { background: #c1ddd3; color: #102722; font-weight: 500; }
+.divider { width: 1px; height: 22px; margin: 0 5px; background: #425452; }
+.footer { position: absolute; bottom: 0; left: 0; right: 0; height: 50px; display: flex; align-items: center; gap: 30px; padding: 0 28px; background: #0b1217ed; border-top: 1px solid #354247; font-size: 12px; }
+.focus-key { display: flex; align-items: center; gap: 9px; }
+.focus-key small { font-family: Ubuntu, sans-serif; font-size: 10px; color: #96aaa9; margin-left: 6px; }
+.context-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #d2dedb; }
+.context-toggle input { width: 14px; height: 14px; margin: 0; accent-color: #9ecdbb; }
+#view-status { margin-left: auto; font-size: 11px; color: #afc2bd; }
+.load-state { position: absolute; z-index: 5; inset: 68px 0 50px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; background: #080d10e8; }
+.load-state[hidden], [hidden] { display: none !important; }
+.load-state p { margin: 0; font-size: 14px; color: #d7e4df; max-width: 300px; text-align: center; line-height: 1.7; }
+.load-state button { color: #e0ebe5; border: 1px solid #6f8e80; background: transparent; padding: 8px 16px; border-radius: 3px; }
+.spinner { width: 22px; height: 22px; border: 1px solid #334644; border-top-color: #b8d7c9; border-radius: 50%; animation: turn 1s linear infinite; }
+.load-state.is-error .spinner { display: none; }
+.noscript { position: absolute; inset: 45% 20px auto; text-align: center; }
+@keyframes turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+@media (max-width: 600px) {
+  .header { height: 60px; padding: 0 18px; }
+  .brand { display: grid; gap: 4px; font-size: 13px; }
+  .brand span { font-size: 9px; }
+  .place-title { top: 83px; left: 20px; }
+  h1 { font-size: 24px; }
+  .north { right: 20px; top: 88px; }
+  .map-controls { bottom: 98px; right: 50%; transform: translateX(50%); max-width: calc(100% - 24px); }
+  .footer { height: 74px; padding: 12px 18px; gap: 10px 20px; flex-wrap: wrap; align-content: center; }
+  .focus-key { flex-basis: 100%; }
+  .focus-key small { margin-left: auto; }
+  .context-toggle, #view-status { font-size: 11px; }
+  .load-state { inset: 60px 0 74px; }
+}
+@media (max-width: 760px) {
+  #observations { top: auto; bottom: 74px; height: 42vh; width: 100%; border-left: 0; border-top: 1px solid #526e61; }
+  .data-panel-open #map { width: 100%; height: 58%; }
+  .data-panel-open .map-controls, .data-panel-open .north { display: none; }
+  .observations-heading { padding: 12px 18px 8px; }
+  #observation-status { margin-top: 8px; margin-bottom: 8px; }
+}

@@ -1,0 +1,23 @@
+.observation-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 18px 12px; gap: 14px; border-bottom: 1px solid #344c44; }
+.observation-tabs button { color: #adc2b9; padding: 9px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; font-size: 13px; }
+.observation-tabs button[aria-selected="true"] { border-bottom-color: #b9dfd1; color: #f0f8f3; }
+.observation-tabs button:focus-visible, .place-summary-row:focus-visible { outline: 2px solid #b9dfd1; outline-offset: -2px; }
+.place-summary-heading { display: flex; justify-content: space-between; padding: 8px 18px 12px; color: #9fb8ac; font-size: 11px; }
+.place-summary-heading span:last-child { display: none; }
+.place-summary-row { display: grid; gap: 10px; width: 100%; padding: 15px 18px; color: #e3eee8; background: transparent; border: 0; border-top: 1px solid #2d4139; text-align: left; }
+.place-summary-row:hover { background: #1d3029; }
+.place-summary-row[aria-pressed="true"] { background: #233a31; box-shadow: inset 3px 0 var(--place-color); }
+.place-summary-title { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; gap: 9px; font-size: 13px; line-height: 1.6; }
+.place-summary-title > i { width: 7px; height: 7px; border-radius: 50%; background: var(--place-color); }
+.place-summary-title > span { overflow-wrap: anywhere; }
+.place-summary-title b { font-weight: 400; font-variant-numeric: tabular-nums; }
+.place-count-track { display: block; height: 4px; background: #293b34; }
+.place-count-track i { display: block; height: 100%; background: var(--place-color); }
+.place-periods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.place-period-cell { position: relative; isolation: isolate; display: flex; justify-content: space-between; align-items: baseline; gap: 4px; padding: 5px 6px; background: #182820; }
+.place-period-cell::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--place-color); opacity: var(--intensity); }
+.place-period-cell small { font-size: 10px; white-space: nowrap; }
+.place-period-cell b { font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.place-period-cell.is-outside { color: #82978c; }
+.place-common-activities { color: #bacbc1; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.place-summary-note { margin: 16px 18px 20px; color: #acbfb4; font-size: 11px; line-height: 1.8; }
