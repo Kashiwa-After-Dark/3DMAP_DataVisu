@@ -1,7 +1,10 @@
+/**
+ * ファイル概要: フロー矢印のフレームと移動を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ARROW_FRAME_MS, arrowFrameAt, createRouteMotion } from "../time-space-graph/js/features/flowArrowMotion.js";
-import { buildFlowArrowPositions } from "../time-space-graph/js/features/flowArrows.js";
+import { ARROW_FRAME_MS, arrowFrameAt, createRouteMotion } from "../space-time-cube/js/movement-visualization/flow-arrow-motion.js";
+import { buildFlowArrowPositions } from "../space-time-cube/js/movement-visualization/flow-arrows.js";
 
 const path = [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }, { x: 0, z: 0 }];
 

@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: 公開対象日、論理ルート、対象CSVの対応を定義する重要設定である。
+ */
 export const PUBLIC_SURVEY_DATE = "2026-10-23";
 
 const DEFAULT_HIDDEN_SOURCES = new Set([

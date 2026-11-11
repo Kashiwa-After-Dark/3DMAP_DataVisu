@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: 再生位置とルート投影の計算を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getActivityPlaybackPositions } from "../time-space-graph/js/features/activityPlaybackPosition.js";
+import { getActivityPlaybackPositions } from "../space-time-cube/js/movement-visualization/activity-playback-position.js";
 
 const project = ({ lon, lat }) => ({ x: lon, z: lat });
 const points = [{ lon: 0, lat: 2, time: 1000 }, { lon: 20, lat: 2, time: 11000 }, { lon: 40, lat: 2, time: 21000 }];

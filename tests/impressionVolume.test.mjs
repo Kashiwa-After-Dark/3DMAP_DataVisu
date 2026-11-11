@@ -1,7 +1,10 @@
+/**
+ * ファイル概要: 時間帯別の印象ボリューム集計を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createImpressionVolumeModel, collectImpressionVolumes } from "../time-space-graph/js/features/impressionVolumeModel.js";
-import { IMPRESSION_PERIOD_MS } from "../time-space-graph/js/features/impressionVolumeModel.js";
+import { createImpressionVolumeModel, collectImpressionVolumes } from "../space-time-cube/js/impression-visualization/impression-volume-model.js";
+import { IMPRESSION_PERIOD_MS } from "../space-time-cube/js/impression-visualization/impression-volume-model.js";
 
 const startTime = Date.parse("2026-10-23T18:00:00+09:00");
 const memo = (impression, offset = 10, rest = {}) => ({ isPeople: true, time: startTime + offset, impression, ...rest });

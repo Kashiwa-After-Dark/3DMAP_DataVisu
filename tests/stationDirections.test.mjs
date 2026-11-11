@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: 柏駅へ向かう・離れる方向集計を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { collectStationDirections, directionSymbols } from "../time-space-graph/js/features/stationDirectionModel.js";
+import { collectStationDirections, directionSymbols } from "../space-time-cube/js/movement-visualization/station-direction-model.js";
 
 const cell = { id: "road", a: { x: 0, z: 0 }, b: { x: 100, z: 0 }, center: { x: 50, z: 0 }, tangent: { x: 1, z: 0 }, normal: { x: 0, z: 1 }, towardSign: 1 };
 const period = { start: 0, end: 1800000, cells: new Map([[cell.id, cell]]) };

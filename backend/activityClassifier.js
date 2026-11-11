@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: 観察文から会話、待機、飲食などの行動分類を判定する。
+ */
 export const ACTIVITY_TYPES = Object.freeze([
   { id: "conversation", label: "会話", code: "TALK", color: "#00e5ff" },
   { id: "waiting", label: "待機", code: "WAIT", color: "#f0e442" },

@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: Supabaseの読み取り専用公開APIを呼び出し、レスポンスを検証する。
+ */
 // The public site calls a read-only Edge Function. No Supabase API key is sent
 // to browsers; the function alone calls the published-survey RPC.
 import { PUBLIC_SURVEY_DATE } from "./surveyConfig.js?v=20261025-01";

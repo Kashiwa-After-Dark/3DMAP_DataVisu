@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: 年齢、属性、行動などの色や形の共通表現を定義する。
+ */
 import { getActivityType } from "./activityClassifier.js";
 import { getImpressionType } from "./impressionClassifier.js?v=20261029-db1";
 

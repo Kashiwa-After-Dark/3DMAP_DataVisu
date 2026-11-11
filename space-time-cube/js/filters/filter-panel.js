@@ -1,0 +1,393 @@
+/**
+ * ファイル概要: 絞り込みパネルを作成し、属性・感情・行動の判定結果をまとめる。
+ */
+import { ACTIVITY_TYPES } from "../../../backend/activityClassifier.js?v=20261028-02";
+import { IMPRESSION_TYPES } from "../../../backend/impressionClassifier.js?v=20261029-db1";
+import { matchesActivityFilter } from "./activities/activity-filter.js";
+import { matchesAttributeFilter } from "./attributes/attribute-filter.js";
+import { matchesEmotionFilter } from "./emotions/emotion-filter.js";
+
+export function createLegendFilter({ root, categories, sources, onChange, onSourcesReset }) {
+  const ageKeys = ["C", "H", "U", "Y", "A", "S"];
+  const groupKeys = ["B", "G", "BG", "GG", "XG", "CP", "FM", "MX", "UN", "OBJ"];
+  const allSourceIds = sources.map((source) => source.id);
+  const state = {
+    ageCategories: new Set(ageKeys),
+    groupCategories: new Set(groupKeys),
+    genders: new Set(["M", "F", "X", "U"]),
+    activityTypes: new Set([...ACTIVITY_TYPES.map((entry) => entry.id), "object"]),
+    impressionTypes: new Set([...IMPRESSION_TYPES.map((entry) => entry.id), "object"]),
+    impressionPerspective: "observer",
+    sources: new Set(allSourceIds),
+    minCount: 0,
+    maxCount: Infinity,
+    keyword: "",
+  };
+
+  const countReadout = document.createElement("output");
+  countReadout.className = "legend-filter__count";
+  countReadout.textContent = "0";
+
+  const content = document.createElement("div");
+  content.className = "legend-filter__content";
+  const tabList = makeTabList();
+  const filterPanel = document.createElement("div");
+  filterPanel.className = "legend-filter__panel legend-filter__panel--filter";
+  filterPanel.dataset.filterPanel = "filter";
+  const visualPanel = document.createElement("div");
+  visualPanel.id = "marker-display-mode";
+  visualPanel.className = "marker-display-mode legend-filter__panel legend-filter__panel--visual";
+  visualPanel.dataset.filterPanel = "visual";
+  visualPanel.setAttribute("aria-label", "データアイコンの色分け");
+  visualPanel.hidden = true;
+  const codeSelector = document.createElement("div");
+  codeSelector.className = "legend-filter__code-selector";
+  codeSelector.append(
+    makeOptionGroup("AGE", ageKeys.map((value) => ({
+      name: "age-category",
+      value,
+      label: value,
+      range: getAgeRange(value),
+      title: getCategoryHelp(value),
+      color: categories[value].color,
+    })), "age"),
+    makeOptionGroup("GROUP", groupKeys.map((value) => ({
+      name: "group-category",
+      value,
+      label: value,
+      title: getCategoryHelp(value),
+      color: categories[value]?.color || "#397d9f",
+      shape: getCategoryShape(value),
+    })), "group"),
+    makeOptionGroup("GEN", [
+      { name: "gender", value: "M", label: "M", title: "男性", shape: "m" },
+      { name: "gender", value: "F", label: "F", title: "女性", shape: "f" },
+      { name: "gender", value: "X", label: "X", title: "混合", shape: "x" },
+      { name: "gender", value: "U", label: "U", title: "不明", shape: "u" },
+    ], "gen"),
+    makeCountRangeControl(),
+    makeSearchControl(),
+  );
+  content.append(codeSelector, makeDescription());
+  let activeTab = "filter";
+
+  const handleChange = (changedInput) => {
+    syncCountRangeUi(root, changedInput);
+    syncStateFromUi(state, root);
+    onChange?.();
+  };
+  const header = makeHeader({
+    countReadout,
+    onReset: () => {
+      resetState(state, root, allSourceIds);
+      onSourcesReset?.();
+      onChange?.();
+    },
+  });
+  filterPanel.append(header, content);
+  root.classList.remove("is-collapsed");
+  root.replaceChildren(tabList, filterPanel, visualPanel);
+  const setActiveTab = (tabId) => {
+    const nextTab = ["impression", "activity"].includes(tabId) ? tabId : "filter";
+    activeTab = nextTab;
+    filterPanel.hidden = nextTab !== "filter";
+    visualPanel.hidden = nextTab === "filter";
+    root.dataset.activeTab = nextTab;
+    for (const button of tabList.querySelectorAll("[data-filter-tab]")) {
+      const selected = button.dataset.filterTab === nextTab;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-selected", String(selected));
+      button.setAttribute("aria-expanded", String(selected && !root.classList.contains("is-stored")));
+      button.tabIndex = selected ? 0 : -1;
+    }
+  };
+  const setStored = (stored) => {
+    root.classList.toggle("is-stored", Boolean(stored));
+    for (const button of tabList.querySelectorAll("[data-filter-tab]")) {
+      const expanded = !stored && button.dataset.filterTab === activeTab;
+      button.setAttribute("aria-expanded", String(expanded));
+    }
+  };
+  setActiveTab(activeTab);
+  setStored(root.classList.contains("is-stored"));
+  syncCountRangeUi(root);
+  root.addEventListener("click", (event) => {
+    const tab = event.target.closest("[data-filter-tab]");
+    if (tab && root.contains(tab)) {
+      const sameOpenTab = tab.dataset.filterTab === activeTab && !root.classList.contains("is-stored");
+      if (sameOpenTab) setStored(true);
+      else {
+        setActiveTab(tab.dataset.filterTab);
+        setStored(false);
+      }
+      return;
+    }
+    const option = event.target.closest(".legend-filter__option");
+    if (!option || !root.contains(option)) return;
+    event.preventDefault();
+    const input = option.querySelector('input[type="checkbox"]');
+    const peers = [...root.querySelectorAll(`input[name="${input.name}"]`)];
+    const checked = peers.filter((peer) => peer.checked);
+
+    if (checked.length === peers.length) {
+      for (const peer of peers) peer.checked = peer === input;
+    } else if (!input.checked) {
+      input.checked = true;
+    } else if (checked.length > 1) {
+      input.checked = false;
+    } else {
+      for (const peer of peers) peer.checked = true;
+    }
+    handleChange();
+  });
+  root.addEventListener("keydown", (event) => {
+    const option = event.target.closest(".legend-filter__option");
+    if (!option || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    option.click();
+  });
+  root.addEventListener("input", (event) => {
+    if (event.target.matches('input[type="checkbox"]')) return;
+    handleChange(event.target);
+  });
+  root.addEventListener("change", (event) => {
+    if (event.target.matches('input[type="checkbox"]')) return;
+    handleChange(event.target);
+  });
+
+  return {
+    matches: (memo) => memoMatchesState(memo, state),
+    updateCount: (memos) => {
+      countReadout.textContent = String(memos.filter((memo) => memoMatchesState(memo, state)).length);
+    },
+    setSources: (sourceIds) => {
+      state.sources = new Set(sourceIds);
+    },
+    displayModeRoot: visualPanel,
+    displayModeTabs: [...tabList.querySelectorAll("[data-marker-mode]")],
+    setActiveTab,
+    getActiveTab: () => activeTab,
+    setVisualCategories: (mode, ids, perspective) => {
+      if (mode === "activity") state.activityTypes = new Set([...ids, "object"]);
+      if (mode === "impression") state.impressionTypes = new Set([...ids, "object"]);
+      if (mode === "impression" && perspective) state.impressionPerspective = perspective;
+      onChange?.();
+    },
+    setStored,
+    isStored: () => root.classList.contains("is-stored"),
+    state,
+  };
+}
+
+function makeTabList() {
+  const tabs = document.createElement("nav");
+  tabs.className = "legend-filter__tabs";
+  tabs.setAttribute("aria-label", "絞り込みとデータ色の切り替え");
+  tabs.setAttribute("role", "tablist");
+  const definitions = [
+    { id: "filter", label: "年齢", markerMode: "attribute" },
+    { id: "impression", label: "感情", markerMode: "impression" },
+    { id: "activity", label: "行動", markerMode: "activity" },
+  ];
+  for (const definition of definitions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.filterTab = definition.id;
+    if (definition.markerMode) button.dataset.markerMode = definition.markerMode;
+    button.textContent = definition.label;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(definition.id === "filter"));
+    button.tabIndex = definition.id === "filter" ? 0 : -1;
+    tabs.append(button);
+  }
+  return tabs;
+}
+
+function makeHeader({ countReadout, onReset }) {
+  const header = document.createElement("header");
+  header.className = "legend-filter__header";
+
+  const title = document.createElement("span");
+  title.textContent = "FILTER / GUIDE";
+
+  const count = document.createElement("strong");
+  count.append(countReadout, " 件");
+
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "legend-filter__reset";
+  reset.textContent = "全表示";
+  reset.addEventListener("click", onReset);
+
+  header.append(title, count, reset);
+  return header;
+}
+
+function makeOptionGroup(title, options, variant = "") {
+  const group = document.createElement("div");
+  group.className = `legend-filter__group${variant ? ` legend-filter__group--${variant}` : ""}`;
+
+  const heading = document.createElement("b");
+  heading.textContent = title;
+  group.append(heading);
+
+  for (const option of options) {
+    const label = document.createElement("label");
+    label.className = "legend-filter__option";
+    label.tabIndex = 0;
+    if (option.color) label.style.setProperty("--legend-color", option.color);
+    if (option.shape) label.dataset.shape = option.shape;
+    if (option.title) label.title = option.title;
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = option.name;
+    input.value = option.value;
+    input.checked = true;
+
+    const text = document.createElement("span");
+    text.textContent = option.label;
+    label.append(input, text);
+    if (variant === "age") {
+      const range = document.createElement("small");
+      range.textContent = option.range;
+      label.append(range);
+    }
+    group.append(label);
+  }
+
+  return group;
+}
+
+function makeCountRangeControl() {
+  const control = document.createElement("div");
+  control.className = "legend-filter__control legend-filter__control--count-range";
+  control.innerHTML = `
+    <span>COUNT</span>
+    <output data-count-range-readout>0–30</output>
+    <div class="count-range">
+      <i class="count-range__track" aria-hidden="true"></i>
+      <input name="min-count" type="range" min="0" max="30" step="1" value="0" aria-label="最小人数" />
+      <input name="max-count" type="range" min="0" max="30" step="1" value="30" aria-label="最大人数" />
+    </div>
+    <div class="count-range__ticks" aria-hidden="true">
+      <span>0</span><span>10</span><span>20</span><span>30</span>
+    </div>
+  `;
+  return control;
+}
+
+function makeSearchControl() {
+  const label = document.createElement("label");
+  label.className = "legend-filter__control legend-filter__control--search";
+  label.innerHTML = `
+    <span>SEARCH</span>
+    <input name="keyword" type="search" placeholder="キーワード" aria-label="メモ検索" />
+  `;
+  return label;
+}
+
+function makeDescription() {
+  const description = document.createElement("p");
+  description.className = "legend-filter__description";
+  description.textContent = "選択中のコードだけを表示。暗いコードを選ぶと表示へ追加。";
+  return description;
+}
+
+function syncStateFromUi(state, root) {
+  state.ageCategories = getCheckedValues(root, "age-category");
+  state.groupCategories = getCheckedValues(root, "group-category");
+  state.genders = getCheckedValues(root, "gender");
+  state.minCount = Number(root.querySelector('[name="min-count"]')?.value || 0);
+  const maximum = Number(root.querySelector('[name="max-count"]')?.value || 30);
+  state.maxCount = maximum >= 30 ? Infinity : maximum;
+  state.keyword = root.querySelector('[name="keyword"]')?.value.trim().toLowerCase() || "";
+}
+
+function syncCountRangeUi(root, changedInput) {
+  const minInput = root.querySelector('[name="min-count"]');
+  const maxInput = root.querySelector('[name="max-count"]');
+  if (!minInput || !maxInput) return;
+
+  let min = Number(minInput.value);
+  let max = Number(maxInput.value);
+  if (min > max) {
+    if (changedInput?.name === "min-count") {
+      max = min;
+      maxInput.value = String(max);
+    } else {
+      min = max;
+      minInput.value = String(min);
+    }
+  }
+
+  const lowerBound = Number(minInput.min);
+  const span = Number(maxInput.max) - lowerBound || 1;
+  const control = minInput.closest(".legend-filter__control--count-range");
+  control?.style.setProperty("--count-min", `${((min - lowerBound) / span) * 100}%`);
+  control?.style.setProperty("--count-max", `${((max - lowerBound) / span) * 100}%`);
+  const readout = control?.querySelector("[data-count-range-readout]");
+  if (readout) readout.textContent = `${min}–${max}${max >= 30 ? '+' : ''}`;
+}
+
+function resetState(state, root, allSourceIds) {
+  for (const input of root.querySelectorAll("input")) {
+    if (input.type === "checkbox") input.checked = true;
+    if (input.name === "min-count") input.value = "0";
+    if (input.name === "max-count") input.value = "30";
+    if (input.name === "keyword") input.value = "";
+  }
+  syncCountRangeUi(root);
+  syncStateFromUi(state, root);
+  state.sources = new Set(allSourceIds);
+  state.activityTypes = new Set([...ACTIVITY_TYPES.map((entry) => entry.id), "object"]);
+  state.impressionTypes = new Set([...IMPRESSION_TYPES.map((entry) => entry.id), "object"]);
+}
+
+function getCheckedValues(root, name) {
+  return new Set([...root.querySelectorAll(`input[name="${name}"]:checked`)].map((input) => input.value));
+}
+
+function memoMatchesState(memo, state) {
+  return matchesActivityFilter(memo, state)
+    && matchesEmotionFilter(memo, state)
+    && matchesAttributeFilter(memo, state);
+}
+
+function getCategoryHelp(value) {
+  return {
+    C: "中学生以下 [C]hild",
+    H: "高校生 [H]igh school",
+    U: "大学生 [U]niversity",
+    Y: "若い社会人 [Y]oung",
+    A: "中高年 [A]dult",
+    S: "高齢者 [S]enior",
+    B: "1人",
+    G: "グループ（性別不明）",
+    BG: "男女グループ",
+    GG: "同性グループ",
+    XG: "属性混合グループ",
+    CP: "カップル",
+    FM: "家族",
+    MX: "年齢・属性混合グループ",
+    UN: "不明",
+  }[value] || value;
+}
+
+function getCategoryShape(value) {
+  return {
+    CP: "heart",
+    UN: "question",
+  }[value] || "";
+}
+
+function getAgeRange(value) {
+  return {
+    C: "0–14",
+    H: "15–18",
+    U: "18–22",
+    Y: "23–34",
+    A: "35–64",
+    S: "65+",
+  }[value] || "";
+}

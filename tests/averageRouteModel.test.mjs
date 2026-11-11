@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: 代表ルートの外れ値除外と時間帯処理を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAverageRouteModel, collectDirectionalFlows, getFlowPeriod, HALF_HOUR_MS, robustMean } from "../time-space-graph/js/features/averageRouteModel.js";
+import { buildAverageRouteModel, collectDirectionalFlows, getFlowPeriod, HALF_HOUR_MS, robustMean } from "../space-time-cube/js/movement-visualization/average-route-model.js";
 
 const startTime = Date.parse("2026-10-23T18:00:00+09:00");
 const project = ({ lon, lat }) => ({ x: lon, z: lat });

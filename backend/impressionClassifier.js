@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: 保存済み判定または観察文から印象分類を判定する。
+ */
 import {storedEmotionId} from './storedEmotion.js?v=20261029-db1';
 export const IMPRESSION_TYPES = Object.freeze([
   { id: "positive", label: "肯定的", code: "POS", color: "#ffb000" },

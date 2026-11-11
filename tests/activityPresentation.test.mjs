@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: 移動・滞在データの表示用整理を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { routeBinsForView, summarizeStationaryActivities } from "../time-space-graph/js/features/activityPresentation.js";
+import { routeBinsForView, summarizeStationaryActivities } from "../space-time-cube/js/movement-visualization/activity-presentation.js";
 
 const bins = [{ color: "#00e5ff", density: 4, opacity: 0.8 }, { color: "#b1c8d2", density: 0, opacity: 0.06 }];
 

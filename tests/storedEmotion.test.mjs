@@ -1,7 +1,10 @@
+/**
+ * ファイル概要: 保存済み感情分類の優先規則を自動確認する。
+ */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {storedEmotionId} from '../backend/storedEmotion.js';
-import {getPerspectiveImpressionType} from '../time-space-graph/js/features/emotionPerspective.js';
+import {getPerspectiveImpressionType} from '../space-time-cube/js/impression-visualization/emotion-perspective.js';
 import {classifyImpression} from '../backend/impressionClassifier.js';
 test('DB review overrides text inference and never leaks into the other perspective',()=>{
  const memo={impression:'楽しそう',emotionAnalysis:{experiencer:'observed',polarity:'negative',outcome:'emotion'}};

@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: テラス場所コード別集計を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildPlaceCatalog, summarizePlaces, formatPlaceNames } from "../terrace-map/js/placeSummaryModel.js";
+import { buildPlaceCatalog, summarizePlaces, formatPlaceNames } from "../terrace-visualization/js/placeSummaryModel.js";
 
 const records = [
   { id: "a", placeCodes: ["TR-05"], placeMeanings: [{ code: "TR-05", meaning: "ベンチ" }], period: 0, hasLocation: true, count: 20 },

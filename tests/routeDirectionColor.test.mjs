@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: 進行方向比率によるルート色を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { routeDirectionBins } from "../time-space-graph/js/features/routeDirectionColor.js";
+import { routeDirectionBins } from "../space-time-cube/js/movement-visualization/route-direction-color.js";
 
 const a = { id: "a", a: { x: 0, z: 0 }, b: { x: 20, z: 0 } };
 const b = { id: "b", a: { x: 20, z: 0 }, b: { x: 40, z: 0 } };

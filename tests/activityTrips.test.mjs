@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: 移動アニメーションのレーンと軌跡を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildActivityTripGeometry, tripPhaseAt, TRIP_CYCLE_MS, TRIP_LANE_OFFSET } from "../time-space-graph/js/features/activityTripGeometry.js";
+import { buildActivityTripGeometry, tripPhaseAt, TRIP_CYCLE_MS, TRIP_LANE_OFFSET } from "../space-time-cube/js/movement-visualization/activity-trip-geometry.js";
 
 const cell = { center: { x: 0, z: 0 }, towardSign: 1 };
 const sampleRoute = (point, offset) => ({ x: point.x + offset, z: 0, tangent: { x: 1, z: 0 } });

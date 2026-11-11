@@ -1,8 +1,11 @@
+/**
+ * ファイル概要: 観察者・観察対象の感情分類を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getPerspectiveImpressionType } from "../time-space-graph/js/features/emotionPerspective.js";
-import { buildImpressionDensity, createDensityDomain } from "../time-space-graph/js/features/impressionDensity.js";
-import { createImpressionVolumeModel, collectImpressionVolumes } from "../time-space-graph/js/features/impressionVolumeModel.js";
+import { getPerspectiveImpressionType } from "../space-time-cube/js/impression-visualization/emotion-perspective.js";
+import { buildImpressionDensity, createDensityDomain } from "../space-time-cube/js/impression-visualization/impression-density.js";
+import { createImpressionVolumeModel, collectImpressionVolumes } from "../space-time-cube/js/impression-visualization/impression-volume-model.js";
 
 const classify = (text, perspective) => getPerspectiveImpressionType({ impression: text }, perspective).id;
 

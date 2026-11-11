@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: テラス画面のカメラ収まりを自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fitDistance, orthographicSpan } from "../terrace-map/js/cameraFit.js";
+import { fitDistance, orthographicSpan } from "../terrace-visualization/js/cameraFit.js";
 
 test("portrait cameras back away enough to keep the focus area in view", () => {
   assert.ok(fitDistance(80, 42, 0.5) > fitDistance(80, 42, 1.6));

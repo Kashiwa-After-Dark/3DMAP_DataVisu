@@ -1,9 +1,12 @@
+/**
+ * ファイル概要: 方向別フロー矢印の人数集計と配置を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildFlowArrowPositions } from "../time-space-graph/js/features/flowArrows.js";
-import { buildSpecifiedRouteModel } from "../time-space-graph/js/features/specifiedActivityRoute.js";
-import { collectDirectionalFlows, HALF_HOUR_MS } from "../time-space-graph/js/features/averageRouteModel.js";
-import { createRouteMotion } from "../time-space-graph/js/features/flowArrowMotion.js";
+import { buildFlowArrowPositions } from "../space-time-cube/js/movement-visualization/flow-arrows.js";
+import { buildSpecifiedRouteModel } from "../space-time-cube/js/movement-visualization/specified-activity-route.js";
+import { collectDirectionalFlows, HALF_HOUR_MS } from "../space-time-cube/js/movement-visualization/average-route-model.js";
+import { createRouteMotion } from "../space-time-cube/js/movement-visualization/flow-arrow-motion.js";
 
 const cell = { center: { x: 0, z: 0 }, tangent: { x: 1, z: 0 }, towardSign: 1 };
 const flow = { cell, direction: "to_station", motion: "walking", people: 1 };
