@@ -1,7 +1,9 @@
-export const MODEL_URL = new URL("../../3Dmodel/Kashiwa_3Dmap.glb", import.meta.url).href;
-export const FOCUS_OBJECTS = Object.freeze(["deck01", "deck02"]);
-export const FOCUS_WIRE = "deck_wier";
-export const CONTEXT_PADDING = 65;
+export const MODEL_URL = new URL("../../3Dmodel/teras.glb", import.meta.url).href;
+export const FOCUS_OBJECTS = Object.freeze(["デッキ床"]);
+export const CONTEXT_OBJECTS = Object.freeze(["駅", "プラザ"]);
+export const HIDDEN_OBJECTS = Object.freeze(["rout"]);
+// The authored model is in local coordinates; no geographic alignment is supplied yet.
+export const MODEL_GEOREFERENCED = false;
 export const COLORS = Object.freeze({
   background: 0x080d10,
   deck01: 0x72c8bd,

@@ -1,10 +1,10 @@
-import { createTerraceView } from "./mapView.js";
-import { loadTerraceModel } from "./model.js";
+import { createTerraceView } from "./mapView.js?v=20261111-model1";
+import { loadTerraceModel } from "./model.js?v=20261111-model1";
 import { bindToolbar, syncViewButtons } from "./toolbar.js";
 import { loadTerraceObservations } from "./observationData.js";
-import { createObservationPanel } from "./observationPanel.js?v=20261109-place1";
+import { createObservationPanel } from "./observationPanel.js?v=20261111-model1";
 import { createObservationMarkers } from "./observationMarkers.js?v=20261109-place1";
-import { createStationContext } from "./stationContext.js";
+import { createStationContext } from "./stationContext.js?v=20261111-model1";
 import { PUBLIC_SURVEY_DATE } from "../../backend/surveyConfig.js?v=20261025-01";
 
 const loading = document.querySelector("#load-state");
@@ -14,17 +14,22 @@ retry.addEventListener("click", () => location.reload());
 
 try {
   const view = createTerraceView(document.querySelector("#map"), syncViewButtons);
-  const model = await loadTerraceModel(view.scene);
+  const model = await loadTerraceModel(view.scene, (event) => {
+    message.textContent = event.lengthComputable
+      ? `テラスモデルを読み込み中 ${Math.round(event.loaded / event.total * 100)}%`
+      : "テラスモデルを読み込み中";
+  });
   view.setBounds(model.bounds);
   bindToolbar(view, model);
   loading.hidden = true;
   let markers = null;
   const panel = createObservationPanel({
+    mapPlacementAvailable: model.georeferenced,
     onChange(records, code, catalog) { markers?.update(records, code, catalog); },
     onSelect(record) { markers?.select(record?.id); },
   });
-  markers = createObservationMarkers({ view, focusMeshes: model.focusMeshes, onSelect(id) { panel.select(id); } });
-  createStationContext({ view, date: PUBLIC_SURVEY_DATE });
+  if (model.georeferenced) markers = createObservationMarkers({ view, focusMeshes: model.focusMeshes, onSelect(id) { panel.select(id); } });
+  if (model.stationAnchor) createStationContext({ view, date: PUBLIC_SURVEY_DATE, anchorPosition: model.stationAnchor, isVisible: model.isStationVisible });
   document.querySelector("#survey-date").textContent = PUBLIC_SURVEY_DATE;
   const reload = document.querySelector("#reload-data");
   async function refresh() {

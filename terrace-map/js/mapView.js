@@ -9,6 +9,12 @@ export function createTerraceView(canvas, onViewChange) {
   renderer.localClippingEnabled = true;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(COLORS.background);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8395a0, 2));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+  keyLight.position.set(-8, 18, 10);
+  scene.add(keyLight);
   const perspective = new THREE.PerspectiveCamera(42, 1, 0.1, 3000);
   const overhead = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 3000);
   overhead.up.set(0, 0, -1);
@@ -60,7 +66,7 @@ export function createTerraceView(canvas, onViewChange) {
       overhead.top = span.height / 2;
       overhead.bottom = -span.height / 2;
       overhead.zoom = 1;
-      overhead.position.copy(center).add(new THREE.Vector3(0, 500, 0));
+      overhead.position.copy(center).add(new THREE.Vector3(0, Math.max(30, size.length() * 2), 0));
       overhead.lookAt(center);
       overhead.updateProjectionMatrix();
     }

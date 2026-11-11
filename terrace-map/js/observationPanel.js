@@ -5,7 +5,7 @@ import { createPlaceSummary } from "./placeSummary.js";
 const AGE_NAMES = { child: "中学生以下", high_school: "高校生", university: "大学生", young: "若い社会人", adult: "中高年", senior: "高齢者", mixed: "年齢混合", unknown: "不明" };
 const GENDER_NAMES = { male: "男性", female: "女性", mixed: "混合", unknown: "不明" };
 
-export function createObservationPanel({ onChange, onSelect }) {
+export function createObservationPanel({ onChange, onSelect, mapPlacementAvailable = true }) {
   const app = document.querySelector("#app");
   const root = document.querySelector("#observations");
   const list = root.querySelector("#observation-list");
@@ -115,7 +115,9 @@ export function createObservationPanel({ onChange, onSelect }) {
     const located = state.visible.filter((record) => record.hasLocation).length;
     status.textContent = !state.data.records.length
       ? (!state.data.eligible ? "対象日の公開データはありません。" : state.data.coded ? "TRで始まる場所コードの記録はありません。" : `場所コードがAPIに未公開です（取得 ${state.data.eligible}件）。`)
-      : state.visible.length ? `地図 ${located}件 / 座標なし ${state.visible.length - located}件` : "該当する記録はありません。";
+      : state.visible.length ? (mapPlacementAvailable
+        ? `地図 ${located}件 / 座標なし ${state.visible.length - located}件`
+        : `一覧 ${state.visible.length}件 / GPSあり ${located}件・なし ${state.visible.length - located}件（モデルとの位置合わせ待ち）`) : "該当する記録はありません。";
     summary.render(state.data.records, state.catalog, state.period, state.code);
     onChange(state.visible, state.code, state.catalog);
     select(null);

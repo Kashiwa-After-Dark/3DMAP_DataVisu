@@ -1,55 +1,46 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { MODEL_URL, FOCUS_OBJECTS, FOCUS_WIRE, CONTEXT_PADDING, COLORS } from "./config.js";
+import { MODEL_URL, FOCUS_OBJECTS, CONTEXT_OBJECTS, HIDDEN_OBJECTS, MODEL_GEOREFERENCED } from "./config.js?v=20261111-model1";
 
-export async function loadTerraceModel(scene) {
-  const gltf = await new GLTFLoader().loadAsync(MODEL_URL);
+export async function loadTerraceModel(scene, onProgress) {
+  const gltf = await new GLTFLoader().loadAsync(MODEL_URL, onProgress);
   const model = gltf.scene;
   model.updateMatrixWorld(true);
-  const focus = [];
-  const context = [];
-  const bounds = new THREE.Box3();
+  const focusMeshes = [];
+  for (const name of FOCUS_OBJECTS) {
+    const object = model.getObjectByName(name);
+    if (!object) throw new Error(`Missing focus object: ${name}`);
+    object.traverse((child) => { if (child.isMesh) focusMeshes.push(child); });
+  }
+  if (!focusMeshes.length) throw new Error("Terrace floor contains no mesh");
+  for (const name of HIDDEN_OBJECTS) {
+    const object = model.getObjectByName(name);
+    if (object) object.visible = false;
+  }
   model.traverse((object) => {
     if (!object.isMesh) return;
-    if (FOCUS_OBJECTS.includes(object.name)) {
-      focus.push(object);
-      bounds.union(new THREE.Box3().setFromObject(object));
-    }
-  });
-  const missing = FOCUS_OBJECTS.filter((name) => !focus.some((object) => object.name === name));
-  if (missing.length) throw new Error(`Missing focus objects: ${missing.join(", ")}`);
-  const clipBounds = bounds.clone().expandByScalar(CONTEXT_PADDING);
-  const clippingPlanes = [
-    new THREE.Plane(new THREE.Vector3(1, 0, 0), -clipBounds.min.x),
-    new THREE.Plane(new THREE.Vector3(-1, 0, 0), clipBounds.max.x),
-    new THREE.Plane(new THREE.Vector3(0, 0, 1), -clipBounds.min.z),
-    new THREE.Plane(new THREE.Vector3(0, 0, -1), clipBounds.max.z),
-  ];
-  model.traverse((object) => {
-    if (!object.isMesh) return;
-    const selected = FOCUS_OBJECTS.includes(object.name);
-    const wire = object.name === FOCUS_WIRE;
-    const contextWire = object.name === "3D_wier";
-    const ground = ["plane", "space"].includes(object.name);
-    const road = object.name.startsWith("Ways") || object.name === "main_street";
-    const color = selected ? COLORS[object.name] : wire ? COLORS.focusWire : contextWire ? COLORS.wire : ground ? COLORS.ground : road ? COLORS.road : COLORS.buildings;
-    const previous = Array.isArray(object.material) ? object.material : [object.material];
-    object.material = new THREE.MeshBasicMaterial({
-      color, side: THREE.DoubleSide, transparent: true,
-      opacity: selected || wire || ground ? 1 : contextWire ? 0.25 : 0.3,
-      depthWrite: ground, depthTest: !selected && !wire,
-      clippingPlanes: selected || wire ? [] : clippingPlanes,
-    });
-    object.renderOrder = selected ? 5 : wire ? 6 : ground ? 0 : 1;
     object.castShadow = false;
     object.receiveShadow = false;
-    if (!selected && !wire) context.push(object);
-    for (const material of previous) material.dispose();
   });
+  const bounds = new THREE.Box3();
+  model.traverseVisible((object) => {
+    if (object.isMesh) bounds.union(new THREE.Box3().setFromObject(object));
+  });
+  if (bounds.isEmpty()) throw new Error("Terrace model is empty");
+  const station = model.getObjectByName("駅");
+  let stationAnchor = null;
+  if (station) {
+    const stationBounds = new THREE.Box3().setFromObject(station);
+    if (!stationBounds.isEmpty()) {
+      stationAnchor = stationBounds.getCenter(new THREE.Vector3());
+      stationAnchor.y = stationBounds.max.y + 0.5;
+    }
+  }
+  const context = CONTEXT_OBJECTS.map((name) => model.getObjectByName(name)).filter(Boolean);
   scene.add(model);
   return {
-    bounds,
-    focusMeshes: focus,
+    bounds, focusMeshes, stationAnchor, georeferenced: MODEL_GEOREFERENCED,
+    isStationVisible() { return Boolean(station?.visible); },
     setContextVisible(visible) { for (const object of context) object.visible = visible; },
   };
 }

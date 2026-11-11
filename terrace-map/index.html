@@ -30,9 +30,9 @@
       <section class="place-title" aria-label="表示対象">
         <span class="eyebrow"><i></i> FOCUS AREA</span>
         <h1>テラス</h1>
-        <p>駅前デッキ・プラザ前</p>
+        <p>駅前デッキ・プラザ前</p><p>テラス専用モデル · GPS位置合わせ待ち</p>
       </section>
-      <div class="north" aria-label="北の方角"><span id="north-arrow">↑</span><b>N</b></div>
+      <div class="north" aria-label="北の方角（未校正）" hidden><span id="north-arrow">↑</span><b>N</b></div>
       <aside id="observations" aria-label="テラスの観察データ">
         <div class="observations-heading"><div><h2>観察データ</h2><p><span id="survey-date">—</span> · TR</p></div><output id="observation-count">—件</output><button id="reload-data" class="icon-button" type="button" aria-label="観察データを再読み込み" title="観察データを再読み込み"><i data-lucide="refresh-cw"></i></button></div>
         <div class="data-filters">
@@ -55,13 +55,13 @@
         <button class="icon-button" type="button" id="fullscreen" title="全画面表示" aria-label="全画面表示" aria-pressed="false"><i data-lucide="maximize"></i></button>
       </section>
       <footer class="footer">
-        <div class="focus-key"><i></i><span>テラス</span><small>deck01 / deck02</small></div>
-        <label class="context-toggle"><input id="show-context" type="checkbox" checked /><span>周辺を表示</span></label>
+        <div class="focus-key"><i></i><span>テラス</span><small>teras.glb</small></div>
+        <label class="context-toggle"><input id="show-context" type="checkbox" checked /><span>駅・プラザを表示</span></label>
         <output id="view-status">斜め視点</output>
       </footer>
       <div class="load-state" id="load-state" role="status"><span class="spinner"></span><p id="load-message">地図を読み込み中</p><button id="retry" type="button" hidden>再読み込み</button></div>
       <noscript><p class="noscript">地図を表示するにはJavaScriptを有効にしてください。</p></noscript>
     </main>
-    <script type="module" src="./js/index.js?v=20261109-place1"></script>
+    <script type="module" src="./js/index.js?v=20261111-model1"></script>
   </body>
 </html>

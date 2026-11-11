@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { projectLocation } from "./geoProjection.js";
 import { getStationContext } from "./stationContextData.js";
 
-export function createStationContext({ view, date }) {
+export function createStationContext({ view, date, anchorPosition, isVisible = () => true }) {
   const data = getStationContext(date);
   if (!data) return;
   const canvas = document.querySelector("#map");
@@ -43,8 +43,8 @@ export function createStationContext({ view, date }) {
     item.textContent = `${hour.hour}時 ${hour.temperature.toFixed(1)}℃`;
     root.querySelector(".station-weather-hours").append(item);
   }
-  const location = projectLocation(data.station);
-  const world = new THREE.Vector3(location.x, 25, location.z);
+  const location = anchorPosition || projectLocation(data.station);
+  const world = new THREE.Vector3(location.x, anchorPosition ? location.y : 25, location.z);
   const projected = new THREE.Vector3();
   let pinned = false;
   let closeTimer;
@@ -66,7 +66,7 @@ export function createStationContext({ view, date }) {
   view.onRender(() => {
     projected.copy(world).project(view.getCamera());
     const rect = canvas.getBoundingClientRect();
-    const inView = projected.z > -1 && projected.z < 1 && Math.abs(projected.x) < 1 && Math.abs(projected.y) < 1;
+    const inView = isVisible() && projected.z > -1 && projected.z < 1 && Math.abs(projected.x) < 1 && Math.abs(projected.y) < 1;
     root.hidden = !inView;
     if (!inView) { dismiss(); return; }
     const x = rect.left + (projected.x + 1) * rect.width / 2;
