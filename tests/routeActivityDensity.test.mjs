@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: ルート上の滞在行動密度を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { collectRouteActivityDensity, isStationaryObservation } from "../time-space-graph/js/features/routeActivityDensity.js";
+import { collectRouteActivityDensity, isStationaryObservation } from "../space-time-cube/js/movement-visualization/route-activity-density.js";
 
 const cells = [0, 10, 20, 70].map((x, i) => ({ id: String(i), a: { x, z: 0 }, b: { x: x + 10, z: 0 }, center: { x: x + 5, z: 0 }, normal: { x: 0, z: 1 } }));
 const period = { start: 0, end: 100, cells: new Map(cells.map((cell) => [cell.id, cell])) };

@@ -1,8 +1,11 @@
+/**
+ * ファイル概要: 絞り込みキャッシュと描画負荷制御を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMemoFilterCache } from "../time-space-graph/js/features/memoFilterCache.js";
-import { createPlaybackCadence } from "../time-space-graph/js/features/playbackCadence.js";
-import { getMapPixelRatio, getDensityBounds } from "../time-space-graph/js/features/renderQuality.js";
+import { createMemoFilterCache } from "../space-time-cube/js/data-display/memo-filter-cache.js";
+import { createPlaybackCadence } from "../space-time-cube/js/timeline/playback-cadence.js";
+import { getMapPixelRatio, getDensityBounds } from "../space-time-cube/js/screen-control/render-quality.js";
 
 test("filter results and membership are reused until conditions or input data change", () => {
   let calls = 0;

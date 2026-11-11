@@ -1,0 +1,107 @@
+/**
+ * ファイル概要: 時計、カメラ方角、再生速度の表示を更新する。
+ */
+import * as THREE from "three";
+
+export function createTimelineInstruments({ clock, compassCard, speedEngine }) {
+  addFineTicks(clock, {
+    count: 24,
+    hiddenIndexes: new Set([0, 6, 12, 18]),
+  });
+  addFineTicks(compassCard, { count: 24 });
+  addFineTicks(speedEngine, {
+    count: 15,
+    startAngle: -120,
+    endAngle: 120,
+    includeEnd: true,
+    majorEvery: 0,
+    majorIndexes: new Set([0, 2, 4, 6, 8, 10, 12, 14]),
+  });
+
+  const hourHand = clock.querySelector("[data-clock-hour]");
+  const minuteHand = clock.querySelector("[data-clock-minute]");
+  const forward = new THREE.Vector3();
+  const speedNeedle = speedEngine.querySelector("[data-speed-engine-needle]");
+  const speedReadout = speedEngine.querySelector("[data-speed-engine-readout]");
+  let lastHeading = 0;
+  let lastCompassTransform = "";
+  let lastCompassLabel = "";
+  const timeFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  function updateTime(timestamp) {
+    const values = Object.fromEntries(
+      timeFormatter.formatToParts(timestamp).map(({ type, value }) => [type, value]),
+    );
+    const hours = Number(values.hour) % 12;
+    const minutes = Number(values.minute);
+    const seconds = Number(values.second);
+    hourHand.style.transform = `rotate(${hours * 30 + minutes * 0.5}deg)`;
+    minuteHand.style.transform = `rotate(${minutes * 6 + seconds * 0.1}deg)`;
+  }
+
+  function updateCompass(camera) {
+    camera.getWorldDirection(forward);
+    forward.normalize();
+    const horizontalLength = Math.hypot(forward.x, forward.z);
+    if (horizontalLength > 0.0001) {
+      lastHeading = THREE.MathUtils.radToDeg(Math.atan2(forward.x, -forward.z));
+    }
+    const pitch = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(forward.y, -1, 1)));
+    const displayPitch = THREE.MathUtils.clamp(pitch * 0.78, -62, 62);
+    const transform = `rotateX(${displayPitch.toFixed(2)}deg) rotateZ(${(-lastHeading).toFixed(2)}deg)`;
+    if (transform !== lastCompassTransform) {
+      compassCard.style.transform = transform;
+      lastCompassTransform = transform;
+    }
+    const label = `カメラ方角 ${Math.round((lastHeading + 360) % 360)}度、仰角 ${Math.round(pitch)}度`;
+    if (label !== lastCompassLabel) {
+      compassCard.parentElement.setAttribute("aria-label", label);
+      lastCompassLabel = label;
+    }
+  }
+
+  function updateSpeed(rate) {
+    const ratio = THREE.MathUtils.clamp((rate - 0.25) / 1.75, 0, 1);
+    const angle = -120 + ratio * 240;
+    const label = `${Number(rate.toFixed(2))}×`;
+    speedNeedle.style.transform = `rotate(${angle}deg)`;
+    speedReadout.textContent = label;
+    speedEngine.setAttribute("aria-label", `再生速度 ${label}`);
+  }
+
+  return { updateTime, updateCompass, updateSpeed };
+}
+
+function addFineTicks(dial, {
+  count = 24,
+  startAngle = 0,
+  endAngle = 360,
+  includeEnd = false,
+  majorEvery = 3,
+  majorIndexes = new Set(),
+  hiddenIndexes = new Set(),
+} = {}) {
+  const ring = document.createElement("div");
+  ring.className = "instrument-fine-ticks";
+  ring.setAttribute("aria-hidden", "true");
+
+  const angleDivisor = includeEnd ? Math.max(count - 1, 1) : count;
+  const ticks = Array.from({ length: count }, (_, index) => {
+    if (hiddenIndexes.has(index)) return null;
+    const tick = document.createElement("i");
+    const angle = startAngle + ((endAngle - startAngle) * index) / angleDivisor;
+    tick.style.setProperty("--tick-angle", `${angle}deg`);
+    if (majorIndexes.has(index) || (majorEvery && index % majorEvery === 0)) {
+      tick.className = "is-major";
+    }
+    return tick;
+  }).filter(Boolean);
+  ring.append(...ticks);
+  dial.prepend(ring);
+}

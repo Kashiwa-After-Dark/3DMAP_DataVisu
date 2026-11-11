@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: 移動・滞在レイヤーの切り替え仕様を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { activityLayerVisibility, createActivityLayerFilter } from "../time-space-graph/js/features/activityLayerFilter.js";
+import { activityLayerVisibility, createActivityLayerFilter } from "../space-time-cube/js/movement-visualization/activity-layer-filter.js";
 
 test("layer modes independently control routes and stationary activity rings", () => {
   assert.deepEqual(activityLayerVisibility(), { directions: true, activities: true });

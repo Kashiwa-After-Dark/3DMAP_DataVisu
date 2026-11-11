@@ -1,7 +1,10 @@
+/**
+ * ファイル概要: 調査日固有の駅周辺補足情報を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getStationContext } from "../terrace-map/js/stationContextData.js";
-import { projectLocation } from "../terrace-map/js/geoProjection.js";
+import { getStationContext } from "../terrace-visualization/js/stationContextData.js";
+import { projectLocation } from "../terrace-visualization/js/geoProjection.js";
 
 test("station context is date-specific with no historical fallback", () => {
   assert.equal(getStationContext("2026-07-07"), null);

@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: データベースで確認済みの感情分類を安全に読み取る。
+ */
 // null means no DB result: use legacy inference. Unknown is an explicit result.
 export function storedEmotionId(memo,perspective=null){
  const analysis=memo?.emotionAnalysis;

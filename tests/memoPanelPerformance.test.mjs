@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: カードデッキの不要な再描画防止を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderMemoPanel } from "../time-space-graph/js/features/memoPanel.js";
+import { renderMemoPanel } from "../space-time-cube/js/data-display/memo-panel.js";
 
 class ElementStub {
   children = [];

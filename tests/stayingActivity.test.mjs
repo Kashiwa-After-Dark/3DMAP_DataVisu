@@ -1,7 +1,10 @@
+/**
+ * ファイル概要: 滞在地点と代表行動の判定を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { collectStayingActivities, applyStayingStyle, isInStayingZone, STAY_COLOR } from "../time-space-graph/js/features/stayingActivityModel.js";
-import { buildActivityTripGeometry } from "../time-space-graph/js/features/activityTripGeometry.js";
+import { collectStayingActivities, applyStayingStyle, isInStayingZone, STAY_COLOR } from "../space-time-cube/js/movement-visualization/staying-activity-model.js";
+import { buildActivityTripGeometry } from "../space-time-cube/js/movement-visualization/activity-trip-geometry.js";
 
 const cells = [0, 1, 2].map((index) => ({ id: String(index), a: { x: index * 20, z: 0 }, b: { x: (index + 1) * 20, z: 0 }, center: { x: index * 20 + 10, z: 0 }, normal: { x: 0, z: 1 }, towardSign: 1 }));
 const memo = (overrides = {}) => ({ isPeople: true, hasLocation: true, world: { x: 10, z: 0 }, count: 1, activity: "雑談", ...overrides });

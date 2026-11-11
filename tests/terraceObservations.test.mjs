@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: テラス観察データの抽出と正規化を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getPlaceCode, getPlaceCodes, selectTerraceObservations, filterTerraceObservations, observationPeriod } from "../terrace-map/js/observationModel.js";
+import { getPlaceCode, getPlaceCodes, selectTerraceObservations, filterTerraceObservations, observationPeriod } from "../terrace-visualization/js/observationModel.js";
 
 const date = "2026-10-23";
 const record = { observationId: "a", time: "2026-10-23T18:10:00+09:00", sourceFilename: "people.csv", placeCode: "TR-01", lat: 35.862, lon: 139.972, subject: "会話する人", activity: "会話", recordType: "people", countMin: 2 };

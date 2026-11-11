@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: APIデータソースと画面表示用プロフィールの対応を管理する。
+ */
 const DEFAULT_CATEGORY = "UN";
 
 export function getMemoProfile(text) {

@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: 保存済み英訳を優先しながら観察メモの表示言語を切り替える。
+ */
 export function translatedMemoText(memo,field,language,fallback){
  const value=memo[field]??'';
  if(language!=='en')return fallback(value,language);

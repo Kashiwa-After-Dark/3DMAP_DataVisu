@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: 保存済み英訳と日本語表示の切り替えを自動確認する。
+ */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {translatedMemoText} from '../backend/translatedMemo.js';

@@ -1,6 +1,9 @@
+/**
+ * ファイル概要: 感情・印象の密度計算を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDensityDomain, buildImpressionDensity, pointInRoute } from "../time-space-graph/js/features/impressionDensity.js";
+import { createDensityDomain, buildImpressionDensity, pointInRoute } from "../space-time-cube/js/impression-visualization/impression-density.js";
 
 const route = [{ x: 0, z: 0 }, { x: 100, z: 0 }, { x: 100, z: 100 }, { x: 0, z: 100 }];
 const domain = createDensityDomain(route, 32);

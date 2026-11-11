@@ -1,3 +1,6 @@
+/**
+ * ファイル概要: 公開APIのルートと観察データを各画面で扱える形へ変換する。
+ */
 import { getMemoProfile } from "./profiles.js?v=20261024-02";
 import { fetchPublicRouteHistory, mapPublicTracks, publicSourceLookup } from "./publicRouteApi.js?v=20261029-db1";
 import { resolveSurveySources } from "./surveyConfig.js?v=20261025-01";

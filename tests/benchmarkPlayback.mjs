@@ -1,10 +1,13 @@
+/**
+ * ファイル概要: 再生処理の性能と更新回数を自動確認する。
+ */
 import { performance } from "node:perf_hooks";
 import { loadRouteDataset } from "../backend/routeData.js";
 import { PUBLIC_SURVEY_DATE, ROUTE_SOURCES } from "../backend/surveyConfig.js";
 import { getActivityType } from "../backend/activityClassifier.js";
-import { getPerspectiveImpressionType } from "../time-space-graph/js/features/emotionPerspective.js";
-import { createMemoFilterCache } from "../time-space-graph/js/features/memoFilterCache.js";
-import { createPlaybackCadence } from "../time-space-graph/js/features/playbackCadence.js";
+import { getPerspectiveImpressionType } from "../space-time-cube/js/impression-visualization/emotion-perspective.js";
+import { createMemoFilterCache } from "../space-time-cube/js/data-display/memo-filter-cache.js";
+import { createPlaybackCadence } from "../space-time-cube/js/timeline/playback-cadence.js";
 
 const dataset = await loadRouteDataset(ROUTE_SOURCES);
 if (dataset.errors.length) throw dataset.errors[0];

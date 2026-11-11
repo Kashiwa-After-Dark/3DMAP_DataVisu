@@ -1,7 +1,10 @@
+/**
+ * ファイル概要: 指定ルート座標と方向集計を自動確認する。
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildSpecifiedRouteModel, ROUTE_COORDINATES } from "../time-space-graph/js/features/specifiedActivityRoute.js";
-import { collectDirectionalFlows, HALF_HOUR_MS, getFlowPeriod } from "../time-space-graph/js/features/averageRouteModel.js";
+import { buildSpecifiedRouteModel, ROUTE_COORDINATES } from "../space-time-cube/js/movement-visualization/specified-activity-route.js";
+import { collectDirectionalFlows, HALF_HOUR_MS, getFlowPeriod } from "../space-time-cube/js/movement-visualization/average-route-model.js";
 
 const startTime = Date.parse("2026-10-23T18:00:00+09:00");
 const project = ({ lat, lon }) => ({ x: (lon - 139.971) * 90000, z: (lat - 35.862) * -111000 });
