@@ -1,6 +1,97 @@
 /**
  * ファイル概要: テラス可視化画面の地図、観察一覧、集計パネルの見た目を定義する。
  */
+/* 模型のみの試作表示。既存の機能コンテナは復帰可能なまま保持する。 */
+.model-only > :not(#map):not(.model-mode-tools):not(.load-state):not(noscript) { display: none !important; }
+.model-only #map { width: 100%; height: 100%; }
+.model-only .load-state { inset: 0; }
+.model-mode-tools {
+  --tool-row: 56px;
+  --tool-size: 46px;
+  position: absolute;
+  z-index: 10;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.model-view-switch, .model-screen-navigation a {
+  position: relative;
+  display: grid;
+  grid-auto-rows: var(--tool-row);
+  padding: 8px;
+  width: calc(var(--tool-size) + 18px);
+  border-radius: 48px;
+  border: 1px solid #ffffff59;
+  background: linear-gradient(115deg, #dbe6ea24, #dbe6ea0a);
+  box-shadow: inset 2px 2px 3px #ffffff30, inset -1px -2px 4px #ffffff16, 0 10px 28px #0005;
+  backdrop-filter: blur(18px) saturate(0.8);
+  -webkit-backdrop-filter: blur(18px) saturate(0.8);
+}
+.model-view-switch { --selected-row: 0; }
+.model-screen-navigation { display: flex; flex-direction: column; gap: 8px; }
+.view-switch-knob {
+  position: absolute;
+  top: 14px;
+  left: 8px;
+  width: var(--tool-size);
+  height: calc(var(--tool-size) - 2px);
+  transform: translateY(calc(var(--selected-row) * var(--tool-row)));
+  transition: transform 360ms cubic-bezier(.22,.8,.24,1);
+  pointer-events: none;
+  border: 1px solid #ffffff55;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #edf3f43b, #bdcbd012);
+  box-shadow: inset 1px 2px 5px #ffffff30, 0 3px 8px #0004;
+}
+.model-view-switch button, .model-screen-navigation a {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: var(--tool-size);
+  height: var(--tool-row);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 38px;
+  color: #e0e7e9;
+  font-size: 10px;
+  font-weight: 500;
+  text-shadow: 0 1px 5px #0009;
+  text-decoration: none;
+  transition: color 180ms;
+}
+.model-view-switch button svg, .model-screen-navigation a svg { width: 22px; height: 22px; filter: drop-shadow(0 1px 3px #ffffff35); }
+.model-screen-navigation a {
+  width: calc(var(--tool-size) + 18px);
+  height: calc(var(--tool-size) + 18px);
+  padding: 0;
+  font-size: 9px;
+  border: 1px solid #ffffff59;
+  background: linear-gradient(115deg, #dbe6ea24, #dbe6ea0a);
+  box-shadow: inset 2px 2px 3px #ffffff30, inset -1px -2px 4px #ffffff16, 0 5px 16px #0005;
+}
+.model-screen-navigation a:hover { background: #edf3f42a; color: #fff; }
+.model-view-switch button[aria-pressed=true] { color: #fff; }
+.model-view-switch button:hover:not(:disabled) { color: #fff; }
+.model-view-switch button:disabled { opacity: 0.3; cursor: not-allowed; }
+@media (max-width: 600px), (max-height: 520px) {
+  .model-mode-tools { --tool-row: 52px; --tool-size: 40px; right: 12px; top: 16px; transform: none; gap: 10px; }
+  .view-switch-knob { top: 14px; }
+  .model-view-switch button svg, .model-screen-navigation a svg { width: 20px; height: 20px; }
+}
+@media (max-height: 400px) {
+  .model-mode-tools { --tool-row: 48px; --tool-size: 42px; }
+  .model-view-switch button, .model-screen-navigation a { gap: 2px; font-size: 9px; }
+  .model-view-switch button svg, .model-screen-navigation a svg { width: 20px; height: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .view-switch-knob { transition: none; } }
+
 /* 基本レイアウト */
 @font-face {
   font-family: SmartFontUI;
@@ -312,6 +403,14 @@ h1 {
   font-size: 12px;
   color: #afc0bf;
 }
+.people-controls { position: absolute; z-index: 1; top: 208px; left: 30px; max-width: calc(100% - 60px); padding: 8px 10px; background: #0b1419dc; border-left: 2px solid #91cdbb; }
+.people-controls > div { display: flex; align-items: center; gap: 10px; }
+.people-controls label { display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.people-controls input { accent-color: #9ecdbb; margin: 0; }
+.people-controls p { margin: 4px 0 0; font-size: 10px; color: #b7c9c3; }
+#people-status { font-size: 10px; color: #c1d8cf; }
+#pause-people { width: 28px; height: 28px; padding: 5px; }
+@media (max-width: 600px) { .people-controls { top: 184px; left: 20px; max-width: calc(100% - 40px); } }
 .north {
   position: absolute;
   right: 32px;
@@ -565,6 +664,46 @@ h1 {
   }
 }
 
+.monitor-detail {
+  position: absolute;
+  z-index: 12;
+  left: 24px;
+  bottom: 78px;
+  width: min(340px, calc(100% - 32px));
+  max-height: min(400px, 50vh);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid #688e8d;
+  border-radius: 4px;
+  background: #101e27f5;
+  color: #eaf4f2;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.monitor-detail[hidden] { display: none; }
+.monitor-detail header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.monitor-detail h2 { font-size: 18px; margin: 2px 0 8px; }
+.monitor-detail h3 { font-size: 14px; margin: 16px 0 4px; }
+.monitor-detail p { margin: 6px 0; }
+.monitor-detail small, .monitor-detail a { color: #96ded4; }
+.monitor-detail ul { padding-left: 18px; }
+.monitor-detail li { margin: 10px 0; }
+.monitor-detail .monitor-warning { color: #e5c7a3; }
+.monitor-return { border: 1px solid #688e8d; padding: 6px 12px; color: inherit; background: transparent; }
+@media (max-width: 600px) {
+  .monitor-detail { left: 16px; top: 76px; bottom: auto; max-height: 27vh; }
+}
+
+.monitor-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* 柏駅の運行・気象情報 */
 .station-context {
   position: absolute;
@@ -586,7 +725,7 @@ h1 {
   white-space: nowrap;
 }
 .station-anchor:hover,
-.station-anchor[aria-expanded=true] {
+.station-anchor[aria-pressed=true] {
   background: #b6dacf;
   color: #0b231a;
 }

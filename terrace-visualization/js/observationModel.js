@@ -69,6 +69,8 @@ export function selectTerraceObservations(memos, date, matchesSource = () => tru
       count: record.recordType === "objects" ? record.qty : record.countMin,
       age: record.age || "",
       gender: record.gender || "",
+      direction: record.direction ?? null,
+      motion: record.motion ?? null,
       groupType: record.groupType || "",
     });
   }

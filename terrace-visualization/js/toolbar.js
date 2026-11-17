@@ -1,10 +1,20 @@
 /**
  * ファイル概要: テラス画面の時間帯、場所、表示切り替え操作を管理する。
  */
-import { createIcons, ZoomIn, ZoomOut, LocateFixed, Maximize, List, RefreshCw } from "https://cdn.jsdelivr.net/npm/lucide@0.468.0/+esm";
+import { createIcons, ZoomIn, ZoomOut, LocateFixed, Maximize, List, RefreshCw, Orbit, Monitor } from "https://cdn.jsdelivr.net/npm/lucide@0.468.0/+esm";
 
 export function bindToolbar(view, model) {
-  createIcons({ icons: { ZoomIn, ZoomOut, LocateFixed, Maximize, List, RefreshCw } });
+  createIcons({ icons: { ZoomIn, ZoomOut, LocateFixed, Maximize, List, RefreshCw, Orbit, Monitor } });
+  const tour = document.querySelector("#auto-camera");
+  view.autoCamera.onChange((active) => {
+    tour.setAttribute("aria-pressed", String(active));
+    tour.title = active ? "自動カメラを停止" : "自動カメラを開始";
+    tour.setAttribute("aria-label", tour.title);
+  });
+  tour.addEventListener("click", () => {
+    if (document.querySelector("#view-2d").getAttribute("aria-pressed") === "true") view.setMode("3d");
+    view.autoCamera.toggle();
+  });
   document.querySelector("#view-3d").addEventListener("click", () => view.setMode("3d"));
   document.querySelector("#view-2d").addEventListener("click", () => view.setMode("2d"));
   document.querySelector("#zoom-in").addEventListener("click", () => view.zoom(1.2));
@@ -12,6 +22,7 @@ export function bindToolbar(view, model) {
   document.querySelector("#reset-view").addEventListener("click", view.reset);
   document.querySelector("#show-context").addEventListener("change", (event) => {
     model.setContextVisible(event.target.checked);
+    view.refreshShadows();
     view.invalidate();
   });
   const fullscreen = document.querySelector("#fullscreen");

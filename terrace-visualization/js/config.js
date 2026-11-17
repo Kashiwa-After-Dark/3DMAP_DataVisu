@@ -2,9 +2,9 @@
  * ファイル概要: テラス可視化で使用する対象日、対象ソース、モデルURLを定義する。
  */
 export const MODEL_URL = new URL("../../3Dmodel/teras.glb", import.meta.url).href;
-export const FOCUS_OBJECTS = Object.freeze(["デッキ床"]);
-export const CONTEXT_OBJECTS = Object.freeze(["駅", "プラザ"]);
-export const HIDDEN_OBJECTS = Object.freeze(["rout"]);
+export const FOCUS_OBJECTS = Object.freeze(["Deck_Floor"]);
+export const CONTEXT_OBJECTS = Object.freeze(["Kashiwa_Station", "Sky_Plaza"]);
+export const HIDDEN_OBJECTS = Object.freeze([]);
 // The authored model is in local coordinates; no geographic alignment is supplied yet.
 export const MODEL_GEOREFERENCED = false;
 export const COLORS = Object.freeze({

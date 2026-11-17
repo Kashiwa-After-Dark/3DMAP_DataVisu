@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./style.css?v=20261111-simple1" />
+    <link rel="stylesheet" href="./style.css?v=20261117-focus2d1" />
     <script type="importmap">
       {
         "imports": {
@@ -20,8 +20,20 @@
     </script>
   </head>
   <body>
-    <main id="app">
+    <main id="app" class="model-only">
       <canvas id="map" aria-label="テラス周辺の拡大3Dマップ"></canvas>
+      <div class="model-mode-tools">
+      <nav class="model-screen-navigation" aria-label="画面切り替え">
+        <a href="../space-time-cube/" aria-label="ルートヒストリー" title="ルートヒストリー"><i data-view-icon="route"></i><span>ルート履歴</span></a>
+        <a href="../statistics/" aria-label="統計" title="統計"><i data-view-icon="chart-no-axes-combined"></i><span>統計</span></a>
+      </nav>
+      <nav class="model-view-switch" aria-label="表示切り替え">
+        <span class="view-switch-knob" aria-hidden="true"></span>
+        <button type="button" data-map-view="3d" aria-label="3D地図" aria-pressed="true" title="3D地図"><i data-view-icon="box"></i><span>3D</span></button>
+        <button type="button" data-map-view="2d" aria-label="上からの2D地図" aria-pressed="false" title="上からの2D地図"><i data-view-icon="map"></i><span>2D</span></button>
+        <button type="button" aria-label="サンキー図（準備中）" title="サンキー図（準備中）" disabled><i data-view-icon="git-fork"></i><span>Sankey</span></button>
+      </nav>
+      </div>
       <header class="header">
         <a class="brand" href="../space-time-cube/" title="スペースタイムキューブへ戻る">KASHIWA AFTER DARK<span>TERRACE MAP</span></a>
         <button id="data-toggle" class="data-toggle" type="button" aria-label="観察データの表示切替" aria-expanded="true" aria-controls="observations"><i data-lucide="list"></i><span>観察データ</span><b id="data-count">—</b></button>
@@ -29,7 +41,12 @@
       <section class="place-title" aria-label="表示対象">
         <span class="eyebrow"><i></i> FOCUS AREA</span>
         <h1>テラス</h1>
-        <p>駅前デッキ・プラザ前</p><p>テラス専用モデル · GPS位置合わせ待ち</p>
+        <p>駅前デッキ・プラザ前</p><p>場所コードの範囲に対応 · GPS未校正</p>
+      </section>
+      <section class="people-controls" aria-label="行動の模式表示">
+        <div><label><input id="show-people" type="checkbox" checked />人型デモ</label><span id="people-status" role="status">読み込み中</span><button id="pause-people" class="icon-button" type="button" aria-label="人型アニメーションを一時停止" aria-pressed="false"></button></div>
+        <p>模式表示 · 人数・服装・軌跡は再現しません</p>
+        <p id="people-flow-status" role="status"></p>
       </section>
       <div class="north" aria-label="北の方角（未校正）" hidden><span id="north-arrow">↑</span><b>N</b></div>
       <aside id="observations" aria-label="テラスの観察データ">
@@ -48,6 +65,8 @@
           <button type="button" id="view-2d" aria-pressed="false">2D</button>
         </div>
         <span class="divider"></span>
+        <button class="icon-button" type="button" id="auto-camera" title="自動カメラを開始" aria-label="自動カメラを開始" aria-pressed="false"><i data-lucide="orbit"></i></button>
+        <button class="icon-button" type="button" id="station-monitor" title="駅前モニターを見る" aria-label="駅前モニターを見る"><i data-lucide="monitor"></i></button>
         <button class="icon-button" type="button" id="zoom-in" title="拡大" aria-label="拡大"><i data-lucide="zoom-in"></i></button>
         <button class="icon-button" type="button" id="zoom-out" title="縮小" aria-label="縮小"><i data-lucide="zoom-out"></i></button>
         <button class="icon-button" type="button" id="reset-view" title="テラス全体に戻す" aria-label="テラス全体に戻す"><i data-lucide="locate-fixed"></i></button>
@@ -61,6 +80,6 @@
       <div class="load-state" id="load-state" role="status"><span class="spinner"></span><p id="load-message">地図を読み込み中</p><button id="retry" type="button" hidden>再読み込み</button></div>
       <noscript><p class="noscript">地図を表示するにはJavaScriptを有効にしてください。</p></noscript>
     </main>
-    <script type="module" src="./js/index.js?v=20261111-model1"></script>
+    <script type="module" src="./js/modelOnly.js?v=20261117-focus2d1"></script>
   </body>
 </html>
