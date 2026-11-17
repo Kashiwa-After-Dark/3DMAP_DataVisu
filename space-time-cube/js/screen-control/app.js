@@ -362,7 +362,8 @@ function syncMemoMarkerScale(memo, isRecent = memo.marker?.userData.isRecent ?? 
   if (!stamp || !baseScale) return;
   memo.marker.userData.isRecent = isRecent;
   const cameraScale = CAMERA_MODES[cameraMode].stampScale ?? 1;
-  stamp.scale.copy(baseScale).multiplyScalar(cameraScale);
+  const selectionScale = memo === activeMemo ? 1.2 : 1;
+  stamp.scale.copy(baseScale).multiplyScalar(cameraScale * selectionScale);
 }
 
 function setPerspectiveView() {
@@ -1190,8 +1191,9 @@ function syncActiveTimeSpacePeriod(seconds) {
 function syncMemoMarkerOpacity(memo, isRecent) {
   const stamp = memo.marker?.userData.stamp;
   const head = memo.marker?.userData.head;
+  const halo = memo.marker?.userData.selectionHalo;
   const isFocused = memo === activeMemo || memo === hoveredMemo;
-  const opacity = isFocused || isRecent ? 1 : 0.82;
+  const opacity = memo === activeMemo ? 1 : isFocused || isRecent ? 0.78 : 0.68;
   const renderOrder = isFocused ? 37 : isRecent ? 36 : 32;
   if (stamp?.material) {
     stamp.userData.setSolid?.(isFocused || isRecent);
@@ -1201,6 +1203,9 @@ function syncMemoMarkerOpacity(memo, isRecent) {
   if (head?.material) {
     head.material.opacity = opacity;
     head.renderOrder = renderOrder;
+  }
+  if (halo?.material) {
+    halo.material.color.set(memo === activeMemo ? 0xd8f7ff : memo.marker.userData.visual.color);
   }
 }
 
@@ -1820,10 +1825,12 @@ function animate() {
     const halo = memo.marker?.userData.selectionHalo;
     if (!halo?.visible) continue;
     const pulseWave = Math.sin(frameMs * 0.007);
-    const pulse = 1 + pulseWave * (memo === activeMemo ? 0.09 : 0.05);
+    const pulse = memo === activeMemo
+      ? 1.02 + pulseWave * 0.05
+      : 1 + pulseWave * 0.05;
     halo.scale.copy(halo.userData.baseScale).multiplyScalar(pulse);
     halo.material.opacity = memo === activeMemo
-      ? 0.82 + pulseWave * 0.12
+      ? 0.9 + pulseWave * 0.08
       : 0.58 + pulseWave * 0.12;
   }
   timelineInstruments.updateCompass(activeCamera);
