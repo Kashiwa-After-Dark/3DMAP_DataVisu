@@ -24,7 +24,7 @@ import { createLegendFilter } from "../filters/filter-panel.js?v=20261029-db2";
 import { createTimePeriodFilter } from "../timeline/time-period-filter.js?v=20261024-01";
 import { createTimelineInstruments } from "../timeline/instruments.js?v=20261029-perf1";
 import { create2DMapController } from "./map-2d.js?v=20260809-31";
-import { createMemoTopDownView } from "../data-display/memo-top-down-view.js?v=20260809-07";
+import { createMemoTopDownView } from "../data-display/memo-top-down-view.js?v=20261117-orbit2";
 import { applyPerspectiveCameraConstraints } from "./camera.js?v=20260809-02";
 import { createCoordinateConnector } from "../data-display/coordinate-connector.js?v=20260726-02";
 import { createTimelineKeyboard } from "../timeline/timeline-keyboard.js?v=20260726-01";
@@ -1356,7 +1356,6 @@ function focusCameraOnMemo(memo) {
 
   if (viewMode !== "3d") return;
   const focus = memo.marker.position.clone();
-  focus.y = TIME_BASE_Y;
   activeCamera = memoTopDownView.activate({
     mapFocus: focus,
     maxSize: cameraState.maxSize,

@@ -4,17 +4,22 @@
 import * as THREE from "three";
 import { applyTopDownCameraConstraints } from "../screen-control/camera.js?v=20260809-02";
 
+const MEMO_ROTATE_SPEED = 0.45;
+const MAX_MEMO_POLAR_ANGLE = Math.PI / 2 - THREE.MathUtils.degToRad(2);
+
 export function createMemoTopDownView({ camera, controls }) {
   const focus = new THREE.Vector3();
   let active = false;
+  let previousRotateSpeed = controls.rotateSpeed;
 
   function activate({ mapFocus, maxSize, viewportWidth, viewportHeight }) {
+    if (!active) previousRotateSpeed = controls.rotateSpeed;
     active = true;
     focus.copy(mapFocus);
     const cameraHeight = THREE.MathUtils.clamp(maxSize * 1.05, 340, 620);
 
     camera.position.set(focus.x, focus.y + cameraHeight, focus.z);
-    camera.up.set(0, 0, -1);
+    camera.up.set(0, 1, 0);
     camera.fov = 38;
     camera.aspect = Math.max(viewportWidth / viewportHeight, 0.01);
     camera.near = 0.1;
@@ -24,11 +29,13 @@ export function createMemoTopDownView({ camera, controls }) {
     controls.object = camera;
     controls.target.copy(focus);
     controls.enabled = true;
-    controls.enableRotate = false;
-    controls.enablePan = true;
+    controls.enableRotate = true;
+    controls.enablePan = false;
     controls.enableZoom = true;
-    controls.screenSpacePanning = true;
+    controls.rotateSpeed = MEMO_ROTATE_SPEED;
+    controls.screenSpacePanning = false;
     applyTopDownCameraConstraints(controls, cameraHeight);
+    controls.maxPolarAngle = MAX_MEMO_POLAR_ANGLE;
     controls.update();
     return camera;
   }
@@ -36,6 +43,7 @@ export function createMemoTopDownView({ camera, controls }) {
   function deactivate() {
     if (!active) return;
     active = false;
+    controls.rotateSpeed = previousRotateSpeed;
     controls.screenSpacePanning = false;
   }
 
