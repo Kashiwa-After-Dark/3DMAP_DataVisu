@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./style.css?v=20261111-simple1" />
+    <link rel="stylesheet" href="./style.css?v=20261117-title-reset1" />
     <script type="importmap">
       {
         "imports": {
@@ -23,10 +23,16 @@
     <main id="app">
       <canvas id="scene" aria-label="柏駅3Dマップ"></canvas>
       <nav class="top-taskbar" aria-label="表示モード">
-        <div class="system-identity" aria-label="Kashiwa After Dark データ可視化システム">
+        <button
+          id="site-reset"
+          class="system-identity"
+          type="button"
+          aria-label="Kashiwa After Darkを初期表示に戻す"
+          title="初期表示に戻す"
+        >
           <strong>KASHIWA AFTER DARK</strong>
           <span>SPACE-TIME CUBE VISUALIZATION SYSTEM / LIVE OVERVIEW</span>
-        </div>
+        </button>
         <div class="toolbar-actions">
           <div class="toolbar-menu toolbar-menu--mode" data-toolbar-menu="mode">
             <button class="toolbar-menu__toggle" type="button" data-toolbar-menu-toggle aria-expanded="false" aria-label="モード切替" title="モード切替">
@@ -223,6 +229,6 @@
       </section>
     </main>
 
-    <script type="module" src="./js/screen-control/app.js?v=20261117-highlight2"></script>
+    <script type="module" src="./js/screen-control/app.js?v=20261117-title-reset1"></script>
   </body>
 </html>

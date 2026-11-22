@@ -81,6 +81,7 @@ const compassCard = document.querySelector("#compass-card");
 const speedEngine = document.querySelector("#speed-engine");
 const timePeriodList = document.querySelector("#time-period-list");
 const routeSummaryRoot = document.querySelector("#route-summary");
+const siteResetButton = document.querySelector("#site-reset");
 const topTaskbar = document.querySelector(".top-taskbar");
 const bottomTaskbar = document.querySelector(".data-code-guide");
 const hintModeButton = document.querySelector("#hint-mode");
@@ -236,6 +237,7 @@ loadModel(() => {
 });
 
 playToggle.addEventListener("click", togglePlayback);
+siteResetButton.addEventListener("click", () => window.location.reload());
 timelineMinimize.addEventListener("click", toggleTimelineMinimized);
 timelinePanel.addEventListener("pointerdown", startTimelineDrag);
 timelinePanel.addEventListener("pointermove", moveTimelineDrag);
