@@ -5,12 +5,23 @@ import * as THREE from "three";
 import { CONTEXT_STYLE, CONSTRUCTION_STYLE, WALKWAY_ROOF_OPACITY, appearanceRole } from "./appearanceSettings.js?v=20261123-monitor2";
 import { GAME_STYLE } from "./gameAppearance.js";
 
+function softenModelColors(material) {
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace("#include <colorspace_fragment>", `
+      float terraceLuma = dot(gl_FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+      gl_FragColor.rgb = mix(vec3(terraceLuma), gl_FragColor.rgb, 0.30);
+      #include <colorspace_fragment>
+    `);
+  };
+  return material;
+}
+
 export function createModelAppearance(model) {
   const meshes = [];
   model.traverse((object) => { if (object.isMesh) meshes.push(object); });
   const materialCache = new Map();
-  const faceMaterial = new THREE.MeshBasicMaterial({ color: CONTEXT_STYLE.faceColor, transparent: true, opacity: CONTEXT_STYLE.faceOpacity, side: THREE.FrontSide, depthWrite: false });
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: CONTEXT_STYLE.edgeColor, transparent: true, opacity: CONTEXT_STYLE.edgeOpacity, depthWrite: false });
+  const faceMaterial = softenModelColors(new THREE.MeshBasicMaterial({ color: CONTEXT_STYLE.faceColor, transparent: true, opacity: CONTEXT_STYLE.faceOpacity, side: THREE.FrontSide, depthWrite: false }));
+  const edgeMaterial = softenModelColors(new THREE.LineBasicMaterial({ color: CONTEXT_STYLE.edgeColor, transparent: true, opacity: CONTEXT_STYLE.edgeOpacity, depthWrite: false }));
   const edgeCache = new Map();
   for (const mesh of meshes) {
     const names = [];
@@ -38,7 +49,7 @@ export function createModelAppearance(model) {
           copy.opacity = WALKWAY_ROOF_OPACITY;
           copy.depthWrite = false;
         }
-        materialCache.set(key, copy);
+        materialCache.set(key, softenModelColors(copy));
       }
       return materialCache.get(key);
     };

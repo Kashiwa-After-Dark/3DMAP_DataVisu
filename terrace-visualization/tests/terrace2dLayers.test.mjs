@@ -80,6 +80,10 @@ test("an eight-cell-square area shows both categories in their actual proportion
   const cells = createActivityMosaic(grid, new Map(), approximate);
   assert.equal([...cells.values()].filter(({ tag }) => tag === "talk").length, 48);
   assert.equal([...cells.values()].filter(({ tag }) => tag === "rest").length, 16);
+  for (let row = 1; row < 8; row++) {
+    assert.deepEqual(Array.from({ length: 8 }, (_, col) => cells.get(row * 8 + col).tag),
+      Array.from({ length: 8 }, (_, col) => cells.get(col).tag));
+  }
 });
 
 test("exact coordinates win, empty interior borrows context, and the outer arms stay gray", () => {
@@ -93,6 +97,19 @@ test("exact coordinates win, empty interior borrows context, and the outer arms 
   assert.equal(createActivityMosaic(grid, new Map(), new Map()).size, 0);
   assert.equal(isTerraceActivityArea(-6), false);
   assert.equal(isTerraceActivityArea(11), false);
+});
+
+test("uneven mixes preserve rare colors and can use adjacent cells without claiming precise data there", () => {
+  const mixed = tags(["talk", 40], ["rest", 1], ["photo", 1]);
+  const cells = createActivityMosaic(grid, new Map([[1, mixed]]), new Map(), () => true, undefined,
+    Uint8Array.from({ length: 64 }, (_, index) => [1, 2, 3].includes(index)));
+  assert.deepEqual([...cells.values()].map(({ tag }) => tag), ["talk", "photo", "rest"]);
+  assert.equal(cells.get(1).source, "coordinate");
+  assert.equal(cells.get(3).source, "estimated");
+  assert.equal(cells.get(3).sourceCell, 1);
+  assert.equal(cells.has(0), false);
+  const area = createActivityMosaic(grid, new Map(), new Map(Array.from({ length: 8 }, (_, index) => [index, mixed])));
+  assert.equal(new Set([...area.values()].map(({ tag }) => tag)).size, 3);
 });
 
 test("selecting an API tag does not count unrelated or untagged records", () => {

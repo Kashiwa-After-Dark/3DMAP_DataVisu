@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { readPeopleAreas } from "./peopleRegionGeometry.js";
 import { activityLegend, summarizeRingActivities } from "./ringActivityModel.js";
-import { aggregateMesh, createMeshGrid, createActivityMosaic } from "./activityMeshModel.js?v=inspect1";
+import { aggregateMesh, createMeshGrid, createActivityMosaic } from "./activityMeshModel.js?v=impression-dial1";
 import { buildMeshInspectionGroups } from "./meshInspectionGroups.js";
 
 const FADE_MS = 650;
@@ -83,7 +83,7 @@ const OBJECT_FRAGMENT = `
     #include <colorspace_fragment>
   }`;
 
-export function createActivityMeshLayer(view, model, project = null) {
+export function createActivityMeshLayer(view, model, project = null, onLegendChange = () => {}) {
   const areas = readPeopleAreas(model.regionSources);
   const bounds = new THREE.Box3();
   for (const mesh of model.focusMeshes) bounds.union(new THREE.Box3().setFromObject(mesh));
@@ -124,6 +124,7 @@ export function createActivityMeshLayer(view, model, project = null) {
     return ray.intersectObjects(model.focusMeshes, false)[0]?.point.y;
   }
   let palette = new Map();
+  let tagEntries = new Map();
   let onDeck, ids, groups;
   let fadeStarted = null, drawn = false;
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -168,6 +169,7 @@ export function createActivityMeshLayer(view, model, project = null) {
     hover(id) { showGroup(hoverGroup, id); },
     select(id) { showGroup(selectedGroup, id); },
     detail(id) { return groups?.[id] ?? { source: null, records: [] }; },
+    tagEntry(id) { return tagEntries.get(id); },
     createObjectMaterial(color, opacity, tintStrength) {
       return new THREE.ShaderMaterial({
         vertexShader: GRID_VERTEX, fragmentShader: OBJECT_FRAGMENT, transparent: true, depthWrite: false,
@@ -179,17 +181,19 @@ export function createActivityMeshLayer(view, model, project = null) {
     setRecords(records) {
       const legend = activityLegend(summarizeRingActivities(records, new Set(records.flatMap(({ placeCodes }) => placeCodes))))
         .filter(({ tag }) => tag !== null);
+      tagEntries = new Map(legend.map((entry) => [entry.tag, entry]));
       palette = new Map(legend.map(({ tag, color }) => [tag, new THREE.Color(color)]));
     },
     update(records) {
       const { exact, approximate, exactRecords, approximateRecords } = aggregateMesh(records, grid, areas, floorAt, project);
-      const mosaic = createActivityMosaic(grid, exact, approximate);
       const details = new Map();
       onDeck ??= Uint8Array.from({ length: grid.width * grid.height }, (_, index) => {
         const x = grid.origin.x + (index % grid.width + 0.5) * grid.step;
         const z = grid.origin.z + (Math.floor(index / grid.width) + 0.5) * grid.step;
         return Number.isFinite(floorAt(x, z)) ? 1 : 0;
       });
+      const mosaic = createActivityMosaic(grid, exact, approximate, undefined,
+        (index, precise) => (precise ? exactRecords : approximateRecords).get(index), onDeck);
       if (drawn && !reducedMotion.matches) {
         rememberColors();
         cellBlend.value = 0;
@@ -197,9 +201,11 @@ export function createActivityMeshLayer(view, model, project = null) {
       }
       drawn = true;
       pixels.fill(0);
+      const visibleTags = new Set();
       for (const [index, { tag, source, sourceCell }] of mosaic) {
         const color = palette.get(tag);
         if (!color) continue;
+        if (onDeck[index]) visibleTags.add(tag);
         pixels.set([color.r * 255, color.g * 255, color.b * 255,
           source === "estimated" ? 91 : source === "code" ? 172 : 235], index * 4);
         let evidence = exactRecords.get(sourceCell) ?? approximateRecords.get(sourceCell) ?? [];
@@ -209,6 +215,7 @@ export function createActivityMeshLayer(view, model, project = null) {
       ({ ids, groups } = buildMeshInspectionGroups(grid.width, grid.height, details, onDeck));
       for (let index = 0; index < ids.length; index++) groupPixels.set([ids[index] % 256, ids[index] >> 8, 0, 255], index * 4);
       groupTexture.needsUpdate = true;
+      onLegendChange([...tagEntries.values()].filter(({ tag }) => visibleTags.has(tag)));
       texture.needsUpdate = true;
       view.invalidate();
     },

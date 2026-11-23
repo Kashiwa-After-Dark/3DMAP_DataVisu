@@ -3,7 +3,7 @@
  */
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { createModelAppearance } from "./modelAppearance.js?v=20261123-monitor2";
+import { createModelAppearance } from "./modelAppearance.js?v=20261123-soft-chroma2";
 import { STATION_MONITOR_NAME } from "./appearanceSettings.js?v=20261123-monitor2";
 import { shouldHideBuilding } from "./contextVisibility.js?v=20261113-station1";
 import { createStationOcclusion } from "./stationOcclusion.js";

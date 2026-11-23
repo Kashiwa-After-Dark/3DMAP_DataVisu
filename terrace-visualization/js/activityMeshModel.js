@@ -90,55 +90,73 @@ export function isTerraceActivityArea(x) {
   return x >= -5.35 && x <= 9.25;
 }
 
-function proportionSample(x, z) {
-  // An ordered 8x8 pattern distributes minority categories without changing on redraw.
-  const quadrant = [0, 2, 3, 1];
-  let rank = 0;
-  for (let bit = 0; bit < 3; bit++) rank = rank * 4 + quadrant[((x >> bit) & 1) + 2 * ((z >> bit) & 1)];
-  return (rank + 0.5) / 64;
-}
-
-export function createActivityMosaic(grid, exact, approximate, inArea = isTerraceActivityArea) {
+export function createActivityMosaic(grid, exact, approximate, inArea = isTerraceActivityArea, recordLookup, onDeck) {
   const { width, height, origin, step } = grid;
-  const eligible = (index) => inArea(origin.x + ((index % width) + 0.5) * step);
+  const eligible = (index) => index >= 0 && index < width * height && (!onDeck || onDeck[index]) &&
+    inArea(origin.x + ((index % width) + 0.5) * step);
+  const neighbors = (index) => [index % width > 0 ? index - 1 : -1, index % width < width - 1 ? index + 1 : -1,
+    index - width, index + width];
   const sources = [...new Set([...exact.keys(), ...approximate.keys()])].filter(eligible);
+  const keys = new Map(sources.map((index) => {
+    const precise = exact.has(index);
+    const entries = (exact.get(index) ?? approximate.get(index)).values();
+    const summary = [...entries].map(({ tag, count }) => [tag, count]).sort();
+    const ids = recordLookup?.(index, precise)?.map(({ id }) => id).sort();
+    return [index, JSON.stringify([precise, ids, summary])];
+  }));
   const mosaic = new Map();
+  // Lay each local mix out in bands, then extend the nearest band into reference cells.
+  for (const start of sources) {
+    if (mosaic.has(start)) continue;
+    const key = keys.get(start);
+    const group = [start];
+    const visited = new Set(group);
+    for (let i = 0; i < group.length; i++) {
+      for (const next of neighbors(group[i])) {
+        if (keys.get(next) !== key || visited.has(next)) continue;
+        visited.add(next);
+        group.push(next);
+      }
+    }
+    const choices = [...(exact.get(start) ?? approximate.get(start)).values()]
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    // Tiny groups borrow adjacent reference cells only as needed to show all tags.
+    for (let i = 0; group.length < choices.length && i < group.length; i++) {
+      for (const next of neighbors(group[i])) {
+        if (!eligible(next) || keys.has(next) || mosaic.has(next) || visited.has(next)) continue;
+        visited.add(next);
+        group.push(next);
+        if (group.length === choices.length) break;
+      }
+    }
+    const xs = group.map((cell) => cell % width), zs = group.map((cell) => Math.floor(cell / width));
+    const alongX = Math.max(...xs) - Math.min(...xs) >= Math.max(...zs) - Math.min(...zs);
+    group.sort((a, b) => alongX ? a % width - b % width || a - b : a - b);
+    const visible = choices.slice(0, group.length);
+    const total = visible.reduce((sum, { count }) => sum + count, 0);
+    let first = 0, cumulative = 0;
+    for (const [rank, { tag, count }] of visible.entries()) {
+      cumulative += count;
+      const end = Math.min(group.length - (visible.length - 1 - rank),
+        Math.max(first + 1, Math.round(cumulative / total * group.length)));
+      for (let i = first; i < end; i++) {
+        const index = group[i];
+        const source = exact.has(index) ? "coordinate" : approximate.has(index) ? "code" : "estimated";
+        mosaic.set(index, { tag, source, sourceCell: source === "estimated" ? start : index });
+      }
+      first = end;
+    }
+  }
+  const placed = [...mosaic.entries()];
   for (let i = 0; i < width * height; i++) {
-    if (!eligible(i)) continue;
-    const sampled = exact.get(i) ?? approximate.get(i);
+    if (!eligible(i) || mosaic.has(i)) continue;
     const x = i % width, z = Math.floor(i / width);
-    const weights = new Map();
-    const evidence = new Map();
-    const add = (categories, influence, index) => {
-      for (const { tag, count } of categories.values()) {
-        weights.set(tag, (weights.get(tag) ?? 0) + count * influence);
-        if (!evidence.has(tag) || influence > evidence.get(tag).influence) evidence.set(tag, { index, influence });
-      }
-    };
-    if (sampled) {
-      add(sampled, 1, i);
-    } else if (sources.length) {
-      let nearest = Infinity;
-      const distances = sources.map((index) => {
-        const distance = Math.hypot(index % width - x, Math.floor(index / width) - z);
-        nearest = Math.min(nearest, distance);
-        return distance;
-      });
-      for (let j = 0; j < sources.length; j++) {
-        if (distances[j] > nearest + 2) continue;
-        const source = sources[j];
-        add(exact.get(source) ?? approximate.get(source), 1 / distances[j] ** 2, source);
-      }
+    let distance = Infinity, nearest;
+    for (const [index, entry] of placed) {
+      const d = (index % width - x) ** 2 + (Math.floor(index / width) - z) ** 2;
+      if (d < distance) { distance = d; nearest = entry; }
     }
-    const choices = [...weights].sort(([a], [b]) => a.localeCompare(b));
-    const total = choices.reduce((sum, [, weight]) => sum + weight, 0);
-    let pick = proportionSample(x, z) * total;
-    for (const [tag, weight] of choices) {
-      pick -= weight;
-      if (pick > 0) continue;
-      mosaic.set(i, { tag, source: exact.has(i) ? "coordinate" : sampled ? "code" : "estimated", sourceCell: evidence.get(tag).index });
-      break;
-    }
+    if (nearest) mosaic.set(i, { ...nearest, source: "estimated" });
   }
   return mosaic;
 }

@@ -9,7 +9,7 @@ import { GAME_STYLE, gameFogRange } from "./gameAppearance.js";
 import { createAutoCamera } from "./autoCamera.js?v=20261116-monitor1";
 import { createCameraFocus } from "./cameraFocus.js?v=observation-focus1";
 import { observationFocusView } from "./observationFocusView.js";
-import { focused2dFrame } from "./focused2dFrame.js";
+import { terrace2dDetailFrame } from "./focused2dFrame.js?v=20261123-detail2d1";
 import { initial3dView } from "./initial3dView.js?v=20261123-deck-view1";
 
 export function createTerraceView(canvas, onViewChange, { zoomLocked = false, returnAngle = false } = {}) {
@@ -158,7 +158,7 @@ export function createTerraceView(canvas, onViewChange, { zoomLocked = false, re
       if (topDownBounds) {
         const tools = document.querySelector(".model-mode-tools");
         const inset = tools ? canvas.getBoundingClientRect().right - tools.getBoundingClientRect().left + 18 : 0;
-        Object.assign(overhead, focused2dFrame(size, width, height, inset));
+        Object.assign(overhead, terrace2dDetailFrame(size, width, height, inset));
       }
       overhead.zoom = 1;
       overhead.position.copy(center).add(new THREE.Vector3(0, Math.max(30, size.length() * 2), 0));

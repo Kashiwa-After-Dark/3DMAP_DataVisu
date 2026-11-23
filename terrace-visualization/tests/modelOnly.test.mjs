@@ -16,17 +16,24 @@ test("focused model startup adds the period-filtered people demo without opening
   const controls = await readFile(new URL("../js/peoplePeriodControls.js", import.meta.url), "utf8");
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.match(js, /createPeopleDemo/);
-  assert.match(js, /createPlaceRegionRings/);
+  assert.doesNotMatch(js, /createPlaceRegionRings/);
+  assert.match(js, /createActivityMeshLayer/);
+  assert.match(js, /createImpressionCloud/);
   assert.match(js, /bindPeoplePeriodControls/);
   assert.match(controls, /loadTerraceObservations/);
   assert.match(controls, /filterTerraceObservations/);
+  assert.match(controls, /impressionCloud\.update\(selected\)/);
+  assert.match(controls, /advancePeriodPlayback/);
   assert.doesNotMatch(js, /createStationContext|createStationMonitor|bindToolbar/);
   assert.match(js, /stationOcclusion: true/);
   assert.match(html, /class="model-only"/);
   assert.match(html, /data-map-view="3d"/);
   assert.match(html, /data-map-view="2d"/);
   for (const period of ["0", "1", "2"]) assert.match(html, new RegExp(`data-people-period="${period}"`));
-  assert.match(html, /aria-label="サンキー図（準備中）"[^>]*disabled/);
+  const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
+  assert.doesNotMatch(css.match(/\.people-period-control \{[^}]+\}/)[0], /border|background|box-shadow/);
+  assert.match(html, /data-map-view="sankey" aria-label="サンキー図" aria-pressed="false"/);
+  assert.match(js, /createTerraceSankey/);
   assert.match(html, /src="\.\/js\/modelOnly.js/);
 });
 

@@ -68,6 +68,7 @@ export function selectTerraceObservations(memos, date, matchesSource = () => tru
           && typeof category.label === "string" && category.label).map(({ id, label }) => ({ id, label }))
         : [],
       impression: record.impression || "",
+      emotionAnalysis: record.emotionAnalysis ?? null,
       desc: record.desc || "",
       memo: record.memo || "",
       count: record.recordType === "objects" ? record.qty : record.countMin,

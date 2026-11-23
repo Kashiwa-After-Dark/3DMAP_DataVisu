@@ -2,7 +2,7 @@
  * ファイル概要: テラス可視化画面の地図、観察一覧、集計パネルの見た目を定義する。
  */
 /* 模型のみの試作表示。既存の機能コンテナは復帰可能なまま保持する。 */
-.model-only > :not(#map):not(.model-mode-tools):not(.people-period-control):not(#terrace-inspection):not(.load-state):not(noscript) { display: none !important; }
+.model-only > :not(#map):not(.model-mode-tools):not(.people-period-control):not(#terrace-sankey):not(.terrace-activity-legend):not(#terrace-inspection):not(.load-state):not(noscript) { display: none !important; }
 .model-only #map { width: 100%; height: 100%; }
 .model-only .load-state { inset: 0; }
 .model-mode-tools {
@@ -10,8 +10,9 @@
   --tool-size: 46px;
   position: absolute;
   z-index: 10;
-  right: 28px;
-  top: max(226px, calc(50% + 26px - 164px));
+  right: 10px;
+  top: min(58%, calc(100% - 180px));
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -114,18 +115,13 @@
   align-items: center;
   width: 160px;
   padding: 6px 8px 8px;
-  border: 1px solid #ffffff59;
-  border-radius: 12px;
-  background: linear-gradient(115deg, #dbe6ea24, #dbe6ea0a);
-  box-shadow: inset 1px 1px 3px #ffffff24, 0 8px 24px #0006;
-  backdrop-filter: blur(16px) saturate(0.8);
-  -webkit-backdrop-filter: blur(16px) saturate(0.8);
+  pointer-events: none;
 }
 .people-period-control[hidden] { display: none; }
 .period-dial { position: relative; aspect-ratio: 1; width: min(100%, 126px); margin-inline: auto; }
 .period-dial svg { display: block; width: 100%; height: 100%; }
-.period-dial-scale circle { fill: #0b14193b; }
-.period-dial-scale text { fill: #d4dfdd; text-anchor: middle; font: 11px Ubuntu, sans-serif; }
+.period-dial-scale circle { fill: #0b141950; }
+.period-dial-scale text { fill: #d4dfdd; text-anchor: middle; font: 11px Ubuntu, sans-serif; paint-order: stroke; stroke: #101719; stroke-width: 2px; }
 .period-dial-scale path { fill: none; stroke: #b5cac45f; stroke-width: 1; }
 .period-dial [data-people-period] {
   position: absolute;
@@ -158,6 +154,7 @@
   font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 4px #000;
 }
 #people-demo-pause {
   display: grid;
@@ -176,6 +173,88 @@
 #people-demo-pause:disabled { opacity: 0.45; cursor: default; }
 #people-demo-pause svg { width: 15px; height: 15px; }
 .model-only[data-map-view="2d"] #map { filter: none !important; }
+.model-only:not([data-map-view="2d"]) .terrace-activity-legend,
+.model-only:has(#terrace-inspection:not([hidden])) .terrace-activity-legend { display: none; }
+.terrace-activity-legend:not([hidden]) {
+  position: absolute;
+  z-index: 4;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 13px;
+  max-width: min(390px, calc(100% - 94px));
+  margin: 0;
+  padding: 9px 11px;
+  background: #0e1618e8;
+  color: #e5edeb;
+  border-radius: 6px;
+  list-style: none;
+  font-size: 11px;
+  pointer-events: none;
+}
+.terrace-activity-legend li { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.terrace-activity-legend span { width: 8px; height: 8px; background: var(--swatch); border-radius: 2px; }
+.model-only[data-map-view="sankey"] #map { visibility: hidden; }
+#terrace-sankey {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  padding: 8px 81px 7px 14px;
+  background: #111516;
+  color: #eff1e9;
+  font-family: "Kiwi Maru", "Yu Gothic UI", Meiryo, serif;
+}
+.sankey-layout {
+  height: 100%;
+  max-width: 620px;
+  margin-inline: auto;
+}
+@media (min-width: 781px) {
+  .sankey-layout { margin-inline-start: 0; }
+}
+.sankey-scroll, .sankey-mount { min-width: 0; min-height: 0; height: 100%; }
+.sankey-chart { display: block; width: 100%; height: 100%; }
+.sankey-stage-label { fill: #aebbb6; font-size: 12px; }
+.sankey-record-track { cursor: pointer; }
+.sankey-spine { fill: none; stroke-width: 0.7; stroke-opacity: 0.52; }
+.sankey-ribbon { fill-opacity: 0.22; }
+.sankey-weave { fill-opacity: 0.27; pointer-events: none; }
+.sankey-chart.is-filtered .sankey-record-track:not(.is-related) { opacity: 0.14; }
+.sankey-record-track.is-related .sankey-spine { stroke-opacity: 1; stroke-width: 1.25; }
+.sankey-record-track.is-related .sankey-ribbon { fill-opacity: 0.85; }
+.sankey-record-track.is-related .sankey-weave { fill-opacity: 0.83; }
+.sankey-node, .sankey-phrase { cursor: pointer; outline: none; }
+.sankey-chart.is-filtered .sankey-node:not(.is-related) .sankey-node-bar { fill-opacity: 0.45; }
+.sankey-node:hover .sankey-node-bar,
+.sankey-node:focus-visible .sankey-node-bar,
+.sankey-node[aria-pressed="true"] .sankey-node-bar { stroke: #eafbf4; stroke-width: 1.4; fill-opacity: 1; }
+.sankey-phrase-label { fill: #b8c0bf; fill-opacity: 0.62; writing-mode: vertical-rl; dominant-baseline: central; white-space: nowrap; }
+.sankey-chart.is-filtered .sankey-phrase:not(.is-related) .sankey-phrase-label { fill-opacity: 0.23; }
+.sankey-phrase.is-related .sankey-phrase-label { fill: #e4fff2; fill-opacity: 1; }
+.sankey-phrase-scrim { display: none; fill: #101918; fill-opacity: 0.77; }
+.sankey-phrase.is-over-flow .sankey-phrase-scrim { display: block; }
+.sankey-phrase.is-over-flow .sankey-phrase-label { fill: #dec497; }
+.sankey-phrase.is-over-flow.is-related .sankey-phrase-label { fill: #ffce79; }
+.sankey-tooltip {
+  position: fixed;
+  z-index: 11;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: 5px 9px;
+  background: #202927;
+  color: #eff1e9;
+  border-radius: 4px;
+  font-size: 13px;
+  pointer-events: none;
+}
+.sankey-status { padding: 54px 24px; color: #bdccc4; }
+.model-only[data-map-view="sankey"] .period-dial-scale circle { fill: #17211f; }
+@media (max-width: 780px) {
+  #terrace-sankey { padding: 104px 64px 8px 8px; }
+}
+@media (max-height: 540px) {
+  #terrace-sankey { padding-block: 6px; }
+}
 #terrace-inspection:not([hidden]) {
   position: absolute;
   z-index: 8;
@@ -183,19 +262,15 @@
   bottom: 24px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(340px, calc(100% - 110px));
-  max-height: min(310px, 55vh);
-  padding: 12px 14px;
-  border: 1px solid #c3dddc55;
-  border-radius: 8px;
+  width: min(356px, calc(100% - 110px));
+  max-height: min(408px, 56vh);
+  gap: 10px;
   color: #eef6f3;
-  background: #11191eeb;
-  box-shadow: 0 10px 24px #0006;
   pointer-events: none;
 }
 #terrace-inspection[data-pinned="true"] { pointer-events: auto; }
 #terrace-inspection header { display: flex; align-items: center; gap: 8px; }
-#terrace-inspection h2 { flex: 1; min-width: 0; margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+#terrace-inspection h2 { margin: 0; }
 #terrace-inspection button {
   width: 28px;
   height: 28px;
@@ -206,28 +281,24 @@
   cursor: pointer;
 }
 #terrace-inspection button svg { width: 16px; height: 16px; }
-#terrace-inspection .inspection-caption { margin: 4px 0 8px; color: #c4d7d0; font-size: 11px; }
+#terrace-inspection .inspection-caption {
+  width: fit-content;
+  max-width: 100%;
+  margin: 4px 0 0;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #121b20f2;
+  color: #c4d7d0;
+  font-size: 11px;
+}
 #terrace-inspection ul { min-height: 0; margin: 0; padding: 0; list-style: none; overflow: auto; }
-#terrace-inspection li { padding: 7px 0; border-top: 1px solid #a4b7b02b; }
-#terrace-inspection dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin: 0; }
+#terrace-inspection dl { display: grid; gap: 5px; margin: 0; }
 #terrace-inspection dl > div { min-width: 0; padding: 5px 7px; background: #b2d8d00a; border: 1px solid #b2d8d027; border-radius: 4px; }
-#terrace-inspection .inspection-field-wide { grid-column: 1 / -1; }
 #terrace-inspection dt { color: #a8c1ba; font-size: 10px; }
 #terrace-inspection dd { margin: 2px 0 0; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
-#terrace-inspection dd span { display: block; }
-#terrace-inspection .terrace-inspection-tags { display: flex; flex-wrap: wrap; gap: 4px; color: #a8e1d0; font-size: 11px; }
-.terrace-inspection-tags span { padding: 1px 5px; border: 1px solid #8fdbbf45; border-radius: 3px; }
-#terrace-inspection[data-mode="3d"]:not([hidden]) {
-  width: min(356px, calc(100% - 110px));
-  max-height: min(408px, 56vh);
-  gap: 10px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-#terrace-inspection[data-mode="3d"] h2,
-#terrace-inspection[data-mode="3d"] .ring-inspection-tag {
+.inspection-tag-list:not([hidden]) { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+#terrace-inspection h2,
+#terrace-inspection .inspection-tag-chip {
   flex: 0 1 auto;
   min-width: 0;
   padding: 5px 8px;
@@ -238,25 +309,24 @@
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
-#terrace-inspection[data-mode="3d"] .ring-inspection-tag {
-  flex-shrink: 0.7;
-  border-color: color-mix(in srgb, var(--ring-tag-color) 60%, transparent);
-  background: color-mix(in srgb, var(--ring-tag-color) 26%, #121b20d9);
-  color: color-mix(in srgb, var(--ring-tag-color) 28%, white);
+#terrace-inspection .inspection-tag-chip {
+  border-color: color-mix(in srgb, var(--inspection-tag-color) 60%, transparent);
+  background: color-mix(in srgb, var(--inspection-tag-color) 26%, #121b20d9);
+  color: color-mix(in srgb, var(--inspection-tag-color) 28%, white);
 }
-#terrace-inspection[data-mode="3d"] header button {
+#terrace-inspection header button {
   flex: none;
   border-radius: 4px;
   background: #121b20e8;
 }
-#terrace-inspection[data-mode="3d"] ul {
+#terrace-inspection ul {
   display: grid;
   align-content: start;
   gap: 10px;
   padding-inline-end: 3px;
   scrollbar-color: #718782 #182329;
 }
-#terrace-inspection .ring-record-card {
+#terrace-inspection .inspection-record-card {
   display: grid;
   gap: 5px;
   padding: 7px 8px 8px;
@@ -267,20 +337,19 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
-#terrace-inspection .ring-record-card time { justify-self: end; color: #9dd8ca; font-size: 11px; font-variant-numeric: tabular-nums; }
-#terrace-inspection .ring-record-card dl { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-#terrace-inspection .ring-record-card dl > div { padding: 4px 5px; }
-#terrace-inspection .ring-record-card dd { font-size: 11px; }
+#terrace-inspection .inspection-record-card time { justify-self: end; color: #9dd8ca; font-size: 11px; font-variant-numeric: tabular-nums; }
+#terrace-inspection .inspection-record-card dl { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+#terrace-inspection .inspection-record-card dl > div { padding: 4px 5px; }
+#terrace-inspection .inspection-record-card dd { font-size: 11px; }
 @media (max-width: 600px), (max-height: 520px) {
-  .model-mode-tools { --tool-row: 52px; --tool-size: 40px; right: 12px; top: 208px; gap: 10px; }
+  .model-mode-tools { --tool-row: 52px; --tool-size: 40px; right: 8px; top: min(58%, calc(100% - 162px)); gap: 10px; }
+  .people-period-control { top: 12px; right: 12px; width: 116px; padding: 0; }
   .view-switch-knob { top: 14px; }
   .model-view-switch button svg, .model-screen-navigation a svg { width: 20px; height: 20px; }
 }
-@media (max-height: 510px) {
-  .model-mode-tools { top: 16px; right: 180px; }
-}
 @media (max-height: 400px) {
   .model-mode-tools { --tool-row: 48px; --tool-size: 42px; }
+  .people-period-control { right: 78px; }
   .model-view-switch button svg, .model-screen-navigation a svg { width: 20px; height: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .view-switch-knob { transition: none; } }
@@ -797,10 +866,8 @@ h1 {
     top: 83px;
     left: 20px;
   }
-  .people-period-control { top: 12px; right: 12px; width: 144px; }
-  .period-dial { width: min(100%, 112px); }
   #terrace-inspection:not([hidden]) { left: 12px; bottom: 16px; }
-  #terrace-inspection[data-mode="3d"]:not([hidden]) { max-height: min(408px, 39vh); }
+  #terrace-inspection:not([hidden]) { max-height: min(408px, 39vh); }
   h1 {
     font-size: 24px;
   }

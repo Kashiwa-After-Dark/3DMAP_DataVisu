@@ -9,8 +9,9 @@ const SOURCE_LABELS = {
 };
 const observationTime = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
-function renderRingCard(item, record) {
-  item.className = "ring-record-card";
+function renderObservationCard(record) {
+  const item = document.createElement("li");
+  item.className = "inspection-record-card";
   if (Number.isFinite(record.time)) {
     const time = document.createElement("time");
     time.dateTime = new Date(record.time).toISOString();
@@ -36,7 +37,7 @@ export function bindTerraceInspection({ canvas, rings, activityMesh, view }) {
   const panel = document.querySelector("#terrace-inspection");
   const title = panel.querySelector("h2");
   const caption = panel.querySelector(".inspection-caption");
-  const tagBlock = panel.querySelector(".ring-inspection-tag");
+  const tagList = panel.querySelector(".inspection-tag-list");
   const list = panel.querySelector("ul");
   const close = panel.querySelector("button");
   createIcons({ icons: { X }, nameAttr: "data-inspection-icon" });
@@ -52,50 +53,25 @@ export function bindTerraceInspection({ canvas, rings, activityMesh, view }) {
       ? { source: "code", records: selectRingObservations(records, hit) }
       : activityMesh.detail(hit);
     panel.dataset.mode = mode;
-    title.textContent = ringView ? (catalog.find(({ code }) => code === hit.code)?.label ?? hit.code) : "メッシュの観察記録";
-    tagBlock.hidden = !ringView;
-    if (ringView) {
-      tagBlock.textContent = hit.label ?? "カテゴリなし";
-      tagBlock.style.setProperty("--ring-tag-color", hit.color ?? "#c8d0d5");
-    }
+    const places = new Set(detail.records.map(({ place }) => typeof place === "string" ? place.trim() : "").filter(Boolean));
+    title.textContent = ringView ? (catalog.find(({ code }) => code === hit.code)?.label ?? hit.code)
+      : places.size === 1 ? places.values().next().value : "メッシュの観察記録";
+    const tags = ringView ? [{ label: hit.label ?? "カテゴリなし", color: hit.color }]
+      : [...new Map(detail.records.flatMap(({ activityCategories = [] }) => activityCategories)
+        .map(({ id, label }) => [id, activityMesh.tagEntry(id) ?? { label }])).values()];
+    tagList.replaceChildren(...tags.map(({ label, color }) => {
+      const chip = document.createElement("strong");
+      chip.className = "inspection-tag-chip";
+      chip.textContent = label;
+      chip.style.setProperty("--inspection-tag-color", color ?? "#c8d0d5");
+      return chip;
+    }));
+    tagList.hidden = tags.length === 0;
     caption.hidden = ringView;
     caption.textContent = detail.records.length
       ? `${period} · ${detail.records.length}件 · ${SOURCE_LABELS[detail.source]}`
       : `${period} · 表示できる観察記録なし`;
-    list.replaceChildren(...detail.records.map((record) => {
-      const item = document.createElement("li");
-      if (ringView) return renderRingCard(item, record);
-      const fields = document.createElement("dl");
-      const seen = new Set();
-      function addField(label, values, wide = false, chips = false) {
-        const texts = values.filter((value) => typeof value === "string").map((value) => value.trim())
-          .filter((value) => value && (chips || !seen.has(value)));
-        if (!texts.length) return;
-        const group = document.createElement("div");
-        if (wide) group.className = "inspection-field-wide";
-        const key = document.createElement("dt");
-        key.textContent = label;
-        const value = document.createElement("dd");
-        if (chips) value.className = "terrace-inspection-tags";
-        for (const text of new Set(texts)) {
-          if (!chips) seen.add(text);
-          const content = document.createElement("span");
-          content.textContent = text;
-          value.append(content);
-        }
-        group.append(key, value);
-        fields.append(group);
-      }
-      const tags = (record.activityCategories ?? []).map(({ label }) => label);
-      addField("行動タグ", tags.length ? tags : ["タグなし"], true, true);
-      addField("対象", [record.subject]);
-      addField("行動", [record.activity]);
-      addField("場所", [record.place], true);
-      addField("印象", [record.impression], true);
-      addField("観察文", [record.desc, record.memo], true);
-      item.append(fields);
-      return item;
-    }));
+    list.replaceChildren(...detail.records.map(renderObservationCard));
     list.scrollTop = 0;
     panel.dataset.pinned = String(fixed);
     close.hidden = !fixed;
@@ -105,13 +81,13 @@ export function bindTerraceInspection({ canvas, rings, activityMesh, view }) {
   function clear() {
     if (pinned !== null && context?.mode === "3d") view.clearObservationFocus();
     pinned = null;
-    rings.select(null);
+    rings?.select(null);
     activityMesh.select(null);
     panel.hidden = true;
     canvas.style.cursor = "";
   }
 
-  rings.onHover((hit) => {
+  rings?.onHover((hit) => {
     if (context?.mode !== "3d") return;
     canvas.style.cursor = hit ? "pointer" : "";
     if (pinned === null) show(hit);
@@ -131,7 +107,8 @@ export function bindTerraceInspection({ canvas, rings, activityMesh, view }) {
   canvas.addEventListener("pointerup", (event) => {
     const start = press;
     press = null;
-    if (!context || !start || !event.isPrimary || Math.hypot(start.x - event.clientX, start.y - event.clientY) > 5) return;
+    if (!context || (context.mode === "3d" && !rings) || !start || !event.isPrimary ||
+        Math.hypot(start.x - event.clientX, start.y - event.clientY) > 5) return;
     const { clientX, clientY } = event;
     const hit = context.mode === "3d" ? rings.hitAt(clientX, clientY)
       : activityMesh.hitAt(clientX, clientY, canvas.getBoundingClientRect());
