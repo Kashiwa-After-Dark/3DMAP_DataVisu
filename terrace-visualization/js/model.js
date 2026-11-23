@@ -3,14 +3,15 @@
  */
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { createModelAppearance } from "./modelAppearance.js?v=20261113-gameonly1";
+import { createModelAppearance } from "./modelAppearance.js?v=20261123-monitor2";
+import { STATION_MONITOR_NAME } from "./appearanceSettings.js?v=20261123-monitor2";
 import { shouldHideBuilding } from "./contextVisibility.js?v=20261113-station1";
 import { createStationOcclusion } from "./stationOcclusion.js";
 import { createPlaceRegions } from "./placeRegions.js?v=20261113-people1";
 import { MODEL_URL, FOCUS_OBJECTS, CONTEXT_OBJECTS, HIDDEN_OBJECTS, MODEL_GEOREFERENCED } from "./config.js?v=20261112-regions1";
 
 export async function loadTerraceModel(scene, onProgress, { stationOcclusion = false } = {}) {
-  const gltf = await new GLTFLoader().loadAsync(MODEL_URL, onProgress);
+  const gltf = await new GLTFLoader().loadAsync(`${MODEL_URL}?v=20261123-monitor2`, onProgress);
   const model = gltf.scene;
   model.updateMatrixWorld(true);
   const focusMeshes = [];
@@ -37,7 +38,7 @@ export async function loadTerraceModel(scene, onProgress, { stationOcclusion = f
   if (bounds.isEmpty()) throw new Error("Terrace model is empty");
   const station = model.getObjectByName("Kashiwa_Station");
   let monitorSurface = null;
-  station?.traverse((object) => {
+  model.getObjectByName(STATION_MONITOR_NAME)?.traverse((object) => {
     if (object.isMesh && /Display black/i.test(object.material?.name || "")) monitorSurface = object;
   });
   let stationAnchor = null;
@@ -67,7 +68,7 @@ export async function loadTerraceModel(scene, onProgress, { stationOcclusion = f
   createModelAppearance(model);
   scene.add(model);
   return {
-    bounds, tourBounds, topDownBounds, focusMeshes, stationAnchor, monitorSurface, stationObject: station, georeferenced: MODEL_GEOREFERENCED,
+    root: model, bounds, tourBounds, topDownBounds, deckBounds, focusMeshes, stationAnchor, monitorSurface, stationObject: station, georeferenced: MODEL_GEOREFERENCED,
     selectPlace: regions.select,
     placeCodes: regions.codes,
     regionSources: regions.sources,

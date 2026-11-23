@@ -10,7 +10,7 @@ export function createCameraFocus({ camera, controls, onAnimate }) {
   onAnimate((time) => {
     if (!flight) return false;
     flight.start ??= time;
-    const t = Math.min(1, Math.max(0, (time - flight.start) / 1600));
+    const t = Math.min(1, Math.max(0, (time - flight.start) / flight.duration));
     const w = t * t * (3 - 2 * t);
     camera.position.lerpVectors(flight.fromPosition, flight.position, w);
     controls.target.lerpVectors(flight.fromTarget, flight.target, w);
@@ -21,12 +21,18 @@ export function createCameraFocus({ camera, controls, onAnimate }) {
   });
   return {
     stop,
-    start(target, position) {
+    start(target, position, duration = 1600) {
       stop();
+      if (duration <= 0) {
+        camera.position.copy(position);
+        controls.target.copy(target);
+        controls.update();
+        return;
+      }
       controls.enableDamping = false;
       controls.update();
       flight = { target: target.clone(), position: position.clone(),
-        fromPosition: camera.position.clone(), fromTarget: controls.target.clone(), start: null };
+        fromPosition: camera.position.clone(), fromTarget: controls.target.clone(), start: null, duration };
     },
   };
 }

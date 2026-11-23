@@ -5,15 +5,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PEOPLE_ILLUSTRATIONS, illustrationForRecord } from "../js/peopleIllustrations.js";
-import { representativePeople } from "../js/peopleDemoModel.js";
+import { benchRepresentatives, representativePeople } from "../js/peopleDemoModel.js";
 
-test("all six supplied illustrations have valid local PNG frames", () => {
-  assert.equal(Object.keys(PEOPLE_ILLUSTRATIONS).length, 6);
+test("bench seat demos use saved bench meanings and are limited to matching observations", () => {
+  const couple = { placeCodes: ["TR-05"], placeMeanings: [{ code: "TR-05", meaning: "ベンチ" }], groupType: "couple", motion: "sitting" };
+  const other = { ...couple, placeMeanings: [{ code: "TR-05", meaning: "テラス" }] };
+  const student = { ...couple, groupType: "GG", age: "high_school", gender: "female", activity: "会話" };
+  assert.deepEqual(benchRepresentatives([couple, other, student, couple]).map(({ illustration }) => illustration),
+    ["bench-couple", "bench-jk", "bench-couple"]);
+  assert.deepEqual(benchRepresentatives([other]), []);
+});
+
+test("all seven supplied illustrations have valid local PNG frames", () => {
+  assert.equal(Object.keys(PEOPLE_ILLUSTRATIONS).length, 7);
   let files = 0;
   for (const [key, asset] of Object.entries(PEOPLE_ILLUSTRATIONS)) {
     const animated = ["skate", "walk", "jk-dance"].includes(key);
     assert.equal(asset.frames.length, animated ? 8 : 1);
-    assert.equal(asset.fps > 0, animated);
+    assert.equal(asset.fps > 0, animated || Boolean(asset.tiles));
     assert.ok(asset.aspect > 0);
     for (const path of asset.frames) {
       const bytes = readFileSync(new URL(path, new URL("../js/peopleIllustrations.js", import.meta.url)));
@@ -22,7 +31,7 @@ test("all six supplied illustrations have valid local PNG frames", () => {
       files += 1;
     }
   }
-  assert.equal(files, 27);
+  assert.equal(files, 28);
 });
 
 test("seated school groups require matching age, gender, group and bench", () => {
@@ -57,4 +66,15 @@ test("bench artwork families do not disappear into a shared action label", () =>
   assert.equal(people.length, 3);
   assert.deepEqual(new Set(people.map((p) => p.illustration)), new Set(["bench-jk", "bench-dk", "bench-couple"]));
   assert.equal(JSON.stringify(records), before);
+});
+
+test("staying couples get a representative outside the bench area, but moving couples do not", () => {
+  const couple = { placeCodes: ["TR-07"], groupType: "CP", motion: "standing", activity: "" };
+  assert.equal(illustrationForRecord(couple, "TR-07"), "bench-couple");
+  assert.equal(illustrationForRecord({ ...couple, motion: "standing|walking" }, "TR-07"), null);
+  assert.equal(illustrationForRecord({ ...couple, direction: "to_station" }, "TR-07"), null);
+  const people = representativePeople([couple, { ...couple, activity: "雑談" }], ["TR-07"]);
+  assert.equal(people.length, 1);
+  assert.equal(people[0].count, 2);
+  assert.equal(people[0].motion, "idle");
 });

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { getStationContext } from "../js/stationContextData.js";
 import { monitorContent } from "../js/stationMonitorContent.js";
+import { STATION_MONITOR_NAME } from "../js/appearanceSettings.js";
 
 test("screen content uses the stored survey context, not live status or invented weather", () => {
   const data = getStationContext("2026-10-23");
@@ -19,8 +20,8 @@ test("screen content uses the stored survey context, not live status or invented
 test("station GLB contains exactly one black display material primitive", async () => {
   const bytes = await readFile(new URL("../../3Dmodel/teras.glb", import.meta.url));
   const model = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString());
-  const station = model.nodes.find((node) => node.name === "Kashiwa_Station");
-  const matches = model.meshes[station.mesh].primitives.filter((p) => /Display black/i.test(model.materials[p.material].name));
+  const monitor = model.nodes.find((node) => node.name === STATION_MONITOR_NAME);
+  const matches = model.meshes[monitor.mesh].primitives.filter((p) => /Display black/i.test(model.materials[p.material].name));
   assert.equal(matches.length, 1);
   const pos = model.accessors[matches[0].attributes.POSITION];
   assert.ok(pos.max[0] - pos.min[0] > pos.max[1] - pos.min[1]);

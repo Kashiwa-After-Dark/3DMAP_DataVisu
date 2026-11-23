@@ -7,6 +7,8 @@ export const CONTEXT_OBJECTS = Object.freeze(["Kashiwa_Station", "Sky_Plaza"]);
 export const HIDDEN_OBJECTS = Object.freeze([]);
 // The authored model is in local coordinates; no geographic alignment is supplied yet.
 export const MODEL_GEOREFERENCED = false;
+// Set to a surveyed ({ lat, lon }) => ({ x, z }) transform for this GLB only.
+export const TERRACE_MESH_PROJECT = null;
 export const COLORS = Object.freeze({
   background: 0x080d10,
   deck01: 0x72c8bd,

@@ -3,8 +3,29 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { roadRepresentatives, roadSegmentCandidates } from "../js/roadPeopleModel.js";
+import { roadRepresentatives, routeBetweenEdges } from "../js/roadPeopleModel.js";
 import { selectTerraceObservations } from "../js/observationModel.js";
+import { streamlineRoad, offsetRoad } from "../js/roadPeopleTrajectories.js";
+
+test("shortens an unnecessary turnaround and preserves the entrances", () => {
+  const points = [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 2, z: 0 }, { x: 2, z: 2 }];
+  assert.deepEqual(streamlineRoad(points, () => true), [points[0], points.at(-1)]);
+});
+
+test("walkers vary smoothly without changing their entrance points", () => {
+  const points = Array.from({ length: 101 }, (_, i) => ({ x: i / 10, z: 0 }));
+  const a = offsetRoad(points, 1, 0.19), b = offsetRoad(points, 2, 0.19);
+  assert.notDeepEqual(a, b);
+  assert.deepEqual([a[0], a.at(-1)], [points[0], points.at(-1)]);
+  assert.ok(a.every((p, i) => Math.abs(p.z) <= 0.19 && (!i || Math.abs(p.z - a[i - 1].z) < 0.02)));
+});
+
+test("walking variation is exactly zero in a fixed-width section", () => {
+  const points = Array.from({ length: 101 }, (_, i) => ({ x: i / 10, z: 0 }));
+  const varied = offsetRoad(points, 5, 0.78, ({ x }) => x >= 4 && x <= 6 ? 0 : 1);
+  assert.deepEqual(varied.slice(40, 61), points.slice(40, 61));
+  assert.notDeepEqual(varied.slice(10, 30), points.slice(10, 30));
+});
 
 test("terrace conversion preserves saved direction and motion verbatim", () => {
   const input = [{ observationId: "one", time: "2026-10-23T19:00:00+09:00", placeCodes: ["TR-00"], direction: "to_station", motion: "standing|walking" }, { observationId: "two", time: "2026-10-23T20:00:00+09:00", placeCodes: ["TR-09"], activity: "駅へ向かう" }];
@@ -34,18 +55,11 @@ test("only explicit station directions and recorded movement feed the road demo"
   assert.deepEqual(roadRepresentatives([], ["TR-02"]), []);
 });
 
-test("road paths stay in the supplied triangle and move monotonically away from station", () => {
-  const triangle = [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 0, z: 10 }];
-  const station = { x: 5, z: -1 };
-  for (const [near, far] of roadSegmentCandidates(triangle, station)) {
-    let distance = -1;
-    for (let i = 0; i <= 100; i += 1) {
-      const x = near.x + (far.x - near.x) * i / 100;
-      const z = near.z + (far.z - near.z) * i / 100;
-      assert.ok(x > 0 && z > 0 && x + z < 10);
-      const next = Math.hypot(x - station.x, z - station.z);
-      assert.ok(next + 1e-10 >= distance);
-      distance = next;
-    }
-  }
+test("road paths join terminal edges through connected faces and never cross blocked sections", () => {
+  const [a, b, c, d] = [[0, 0], [2, 0], [0, 2], [2, 2]].map(([x, z]) => ({ x, z }));
+  const triangles = [{ points: [a, b, c] }, { points: [b, c, d] }];
+  const station = { x: 1, z: 0 }, exit = { x: 1, z: 2 };
+  assert.deepEqual(routeBetweenEdges(triangles, station, [exit], () => true), [station, { x: 1, z: 1 }, exit]);
+  assert.equal(routeBetweenEdges(triangles, station, [exit], (a, b) => a.z < 2 && b.z < 2), null);
+  assert.equal(routeBetweenEdges(triangles, station, [{ x: 1, z: 1 }], () => true), null);
 });

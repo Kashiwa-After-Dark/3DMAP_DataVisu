@@ -74,6 +74,7 @@ export function createObservationPanel({ onChange, onSelect, mapPlacementAvailab
         ["時刻", formatTime(record.time)], ["場所コード", record.placeCodes.join(" / ")], ["場所の定義", record.placeMeanings.map((item) => `${item.code} ${item.meaning}`).join(" / ")], ["場所", record.place],
         ["年齢", record.isObject ? "" : AGE_NAMES[record.age] || record.age], ["性別", record.isObject ? "" : GENDER_NAMES[record.gender] || record.gender],
         ["グループ", record.isObject ? "" : record.groupType],
+        ["人物タグ", record.personTags.join(" / ")],
         [record.isObject ? "数量" : "人数", record.count], ["行動・状態", record.activity],
         ["感情・印象", record.impression], ["観察文", record.desc], ["メモ", record.memo],
         ["座標", record.hasLocation ? `${record.lat.toFixed(6)}, ${record.lon.toFixed(6)}` : "記録なし"],
