@@ -101,7 +101,6 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       button.setAttribute("aria-expanded", String(selected && !root.classList.contains("is-stored")));
       button.tabIndex = selected ? 0 : -1;
     }
-    scheduleSettingsTabPosition();
   };
   const setStored = (stored) => {
     root.classList.toggle("is-stored", Boolean(stored));
@@ -111,21 +110,9 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       const expanded = !stored && button.dataset.filterTab === activeTab;
       button.setAttribute("aria-expanded", String(expanded));
     }
-    scheduleSettingsTabPosition();
-  };
-  const syncSettingsTabPosition = () => {
-    const settingsTab = document.querySelector(".toolbar-menu--settings");
-    if (!settingsTab) return;
-    const anchor = root.classList.contains("is-stored") ? toggle : root;
-    const bottom = anchor.getBoundingClientRect().bottom;
-    settingsTab.style.top = `${Math.round(bottom + 8)}px`;
-  };
-  const scheduleSettingsTabPosition = () => {
-    window.requestAnimationFrame(syncSettingsTabPosition);
   };
   setActiveTab(activeTab);
   setStored(root.classList.contains("is-stored"));
-  window.addEventListener("resize", scheduleSettingsTabPosition);
   syncCountRangeUi(root);
   root.addEventListener("click", (event) => {
     if (event.target.closest(".legend-filter__toggle")) {
