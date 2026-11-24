@@ -4190,3 +4190,90 @@ body.is-hint-mode .station-flow-summary {
   transform: none;
 }
 
+/* 設定メニューから選べる明るい配色 */
+.theme-toggle[data-theme=dark] [data-theme-option=dark],
+.theme-toggle[data-theme=light] [data-theme-option=light] {
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(var(--map-blue-rgb), 0.72);
+}
+body.smart-city-trial[data-theme=light] {
+  --app-background: #d8e1e4;
+  --map-navy: #c8d4d8;
+  color: #172b36;
+  background: #d8e1e4;
+}
+body.smart-city-trial[data-theme=light] .top-taskbar,
+body.smart-city-trial[data-theme=light] .data-code-guide,
+body.smart-city-trial[data-theme=light] .age-legend,
+body.smart-city-trial[data-theme=light] .memo-panel,
+body.smart-city-trial[data-theme=light] .timeline,
+body.smart-city-trial[data-theme=light] .toolbar-menu__panel,
+body.smart-city-trial[data-theme=light] .route-summary,
+body.smart-city-trial[data-theme=light] .hint-detail {
+  border-color: rgba(45, 115, 137, 0.42);
+  color: #172b36;
+  background: rgba(231, 238, 240, 0.97);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72), 0 12px 28px rgba(46, 78, 91, 0.18);
+}
+body.smart-city-trial[data-theme=light] .system-identity strong,
+body.smart-city-trial[data-theme=light] .timeline strong,
+body.smart-city-trial[data-theme=light] .memo-item strong,
+body.smart-city-trial[data-theme=light] .legend-filter__header,
+body.smart-city-trial[data-theme=light] .toolbar-menu__row,
+body.smart-city-trial[data-theme=light] .data-code-guide {
+  color: #17313e;
+}
+body.smart-city-trial[data-theme=light] .system-identity span,
+body.smart-city-trial[data-theme=light] .memo-source,
+body.smart-city-trial[data-theme=light] .memo-item p,
+body.smart-city-trial[data-theme=light] .legend-filter__description {
+  color: #4e6b78;
+}
+body.smart-city-trial[data-theme=light] .toolbar-menu__toggle,
+body.smart-city-trial[data-theme=light] .toolbar-hint-toggle {
+  color: #244b5b;
+}
+body.smart-city-trial[data-theme=light] .theme-toggle[data-theme=dark] [data-theme-option=dark],
+body.smart-city-trial[data-theme=light] .theme-toggle[data-theme=light] [data-theme-option=light] {
+  color: #0b6078;
+  text-shadow: none;
+}
+body.smart-city-trial[data-theme=light] .language-toggle,
+body.smart-city-trial[data-theme=light] .view-toggle,
+body.smart-city-trial[data-theme=light] .legend-filter__header button,
+body.smart-city-trial[data-theme=light] .legend-filter__control input,
+body.smart-city-trial[data-theme=light] .legend-filter__control select,
+body.smart-city-trial[data-theme=light] .timeline__controls button,
+body.smart-city-trial[data-theme=light] .speed-control,
+body.smart-city-trial[data-theme=light] .time-track-shell,
+body.smart-city-trial[data-theme=light] .timeline-minimize,
+body.smart-city-trial[data-theme=light] .marker-display-mode {
+  border-color: rgba(45, 115, 137, 0.4);
+  color: #17313e;
+  background: #dfe8eb;
+}
+body.smart-city-trial[data-theme=light] .memo-item {
+  border-color: rgba(45, 115, 137, 0.3);
+  color: #17313e;
+  background: rgba(237, 242, 243, 0.96);
+}
+body.smart-city-trial[data-theme=light] .legend-filter__tabs,
+body.smart-city-trial[data-theme=light] .legend-filter__toggle {
+  color: #1d6175;
+  background: rgba(205, 224, 230, 0.96);
+}
+body.smart-city-trial[data-theme=light] .toolbar-menu--settings .toolbar-menu__panel {
+  border-color: rgba(53, 128, 92, 0.42);
+  background: rgba(228, 237, 232, 0.98);
+}
+body.smart-city-trial[data-theme=light] .toolbar-menu--settings .toolbar-menu__toggle {
+  color: #286947;
+  background: rgba(201, 224, 210, 0.96);
+}
+body.smart-city-trial[data-theme=light] .clock-dial,
+body.smart-city-trial[data-theme=light] .compass-dial,
+body.smart-city-trial[data-theme=light] .speed-engine {
+  background: #e3eaec;
+  box-shadow: inset 0 0 0 3px #cbd7db, 0 5px 12px rgba(46, 78, 91, 0.2);
+}
+

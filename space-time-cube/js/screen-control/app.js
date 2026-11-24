@@ -42,10 +42,11 @@ import { createStationFlowView } from "../movement-visualization/station-flow-vi
 import { createViewToggle } from "./view-mode.js";
 import { formatTime } from "../shared/formatters.js";
 import { getTimeRange, loadRouteDataset } from "../../../backend/routeData.js?v=20261029-db1";
-import { createMapDisplay } from "./map-display.js?v=20261029-perf1";
+import { createMapDisplay } from "./map-display.js?v=20261124-light-theme4";
 import { makeAxisLabel, makeGraffitiStamp } from "../data-display/markers.js?v=20261029-perf1";
 import { renderMemoPanel, scrollMemoItemVertically } from "../data-display/memo-panel.js?v=20261029-perf1";
 import { createLanguageMode, translateDataText } from "../language-mode/language-mode.js?v=20261101-02";
+import { createThemeMode } from "./theme-mode.js?v=20261124-light-theme4";
 import { getObservationVisual } from "../../../backend/visualEncoding.js?v=20261029-db2";
 import { createMemoFilterCache } from "../data-display/memo-filter-cache.js?v=20261029-perf1";
 import { createPlaybackCadence } from "../timeline/playback-cadence.js?v=20261029-perf1";
@@ -86,6 +87,7 @@ const topTaskbar = document.querySelector(".top-taskbar");
 const bottomTaskbar = document.querySelector(".data-code-guide");
 const hintModeButton = document.querySelector("#hint-mode");
 const languageToggle = document.querySelector("#language-toggle");
+const themeToggle = document.querySelector("#theme-toggle");
 const sourcesById = new Map(GPX_FILES.map((source) => [source.id, source]));
 
 const mapDisplay = createMapDisplay(canvas);
@@ -104,6 +106,7 @@ const {
   raycaster,
   pointer,
   loadModel,
+  setMapTheme,
   geoToWorld,
 } = mapDisplay;
 let activeCamera = perspectiveCamera;
@@ -229,6 +232,10 @@ createLanguageMode({
       if (activeMemo) revealSelectedMemoCard();
     }
   },
+});
+createThemeMode({
+  button: themeToggle,
+  onChange: setMapTheme,
 });
 
 function setPendingFilterStored(stored) {

@@ -24,6 +24,9 @@ export function createMapDisplay(canvas) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(BACKGROUND_COLOR);
+  const darkSceneBackground = scene.background.clone();
+  const lightSceneBackground = new THREE.Color(0xcdd8dc);
+  let mapTheme = "dark";
 
   const perspectiveCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
   perspectiveCamera.position.set(170, 145, 220);
@@ -58,6 +61,8 @@ export function createMapDisplay(canvas) {
   groundGrid.material.opacity = 0.72;
   groundGrid.material.depthWrite = false;
   scene.add(groundGrid);
+  const gridMaterials = Array.isArray(groundGrid.material) ? groundGrid.material : [groundGrid.material];
+  const darkGridColors = gridMaterials.map((material) => material.color.clone());
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -77,7 +82,7 @@ export function createMapDisplay(canvas) {
           child.castShadow = false;
           child.receiveShadow = true;
           selectableMeshes.push(child);
-          prepareOverviewMaterials(child);
+          prepareOverviewMaterials(child, mapTheme);
         });
 
         mapGroup.add(model);
@@ -89,6 +94,20 @@ export function createMapDisplay(canvas) {
         console.error(error);
       },
     );
+  }
+
+  function setMapTheme(theme) {
+    mapTheme = theme === "light" ? "light" : "dark";
+    scene.background.copy(mapTheme === "light" ? lightSceneBackground : darkSceneBackground);
+    gridMaterials.forEach((material, index) => {
+      material.color.setHex(mapTheme === "light" ? 0xb7c2c6 : darkGridColors[index].getHex());
+      material.opacity = mapTheme === "light" ? 0.28 : 0.72;
+    });
+    overviewModel?.traverse((child) => {
+      if (!child.isMesh) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((material) => applyOverviewTheme(material, mapTheme));
+    });
   }
 
   return {
@@ -108,6 +127,7 @@ export function createMapDisplay(canvas) {
     modelCenter,
     modelSize,
     loadModel,
+    setMapTheme,
     worldToGeo,
     geoToWorld,
   };
@@ -136,7 +156,7 @@ function geoToWorld({ lat, lon }) {
   );
 }
 
-function prepareOverviewMaterials(mesh) {
+function prepareOverviewMaterials(mesh, theme) {
   const hasMaterialArray = Array.isArray(mesh.material);
   const materials = hasMaterialArray ? mesh.material : [mesh.material];
   const preparedMaterials = materials.map((material, index) => {
@@ -149,7 +169,7 @@ function prepareOverviewMaterials(mesh) {
     );
 
     if (isBlue) {
-      return new THREE.MeshStandardMaterial({
+      const prepared = new THREE.MeshStandardMaterial({
         name: material?.name || `Overview blue ${index + 1}`,
         color: 0x003b9e,
         emissive: 0x0074e8,
@@ -158,14 +178,32 @@ function prepareOverviewMaterials(mesh) {
         metalness: 0,
         side: THREE.DoubleSide,
       });
+      prepared.userData.overviewTone = "blue";
+      applyOverviewTheme(prepared, theme);
+      return prepared;
     }
 
-    return new THREE.MeshBasicMaterial({
+    const prepared = new THREE.MeshBasicMaterial({
       name: material?.name || `Overview black ${index + 1}`,
       color: 0x000000,
       side: THREE.DoubleSide,
     });
+    prepared.userData.overviewTone = "base";
+    applyOverviewTheme(prepared, theme);
+    return prepared;
   });
 
   mesh.material = hasMaterialArray ? preparedMaterials : preparedMaterials[0];
+}
+
+function applyOverviewTheme(material, theme) {
+  const light = theme === "light";
+  if (material.userData.overviewTone === "blue") {
+    material.color.setHex(light ? 0x3f7394 : 0x003b9e);
+    material.emissive.setHex(light ? 0x6598b1 : 0x0074e8);
+    material.emissiveIntensity = light ? 0.12 : 0.48;
+  } else if (material.userData.overviewTone === "base") {
+    material.color.setHex(light ? 0xaebdc2 : 0x000000);
+  }
+  material.needsUpdate = true;
 }
