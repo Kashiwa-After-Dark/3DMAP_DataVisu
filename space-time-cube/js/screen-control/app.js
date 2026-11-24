@@ -20,7 +20,7 @@ import {
   PUBLIC_SURVEY_DATE,
   ROUTE_SOURCES as CONFIGURED_SOURCES,
 } from "../../../backend/surveyConfig.js?v=20261025-01";
-import { createLegendFilter } from "../filters/filter-panel.js?v=20261124-tabs4";
+import { createLegendFilter } from "../filters/filter-panel.js?v=20261124-tabs7";
 import { createTimePeriodFilter } from "../timeline/time-period-filter.js?v=20261024-01";
 import { createTimelineInstruments } from "../timeline/instruments.js?v=20261029-perf1";
 import { create2DMapController } from "./map-2d.js?v=20260809-31";
