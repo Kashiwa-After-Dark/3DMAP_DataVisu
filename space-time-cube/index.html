@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./style.css?v=20261117-title-reset1" />
+    <link rel="stylesheet" href="./style.css?v=20261124-tabs2" />
     <script type="importmap">
       {
         "imports": {
@@ -100,7 +100,15 @@
           </div>
         </div>
       </div>
-      <aside id="legend-filter" class="age-legend is-stored" aria-label="データ説明と絞り込み"></aside>
+      <aside id="legend-filter" class="age-legend is-stored" aria-label="データ説明と絞り込み">
+        <button
+          class="legend-filter__toggle"
+          type="button"
+          aria-controls="legend-filter"
+          aria-expanded="false"
+          aria-label="フィルターを開く"
+        ><span class="legend-filter__toggle-icon" aria-hidden="true"></span></button>
+      </aside>
       <aside id="route-summary" class="route-summary" aria-live="polite" hidden></aside>
       <aside id="memo-panel" class="memo-panel" aria-label="メモ">
         <div id="memo-scroll-viewport" class="memo-scroll-viewport">
@@ -229,6 +237,6 @@
       </section>
     </main>
 
-    <script type="module" src="./js/screen-control/app.js?v=20261123-settings-follow1"></script>
+    <script type="module" src="./js/screen-control/app.js?v=20261124-tabs2"></script>
   </body>
 </html>

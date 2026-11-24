@@ -30,7 +30,7 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
 
   const content = document.createElement("div");
   content.className = "legend-filter__content";
-  const toggle = makePanelToggle();
+  const toggle = root.querySelector(".legend-filter__toggle") || makePanelToggle();
   const tabList = makeTabList();
   const filterPanel = document.createElement("div");
   filterPanel.className = "legend-filter__panel legend-filter__panel--filter";

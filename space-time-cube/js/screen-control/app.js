@@ -20,7 +20,7 @@ import {
   PUBLIC_SURVEY_DATE,
   ROUTE_SOURCES as CONFIGURED_SOURCES,
 } from "../../../backend/surveyConfig.js?v=20261025-01";
-import { createLegendFilter } from "../filters/filter-panel.js?v=20261123-settings-follow1";
+import { createLegendFilter } from "../filters/filter-panel.js?v=20261124-tabs2";
 import { createTimePeriodFilter } from "../timeline/time-period-filter.js?v=20261024-01";
 import { createTimelineInstruments } from "../timeline/instruments.js?v=20261029-perf1";
 import { create2DMapController } from "./map-2d.js?v=20260809-31";
@@ -33,7 +33,7 @@ import { createRouteSelection } from "../data-display/route-selection.js?v=20260
 import { createPanelStorage } from "../header-footer/panel-storage.js?v=20261123-card-deck-reset1";
 import { createTaskbarVisibility } from "../header-footer/taskbar-visibility.js?v=20260801-02";
 import { createHintMode } from "../hint-mode/hint-mode.js?v=20261029-08";
-import { createToolbarMenus } from "../header-footer/toolbar-menus.js?v=20260810-01";
+import { createToolbarMenus } from "../header-footer/toolbar-menus.js?v=20261124-tabs1";
 import { createMarkerDisplayMode } from "../filters/filter-display-mode.js?v=20261029-db2";
 import { createImpressionVolume } from "../impression-visualization/impression-volume.js?v=20261029-perf1";
 import { getPerspectiveImpressionType } from "../impression-visualization/emotion-perspective.js?v=20261029-db1";
