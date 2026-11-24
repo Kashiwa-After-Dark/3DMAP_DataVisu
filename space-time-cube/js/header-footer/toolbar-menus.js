@@ -28,7 +28,8 @@ export function createToolbarMenus({ root }) {
     });
 
     panel.addEventListener("click", (event) => {
-      if (!event.target.closest("button, a")) return;
+      const command = event.target.closest("button, a");
+      if (!command || command.hasAttribute("data-toolbar-menu-keep-open")) return;
       menu.classList.remove("is-open");
       toggle.setAttribute("aria-expanded", "false");
     });
