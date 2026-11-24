@@ -782,6 +782,12 @@ body.photo-mode #scene:active {
   margin-right: clamp(28px, 4vw, 64px);
   transform: translateY(3px);
 }
+.top-taskbar__compass {
+  display: grid;
+  flex: 0 0 50px;
+  place-items: center;
+  align-self: center;
+}
 .toolbar-actions > .toolbar-hint-toggle {
   position: relative;
   width: 42px;
@@ -2243,9 +2249,9 @@ body.is-hint-mode #hint-mode {
   bottom: 48px;
   z-index: 3;
   display: grid;
-  grid-template-columns: repeat(3, 54px);
+  grid-template-columns: repeat(2, 54px);
   gap: 14px;
-  width: 190px;
+  width: 122px;
   box-sizing: border-box;
   border: 0;
   padding: 0;
@@ -3254,56 +3260,20 @@ body.smart-city-trial {
   color: #d8e5eb;
   background: #07111c;
 }
-body.smart-city-trial::before {
-  position: fixed;
-  inset: 7px;
-  z-index: 60;
-  border: 1px solid rgba(145, 200, 216, 0.34);
-  box-shadow: inset 0 0 0 1px rgba(3, 9, 15, 0.82);
-  content: "";
-  pointer-events: none;
-  transition:
-    top 380ms cubic-bezier(0.16, 0.82, 0.28, 1),
-    left 380ms cubic-bezier(0.16, 0.82, 0.28, 1),
-    width 380ms cubic-bezier(0.16, 0.82, 0.28, 1),
-    height 380ms cubic-bezier(0.16, 0.82, 0.28, 1),
-    border-color 240ms ease;
-}
-body.smart-city-trial.is-hint-mode::before {
-  top: 70px;
-  left: 14px;
-  right: auto;
-  bottom: auto;
-  width: 74vw;
-  height: 74vh;
-  box-sizing: border-box;
-  border-color: rgba(145, 200, 216, 0.52);
-}
-@media (min-width: 1600px) {
-  body.smart-city-trial.is-hint-mode::before {
-    left: 18px;
-    width: 79vw;
-    height: 79vh;
-  }
-}
-@media (max-width: 1100px) {
-  body.smart-city-trial.is-hint-mode::before {
-    left: 12px;
-    width: 66vw;
-    height: 66vh;
-  }
-}
 body.smart-city-trial #scene {
   filter: saturate(0.76) brightness(1.12) contrast(0.94);
 }
 .smart-city-trial .top-taskbar {
-  min-height: 60px;
+  min-height: 66px;
   gap: 7px;
   border-color: rgba(114, 199, 220, 0.44);
   padding: 7px 16px 8px 20px;
   background: rgba(7, 17, 28, 0.94);
   box-shadow: inset 0 -1px rgba(114, 199, 220, 0.16), 0 12px 34px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(9px);
+}
+.smart-city-trial .toolbar-actions {
+  margin-right: 0;
 }
 .smart-city-trial .top-taskbar::after {
   height: 3px;
@@ -3763,9 +3733,9 @@ body.smart-city-trial #scene {
   opacity: 0.82;
 }
 .smart-city-trial .timeline-instruments {
-  grid-template-columns: 60px 48px 70px;
+  grid-template-columns: 60px 70px;
   gap: 9px;
-  width: 196px;
+  width: 139px;
   align-items: end;
 }
 .smart-city-trial .clock-dial,
@@ -3882,7 +3852,7 @@ body.smart-city-trial #scene {
 }
 @media (max-width: 1100px) {
   .smart-city-trial .toolbar-actions {
-    margin-right: 8px;
+    margin-right: 0;
   }
   .smart-city-trial .toolbar-menu--mode .toolbar-menu__panel {
     position: fixed;

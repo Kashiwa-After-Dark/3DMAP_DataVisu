@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Ubuntu&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./style.css?v=20261124-tabs2" />
+    <link rel="stylesheet" href="./style.css?v=20261124-compass-right2" />
     <script type="importmap">
       {
         "imports": {
@@ -72,6 +72,19 @@
             title="ヒントを表示"
           >?</button>
         </div>
+        <div class="top-taskbar__compass">
+          <div class="compass-dial" role="img" aria-label="カメラの方角">
+            <div id="compass-card" class="compass-card">
+              <div class="compass-north">
+                <i class="compass-north-arrow"></i>
+              </div>
+              <b class="compass-direction compass-direction--n">N</b>
+              <b class="compass-direction compass-direction--e">E</b>
+              <b class="compass-direction compass-direction--s">S</b>
+              <b class="compass-direction compass-direction--w">W</b>
+            </div>
+          </div>
+        </div>
       </nav>
       <div class="toolbar-menu toolbar-menu--settings" data-toolbar-menu="settings">
         <button class="toolbar-menu__toggle" type="button" data-toolbar-menu-toggle aria-expanded="false" aria-label="設定" title="設定">
@@ -123,7 +136,7 @@
         aria-expanded="true"
         title="カードデックを収納"
       ><span aria-hidden="true"></span></button>
-      <aside class="timeline-instruments" aria-label="時刻と方角と再生速度">
+      <aside class="timeline-instruments" aria-label="時刻と再生速度">
         <div class="instrument">
           <div id="analog-clock" class="clock-dial" role="img" aria-label="タイムライン時刻">
             <i class="clock-mark clock-mark--12">Ⅻ</i>
@@ -132,19 +145,6 @@
             <i class="clock-mark clock-mark--9">Ⅸ</i>
             <i class="clock-hand clock-hand--hour" data-clock-hour></i>
             <i class="clock-hand clock-hand--minute" data-clock-minute></i>
-          </div>
-        </div>
-        <div class="instrument">
-          <div class="compass-dial" role="img" aria-label="カメラの方角">
-            <div id="compass-card" class="compass-card">
-              <div class="compass-north">
-                <i class="compass-north-arrow"></i>
-              </div>
-              <b class="compass-direction compass-direction--n">N</b>
-              <b class="compass-direction compass-direction--e">E</b>
-              <b class="compass-direction compass-direction--s">S</b>
-              <b class="compass-direction compass-direction--w">W</b>
-            </div>
           </div>
         </div>
         <div class="instrument">
