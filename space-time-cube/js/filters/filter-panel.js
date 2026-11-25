@@ -30,6 +30,7 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
 
   const content = document.createElement("div");
   content.className = "legend-filter__content";
+  const toggle = makePanelToggle();
   const tabList = makeTabList();
   const filterPanel = document.createElement("div");
   filterPanel.className = "legend-filter__panel legend-filter__panel--filter";
@@ -86,7 +87,7 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
   });
   filterPanel.append(header, content);
   root.classList.remove("is-collapsed");
-  root.replaceChildren(tabList, filterPanel, visualPanel);
+  root.replaceChildren(toggle, tabList, filterPanel, visualPanel);
   const setActiveTab = (tabId) => {
     const nextTab = ["impression", "activity"].includes(tabId) ? tabId : "filter";
     activeTab = nextTab;
@@ -100,18 +101,37 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
       button.setAttribute("aria-expanded", String(selected && !root.classList.contains("is-stored")));
       button.tabIndex = selected ? 0 : -1;
     }
+    scheduleSettingsTabPosition();
   };
   const setStored = (stored) => {
     root.classList.toggle("is-stored", Boolean(stored));
+    toggle.setAttribute("aria-expanded", String(!stored));
+    toggle.setAttribute("aria-label", stored ? "フィルターを開く" : "フィルターを閉じる");
     for (const button of tabList.querySelectorAll("[data-filter-tab]")) {
       const expanded = !stored && button.dataset.filterTab === activeTab;
       button.setAttribute("aria-expanded", String(expanded));
     }
+    scheduleSettingsTabPosition();
+  };
+  const syncSettingsTabPosition = () => {
+    const settingsTab = document.querySelector(".toolbar-menu--settings");
+    if (!settingsTab) return;
+    const anchor = root.classList.contains("is-stored") ? toggle : root;
+    const bottom = anchor.getBoundingClientRect().bottom;
+    settingsTab.style.top = `${Math.round(bottom + 8)}px`;
+  };
+  const scheduleSettingsTabPosition = () => {
+    window.requestAnimationFrame(syncSettingsTabPosition);
   };
   setActiveTab(activeTab);
   setStored(root.classList.contains("is-stored"));
+  window.addEventListener("resize", scheduleSettingsTabPosition);
   syncCountRangeUi(root);
   root.addEventListener("click", (event) => {
+    if (event.target.closest(".legend-filter__toggle")) {
+      setStored(!root.classList.contains("is-stored"));
+      return;
+    }
     const tab = event.target.closest("[data-filter-tab]");
     if (tab && root.contains(tab)) {
       const sameOpenTab = tab.dataset.filterTab === activeTab && !root.classList.contains("is-stored");
@@ -177,6 +197,19 @@ export function createLegendFilter({ root, categories, sources, onChange, onSour
     isStored: () => root.classList.contains("is-stored"),
     state,
   };
+}
+
+function makePanelToggle() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "legend-filter__toggle";
+  button.setAttribute("aria-controls", "legend-filter");
+
+  const icon = document.createElement("span");
+  icon.className = "legend-filter__toggle-icon";
+  icon.setAttribute("aria-hidden", "true");
+  button.append(icon);
+  return button;
 }
 
 function makeTabList() {

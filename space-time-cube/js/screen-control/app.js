@@ -20,17 +20,17 @@ import {
   PUBLIC_SURVEY_DATE,
   ROUTE_SOURCES as CONFIGURED_SOURCES,
 } from "../../../backend/surveyConfig.js?v=20261025-01";
-import { createLegendFilter } from "../filters/filter-panel.js?v=20261029-db2";
+import { createLegendFilter } from "../filters/filter-panel.js?v=20261123-settings-follow1";
 import { createTimePeriodFilter } from "../timeline/time-period-filter.js?v=20261024-01";
 import { createTimelineInstruments } from "../timeline/instruments.js?v=20261029-perf1";
 import { create2DMapController } from "./map-2d.js?v=20260809-31";
-import { createMemoTopDownView } from "../data-display/memo-top-down-view.js?v=20260809-07";
+import { createMemoTopDownView } from "../data-display/memo-top-down-view.js?v=20261117-orbit2";
 import { applyPerspectiveCameraConstraints } from "./camera.js?v=20260809-02";
 import { createCoordinateConnector } from "../data-display/coordinate-connector.js?v=20260726-02";
 import { createTimelineKeyboard } from "../timeline/timeline-keyboard.js?v=20260726-01";
 import { createTimelineRange } from "../timeline/timeline-range.js?v=20260801-08";
 import { createRouteSelection } from "../data-display/route-selection.js?v=20260801-04";
-import { createPanelStorage } from "../header-footer/panel-storage.js?v=20260801-02";
+import { createPanelStorage } from "../header-footer/panel-storage.js?v=20261123-card-deck-reset1";
 import { createTaskbarVisibility } from "../header-footer/taskbar-visibility.js?v=20260801-02";
 import { createHintMode } from "../hint-mode/hint-mode.js?v=20261029-08";
 import { createToolbarMenus } from "../header-footer/toolbar-menus.js?v=20260810-01";
@@ -81,6 +81,7 @@ const compassCard = document.querySelector("#compass-card");
 const speedEngine = document.querySelector("#speed-engine");
 const timePeriodList = document.querySelector("#time-period-list");
 const routeSummaryRoot = document.querySelector("#route-summary");
+const siteResetButton = document.querySelector("#site-reset");
 const topTaskbar = document.querySelector(".top-taskbar");
 const bottomTaskbar = document.querySelector(".data-code-guide");
 const hintModeButton = document.querySelector("#hint-mode");
@@ -212,7 +213,7 @@ const hintMode = createHintMode({
     }
   },
 });
-createToolbarMenus({ root: topTaskbar });
+createToolbarMenus({ root: document.querySelector("#app") });
 createLanguageMode({
   button: languageToggle,
   root: document.querySelector("#app"),
@@ -236,6 +237,7 @@ loadModel(() => {
 });
 
 playToggle.addEventListener("click", togglePlayback);
+siteResetButton.addEventListener("click", () => window.location.reload());
 timelineMinimize.addEventListener("click", toggleTimelineMinimized);
 timelinePanel.addEventListener("pointerdown", startTimelineDrag);
 timelinePanel.addEventListener("pointermove", moveTimelineDrag);
@@ -362,7 +364,8 @@ function syncMemoMarkerScale(memo, isRecent = memo.marker?.userData.isRecent ?? 
   if (!stamp || !baseScale) return;
   memo.marker.userData.isRecent = isRecent;
   const cameraScale = CAMERA_MODES[cameraMode].stampScale ?? 1;
-  stamp.scale.copy(baseScale).multiplyScalar(cameraScale);
+  const selectionScale = memo === activeMemo ? 1.2 : 1;
+  stamp.scale.copy(baseScale).multiplyScalar(cameraScale * selectionScale);
 }
 
 function setPerspectiveView() {
@@ -1190,8 +1193,9 @@ function syncActiveTimeSpacePeriod(seconds) {
 function syncMemoMarkerOpacity(memo, isRecent) {
   const stamp = memo.marker?.userData.stamp;
   const head = memo.marker?.userData.head;
+  const halo = memo.marker?.userData.selectionHalo;
   const isFocused = memo === activeMemo || memo === hoveredMemo;
-  const opacity = isFocused || isRecent ? 1 : 0.82;
+  const opacity = memo === activeMemo ? 1 : isFocused || isRecent ? 0.78 : 0.68;
   const renderOrder = isFocused ? 37 : isRecent ? 36 : 32;
   if (stamp?.material) {
     stamp.userData.setSolid?.(isFocused || isRecent);
@@ -1201,6 +1205,9 @@ function syncMemoMarkerOpacity(memo, isRecent) {
   if (head?.material) {
     head.material.opacity = opacity;
     head.renderOrder = renderOrder;
+  }
+  if (halo?.material) {
+    halo.material.color.set(memo === activeMemo ? 0xd8f7ff : memo.marker.userData.visual.color);
   }
 }
 
@@ -1356,7 +1363,6 @@ function focusCameraOnMemo(memo) {
 
   if (viewMode !== "3d") return;
   const focus = memo.marker.position.clone();
-  focus.y = TIME_BASE_Y;
   activeCamera = memoTopDownView.activate({
     mapFocus: focus,
     maxSize: cameraState.maxSize,
@@ -1821,10 +1827,12 @@ function animate() {
     const halo = memo.marker?.userData.selectionHalo;
     if (!halo?.visible) continue;
     const pulseWave = Math.sin(frameMs * 0.007);
-    const pulse = 1 + pulseWave * (memo === activeMemo ? 0.09 : 0.05);
+    const pulse = memo === activeMemo
+      ? 1.02 + pulseWave * 0.05
+      : 1 + pulseWave * 0.05;
     halo.scale.copy(halo.userData.baseScale).multiplyScalar(pulse);
     halo.material.opacity = memo === activeMemo
-      ? 0.82 + pulseWave * 0.12
+      ? 0.9 + pulseWave * 0.08
       : 0.58 + pulseWave * 0.12;
   }
   timelineInstruments.updateCompass(activeCamera);
