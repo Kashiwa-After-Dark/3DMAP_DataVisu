@@ -1,5 +1,5 @@
 /**
- * ファイル概要: 保存済みの駅方向のみを模式表示へ選び、道の線分を駅側から遠い側へ順序付けする。
+ * ファイル概要: 保存済みの駅方向と、ルート面の出入口を結ぶ表示経路を扱う。
  */
 export function roadRepresentatives(records, availableCodes) {
   if (!new Set(availableCodes).has("TR-02")) return [];
@@ -9,16 +9,52 @@ export function roadRepresentatives(records, availableCodes) {
   });
 }
 
-export function roadSegmentCandidates(triangle, station) {
-  return [[0, 1], [1, 2], [2, 0]].map(([a, b]) => {
-    const point = (index) => ({ x: triangle.reduce((sum, p, i) => sum + p.x * (i === index ? 0.82 : 0.09), 0), z: triangle.reduce((sum, p, i) => sum + p.z * (i === index ? 0.82 : 0.09), 0) });
-    const ends = [point(a), point(b)];
-    ends.sort((p, q) => Math.hypot(p.x - station.x, p.z - station.z) - Math.hypot(q.x - station.x, q.z - station.z));
-    const dx = ends[1].x - ends[0].x;
-    const dz = ends[1].z - ends[0].z;
-    const lengthSquared = dx * dx + dz * dz;
-    const t = lengthSquared ? Math.max(0, Math.min(1, ((station.x - ends[0].x) * dx + (station.z - ends[0].z) * dz) / lengthSquared)) : 0;
-    ends[0] = { x: ends[0].x + dx * t, z: ends[0].z + dz * t };
-    return ends;
-  }).sort((a, b) => Math.hypot(b[0].x - b[1].x, b[0].z - b[1].z) - Math.hypot(a[0].x - a[1].x, a[0].z - a[1].z));
+const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const vertexKey = ({ x, z }) => `${x.toFixed(4)},${z.toFixed(4)}`;
+
+export function routeBetweenEdges(triangles, station, exits, canCross) {
+  const edges = new Map();
+  for (const { points } of triangles) {
+    const nodes = points.map((a, index) => {
+      const b = points[(index + 1) % 3];
+      const key = [vertexKey(a), vertexKey(b)].sort().join("/");
+      if (!edges.has(key)) edges.set(key, { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, faces: 0, neighbors: new Set() });
+      const node = edges.get(key);
+      node.faces++;
+      return node;
+    });
+    for (let i = 0; i < 3; i++) {
+      const a = nodes[i], b = nodes[(i + 1) % 3];
+      if (canCross(a, b)) {
+        a.neighbors.add(b);
+        b.neighbors.add(a);
+      }
+    }
+  }
+  const boundary = [...edges.values()].filter((edge) => edge.faces === 1);
+  const gate = (point) => boundary.find((edge) => distance(edge, point) < 0.02);
+  const start = gate(station);
+  if (!start) return null;
+  const goals = new Set(exits.map(gate).filter((edge) => edge && edge !== start));
+  const pending = new Set([start]), visited = new Set();
+  const costs = new Map([[start, 0]]), previous = new Map();
+  while (pending.size) {
+    const node = [...pending].reduce((best, edge) => costs.get(edge) < costs.get(best) ? edge : best);
+    if (goals.has(node)) {
+      const path = [];
+      for (let edge = node; edge; edge = previous.get(edge)) path.unshift({ x: edge.x, z: edge.z });
+      return path;
+    }
+    pending.delete(node);
+    visited.add(node);
+    for (const next of node.neighbors) {
+      if (visited.has(next)) continue;
+      const cost = costs.get(node) + distance(node, next);
+      if (cost >= (costs.get(next) ?? Infinity)) continue;
+      costs.set(next, cost);
+      previous.set(next, node);
+      pending.add(next);
+    }
+  }
+  return null;
 }

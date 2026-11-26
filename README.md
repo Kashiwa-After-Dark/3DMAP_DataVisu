@@ -106,3 +106,88 @@ python -m http.server 8000
 - Supabase Edge Functionによる公開データ取得
 
 ビルドやnpmインストールは不要である。
+
+# データ項目
+## 返答全体
+
+| データ項目 | 一言でいうと |
+|---|---|
+| `surveyDate` | 調査日 |
+| `language` | 返答の言語（日本語は `ja`） |
+| `sources` | 記録の出どころ一覧 |
+| `tracks` | 調査で歩いた経路の一覧 |
+| `memos` | 人・物の観察記録の一覧 |
+| `counts` | 観察記録の件数集計 |
+| `analysisSource` | 分析結果の取得元 |
+| `translationPolicy` | 英訳の扱いを示す説明 |
+
+## 出どころ・経路・件数
+
+| 入っている場所 | データ項目 | 一言でいうと |
+|---|---|---|
+| `sources[]`・`tracks[]`・`memos[]` | `sourceId` | データ元の識別子 |
+| `sources[]`・`tracks[]`・`memos[]` | `sourceLabel` | 記録者名やファイル名などの表示ラベル |
+| `sources[]`・`tracks[]`・`memos[]` | `sourceFilename` | 元ファイル名 |
+| `sources[]` | `firstTime` | そのデータ元の最初の観察時刻 |
+| `sources[]` | `lastTime` | そのデータ元の最後の観察時刻 |
+| `tracks[]`・`memos[]` | `routeId` | 経路の識別子 |
+| `tracks[]` | `sourceFileId` | 元ファイル単位の識別子 |
+| `tracks[]` | `points` | 経路上のGPS点の一覧 |
+| `tracks[].points[]`・`memos[]` | `lat` | 緯度 |
+| `tracks[].points[]`・`memos[]` | `lon` | 経度 |
+| `tracks[].points[]`・`memos[]` | `time` | GPS点の記録時刻、または観察時刻 |
+| `tracks[].points[]` | `elevation` | 標高 |
+| `counts` | `people` | 人の観察記録の件数 |
+| `counts` | `objects` | 物の観察記録の件数 |
+| `counts` | `withLocation` | 座標がある記録の件数 |
+| `counts` | `withoutLocation` | 座標がない記録の件数 |
+
+## 観察記録 `memos[]`
+
+| データ項目 | 対象 | 一言でいうと |
+|---|---|---|
+| `observationId` | 共通 | 観察記録の識別子 |
+| `recordType` | 共通 | 人（`people`）か物（`objects`）か |
+| `inputFormat` | 共通 | 取り込み形式（GPX・現地CSV） |
+| `reviewStatus` | 共通 | 記録の確認状況 |
+| `name` | 共通 | 人の記録の元タイトル、または物の名前 |
+| `desc` | 共通 | 人の記録の元本文、または物の状態 |
+| `place` | 共通 | 観察した場所 |
+| `impression` | 共通 | 観察者が感じたこと |
+| `memo` | 共通 | 補足メモ |
+| `subject` | 人 | 観察した人物 |
+| `activity` | 人 | 観察した人物の行動 |
+| `other` | 人 | ほかの欄に収まらない内容 |
+| `age` | 人 | 年齢区分 |
+| `ageCodes` | 人 | 年齢区分を表すコード一覧 |
+| `groupType` | 人 | 一人・グループなどの区分 |
+| `gender` | 人 | 記録上の性別 |
+| `countMin` | 人 | 観察人数の下限 |
+| `countMax` | 人 | 観察人数の上限 |
+| `countOver30` | 人 | 人数が30人超かを示すフラグ |
+| `motion` | 人 | 動きの記録 |
+| `direction` | 人 | 移動方向の記録 |
+| `objectName` | 物 | 観察した物の名前 |
+| `qty` | 物 | 物の数量 |
+| `qtyOver30` | 物 | 30個超の欄に記録された値 |
+| `state` | 物 | 物の状態 |
+
+## 分析・英訳 `memos[]`
+
+| データ項目 | 一言でいうと |
+|---|---|
+| `placeCodes` | `TR-00` などの場所コード一覧 |
+| `placeMeanings` | 場所コードの意味と対応する表現 |
+| `personAttributeTags` | 人物欄に付けた属性タグ |
+| `personActionTags` | 人物欄に付けた行動タグ |
+| `personTags` | 人物欄のタグをまとめた一覧 |
+| `activityTags` | 活動欄に付けた行動タグ |
+| `activityClassification` | 活動の分類結果と確認状態 |
+| `emotionAnalysis` | 観察者が感じた感情の分類結果 |
+| `original` | 人物・場所・活動・感想・その他の日本語欄 |
+| `translations.en` | 同じ5欄の保存済み英訳 |
+| `translationStatus` | 英訳の状態（完了・一部・未翻訳） |
+
+タグや場所コードが未設定なら `[]`、感情・活動分類の結果がなければ `null` が返る。
+
+[日本語APIのレスポンス例（2026-10-23）](https://idzkmlbjcxhhneqbgcfy.supabase.co/functions/v1/public-route-history?date=2026-10-23)

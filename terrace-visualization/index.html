@@ -8,8 +8,8 @@
     <link rel="icon" href="data:," />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./style.css?v=20261117-focus2d1" />
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Kiwi+Maru&family=Ubuntu:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css?v=20261123-deck-legend1" />
     <script type="importmap">
       {
         "imports": {
@@ -22,18 +22,55 @@
   <body>
     <main id="app" class="model-only">
       <canvas id="map" aria-label="テラス周辺の拡大3Dマップ"></canvas>
-      <div class="model-mode-tools">
+      <div class="model-mode-tools" hidden>
       <nav class="model-screen-navigation" aria-label="画面切り替え">
-        <a href="../space-time-cube/" aria-label="ルートヒストリー" title="ルートヒストリー"><i data-view-icon="route"></i><span>ルート履歴</span></a>
-        <a href="../statistics/" aria-label="統計" title="統計"><i data-view-icon="chart-no-axes-combined"></i><span>統計</span></a>
+        <a href="../space-time-cube/" aria-label="タイムキューブ" data-tooltip="タイムキューブ"><i data-view-icon="route"></i></a>
+        <a href="../statistics/" aria-label="統計" data-tooltip="統計"><i data-view-icon="chart-no-axes-combined"></i></a>
       </nav>
       <nav class="model-view-switch" aria-label="表示切り替え">
         <span class="view-switch-knob" aria-hidden="true"></span>
-        <button type="button" data-map-view="3d" aria-label="3D地図" aria-pressed="true" title="3D地図"><i data-view-icon="box"></i><span>3D</span></button>
-        <button type="button" data-map-view="2d" aria-label="上からの2D地図" aria-pressed="false" title="上からの2D地図"><i data-view-icon="map"></i><span>2D</span></button>
-        <button type="button" aria-label="サンキー図（準備中）" title="サンキー図（準備中）" disabled><i data-view-icon="git-fork"></i><span>Sankey</span></button>
+        <button type="button" data-map-view="3d" aria-label="3D地図" aria-pressed="true" data-tooltip="3D地図"><i data-view-icon="box"></i></button>
+        <button type="button" data-map-view="2d" aria-label="上からの2D地図" aria-pressed="false" data-tooltip="上からの2D地図"><i data-view-icon="map"></i></button>
+        <button type="button" data-map-view="sankey" aria-label="サンキー図" aria-pressed="false" data-tooltip="サンキー図"><i data-view-icon="git-fork"></i></button>
       </nav>
       </div>
+      <section class="people-period-control" aria-label="観察の時間帯" hidden>
+        <div class="period-dial" role="group" aria-label="表示する時間帯">
+          <svg class="period-dial-scale" viewBox="0 0 140 140" aria-hidden="true">
+            <circle cx="70" cy="70" r="39"/>
+            <text x="70" y="12">18</text><text x="124" y="74">20</text>
+            <text x="70" y="137">22</text><text x="15" y="74">24</text>
+            <path d="M105 35l5 -5 M105 105l5 5 M35 105l-5 5"/>
+          </svg>
+          <button type="button" data-people-period="0" aria-pressed="true" aria-label="18–20"><svg viewBox="0 0 140 140" aria-hidden="true"><path class="period-arc-track" d="M81.91 25.57 A46 46 0 0 1 114.43 58.09"/><path class="period-arc-progress" d="M81.91 25.57 A46 46 0 0 1 114.43 58.09" pathLength="100" stroke-dasharray="0 100"/></svg></button>
+          <button type="button" data-people-period="1" aria-pressed="false" aria-label="20–22"><svg viewBox="0 0 140 140" aria-hidden="true"><path class="period-arc-track" d="M81.91 25.57 A46 46 0 0 1 114.43 58.09"/><path class="period-arc-progress" d="M81.91 25.57 A46 46 0 0 1 114.43 58.09" pathLength="100" stroke-dasharray="0 100"/></svg></button>
+          <button type="button" data-people-period="2" aria-pressed="false" aria-label="22–24"><svg viewBox="0 0 140 140" aria-hidden="true"><path class="period-arc-track" d="M81.91 25.57 A46 46 0 0 1 114.43 58.09"/><path class="period-arc-progress" d="M81.91 25.57 A46 46 0 0 1 114.43 58.09" pathLength="100" stroke-dasharray="0 100"/></svg></button>
+          <div class="period-dial-center">
+            <span id="selected-people-period" aria-hidden="true">18–20</span>
+            <button type="button" id="people-demo-pause" aria-label="時間帯の自動送りを一時停止" disabled><i data-period-icon="pause"></i></button>
+          </div>
+        </div>
+      </section>
+      <section id="terrace-sankey" aria-label="サンキー図" hidden>
+        <div class="sankey-layout">
+          <div class="sankey-scroll" role="region" aria-label="サンキー図の表示領域">
+            <div class="sankey-mount"><p class="sankey-status">観察データを読み込み中</p></div>
+          </div>
+        </div>
+        <span class="sankey-tooltip" aria-hidden="true" hidden></span>
+      </section>
+      <ul class="terrace-activity-legend" aria-label="行動メッシュの凡例" hidden></ul>
+      <section id="terrace-inspection" aria-label="観察記録の詳細" hidden>
+        <div class="inspection-heading">
+          <header>
+            <h2></h2>
+            <div class="inspection-tag-list" hidden></div>
+            <button type="button" aria-label="観察記録を閉じる" title="観察記録を閉じる" hidden><i data-inspection-icon="x"></i></button>
+          </header>
+          <p class="inspection-caption"></p>
+        </div>
+        <ul aria-label="観察記録"></ul>
+      </section>
       <header class="header">
         <a class="brand" href="../space-time-cube/" title="スペースタイムキューブへ戻る">KASHIWA AFTER DARK<span>TERRACE MAP</span></a>
         <button id="data-toggle" class="data-toggle" type="button" aria-label="観察データの表示切替" aria-expanded="true" aria-controls="observations"><i data-lucide="list"></i><span>観察データ</span><b id="data-count">—</b></button>
@@ -80,6 +117,6 @@
       <div class="load-state" id="load-state" role="status"><span class="spinner"></span><p id="load-message">地図を読み込み中</p><button id="retry" type="button" hidden>再読み込み</button></div>
       <noscript><p class="noscript">地図を表示するにはJavaScriptを有効にしてください。</p></noscript>
     </main>
-    <script type="module" src="./js/modelOnly.js?v=20261117-focus2d1"></script>
+    <script type="module" src="./js/modelOnly.js?v=20261123-deck-legend1"></script>
   </body>
 </html>

@@ -63,7 +63,12 @@ export function selectTerraceObservations(memos, date, matchesSource = () => tru
       subject: record.subject || record.objectName || record.name || "観察記録",
       place: typeof record.place === "string" ? record.place : "",
       activity: record.activity || record.state || "",
+      activityCategories: Array.isArray(record.activityClassification?.categories)
+        ? record.activityClassification.categories.filter((category) => typeof category?.id === "string" && category.id
+          && typeof category.label === "string" && category.label).map(({ id, label }) => ({ id, label }))
+        : [],
       impression: record.impression || "",
+      emotionAnalysis: record.emotionAnalysis ?? null,
       desc: record.desc || "",
       memo: record.memo || "",
       count: record.recordType === "objects" ? record.qty : record.countMin,
@@ -72,6 +77,9 @@ export function selectTerraceObservations(memos, date, matchesSource = () => tru
       direction: record.direction ?? null,
       motion: record.motion ?? null,
       groupType: record.groupType || "",
+      personTags: record.recordType !== "objects" && Array.isArray(record.personTags)
+        ? [...new Set(record.personTags.filter((tag) => typeof tag === "string" && tag.trim()))]
+        : [],
     });
   }
   records.sort((a, b) => a.time - b.time || a.id.localeCompare(b.id));

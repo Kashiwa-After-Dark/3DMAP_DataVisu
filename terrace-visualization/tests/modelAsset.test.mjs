@@ -5,10 +5,31 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { MODEL_URL, FOCUS_OBJECTS, CONTEXT_OBJECTS, MODEL_GEOREFERENCED } from "../js/config.js";
+import { appearanceRole, STATION_MONITOR_NAME, WALKWAY_ROOF_OPACITY } from "../js/appearanceSettings.js";
 
 const bytes = readFileSync(new URL(MODEL_URL));
 const jsonLength = bytes.readUInt32LE(12);
 const model = JSON.parse(bytes.subarray(20, 20 + jsonLength));
+
+test("the large station monitor alone keeps its original screen and frame materials", () => {
+  const monitor = model.nodes.find(({ name }) => name === STATION_MONITOR_NAME);
+  assert.ok(monitor, "Missing separate monitor object");
+  const materials = model.meshes[monitor.mesh].primitives.map(({ material }) => model.materials[material]);
+  assert.deepEqual(materials.map(({ name }) => name.split(" | ").at(-1)).sort(), ["Display black", "satin stainless steel"]);
+  for (const { name, alphaMode } of materials) {
+    assert.ok(!alphaMode || alphaMode === "OPAQUE");
+    assert.equal(appearanceRole(["mesh", monitor.name], name), "station-monitor");
+    assert.equal(appearanceRole(["Kashiwa_Station"], name), "context");
+    assert.equal(appearanceRole(["Sky_Plaza"], name), "context");
+  }
+});
+
+test("only the walkway roof primitive gets the transparent roof appearance", () => {
+  const node = model.nodes.find(({ name }) => name === "Covered_Walkway");
+  const roles = model.meshes[node.mesh].primitives.map(({ material }) => appearanceRole([node.name], model.materials[material].name));
+  assert.deepEqual(roles.sort(), ["detail", "walkway-roof"]);
+  assert.ok(WALKWAY_ROOF_OPACITY > 0 && WALKWAY_ROOF_OPACITY <= 0.2);
+});
 
 test("terrace uses the supplied standalone, complete embedded GLB", () => {
   assert.ok(MODEL_URL.endsWith("/3Dmodel/teras.glb"));

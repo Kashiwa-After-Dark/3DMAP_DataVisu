@@ -2,7 +2,7 @@
  * ファイル概要: 提供イラストの連番・静止画と予備の人影を、カメラ追従の平面として描く。
  */
 import * as THREE from "three";
-import { PEOPLE_ILLUSTRATIONS } from "./peopleIllustrations.js";
+import { PEOPLE_ILLUSTRATIONS } from "./peopleIllustrations.js?v=20261118-tagged-protest1";
 
 function silhouetteTexture(motion, frame) {
   const canvas = document.createElement("canvas");
@@ -50,7 +50,31 @@ export function createFigureFactory(onTextureReady = () => {}) {
   const materials = new Map();
   const loader = new THREE.TextureLoader();
   const loadingMaterial = new THREE.SpriteMaterial({ transparent: true, opacity: 0, depthWrite: false });
+  const spriteMaterial = (map) => new THREE.SpriteMaterial({ map, color: 0xffffff, transparent: true, alphaTest: 0.12, depthWrite: false, toneMapped: false });
+  function atlasFrames(asset) {
+    let ready = false;
+    const atlas = loader.load(new URL(asset.frames[0], import.meta.url).href, () => {
+      ready = true;
+      for (const frame of frames) frame.normal.map.needsUpdate = true;
+      onTextureReady();
+    }, undefined, (error) => console.warn("人物イラストを読み込めませんでした", asset.frames[0], error));
+    atlas.colorSpace = THREE.SRGBColorSpace;
+    const materials = new Map();
+    const frames = asset.tiles.map(([x, y]) => {
+      const key = x + y * 2;
+      if (!materials.has(key)) {
+        const tile = atlas.clone();
+        tile.repeat.set(0.5, 0.5);
+        tile.offset.set(x / 2, y / 2);
+        const material = spriteMaterial(tile);
+        materials.set(key, { normal: material, mirrored: material, get ready() { return ready; } });
+      }
+      return materials.get(key);
+    });
+    return frames;
+  }
   function imageFrames(asset) {
+    if (asset.tiles) return atlasFrames(asset);
     return asset.frames.map((path) => {
       let mirrored;
       let ready = false;
@@ -63,8 +87,7 @@ export function createFigureFactory(onTextureReady = () => {}) {
       mirrored = texture.clone();
       mirrored.repeat.x = -1;
       mirrored.offset.x = 1;
-      const make = (map) => new THREE.SpriteMaterial({ map, color: 0xffffff, transparent: true, alphaTest: 0.12, depthWrite: false, toneMapped: false });
-      return { normal: make(texture), mirrored: make(mirrored), get ready() { return ready; } };
+      return { normal: spriteMaterial(texture), mirrored: spriteMaterial(mirrored), get ready() { return ready; } };
     });
   }
   function create(color, height, motion, illustration = null) {
@@ -81,10 +104,26 @@ export function createFigureFactory(onTextureReady = () => {}) {
     sprite.center.set(0.5, 0);
     sprite.scale.set(height * (asset?.aspect || 0.5), height, 1);
     root.add(sprite);
-    return { root, animated: frames.length > 1, update(time, facingLeft = false) {
-      const frame = Math.floor(time * (asset?.fps ?? (motion === "walk" ? 6 : 3))) % frames.length;
-      sprite.material = !frames[frame].ready ? loadingMaterial : facingLeft ? frames[frame].mirrored : frames[frame].normal;
-    } };
+    let fadeMaterial = null;
+    return {
+      root, animated: frames.length > 1,
+      release() { fadeMaterial?.dispose(); fadeMaterial = null; },
+      update(time, facingLeft = false, opacity = 1) {
+        const frame = Math.floor(time * (asset?.fps ?? (motion === "walk" ? 6 : 3))) % frames.length;
+        const base = !frames[frame].ready ? loadingMaterial : facingLeft ? frames[frame].mirrored : frames[frame].normal;
+        sprite.visible = opacity > 0;
+        if (opacity >= 1 || opacity <= 0 || base === loadingMaterial) {
+          sprite.material = base;
+          return;
+        }
+        fadeMaterial ??= base.clone();
+        fadeMaterial.map = base.map;
+        fadeMaterial.color.copy(base.color);
+        fadeMaterial.alphaTest = base.alphaTest * opacity;
+        fadeMaterial.opacity = base.opacity * opacity;
+        sprite.material = fadeMaterial;
+      },
+    };
   }
   return { create };
 }
